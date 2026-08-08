@@ -115,7 +115,7 @@ export default function Inventaire() {
       else if (s.label === 'À COMMANDER') commander++;
       else if (s.label === 'OK') ok++;
     }
-    return { units, value, casiers: units / CASIER, rupture, commander, ok, count: products.length };
+    return { units, value, casiers: Math.floor(units / CASIER), rupture, commander, ok, count: products.length };
   }, [products]);
 
   function openAdd() {
@@ -231,7 +231,7 @@ export default function Inventaire() {
     });
     const rows = filtered.map((p, i) => {
       const stock = Number(p.stock) || 0;
-      const casiers = (stock / CASIER).toFixed(2);
+      const casiers = String(Math.floor(stock / CASIER));
       if (mode === 'blank') {
         return `<tr>
           <td>${i + 1}</td>
@@ -393,7 +393,7 @@ export default function Inventaire() {
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
           <p className="text-xs text-stone-500 uppercase tracking-wide">Unités / Casiers</p>
           <p className="text-xl font-bold text-stone-100 mt-1">
-            {totals.units} <span className="text-sm font-normal text-stone-400">· {totals.casiers.toFixed(1)} casiers</span>
+            {totals.units} <span className="text-sm font-normal text-stone-400">· {Math.floor(Number(totals.casiers))} casiers</span>
           </p>
         </div>
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
@@ -472,7 +472,7 @@ export default function Inventaire() {
                 const min = Number(p.min_stock) || 0;
                 const cost = Number(p.cost) || 0;
                 const price = Number(p.price) || 0;
-                const casiers = stock / CASIER;
+                const casiers = Math.floor(stock / CASIER);
                 const valeur = stock * cost;
                 const status = aiStatus(stock, min);
                 const low = stock <= min;
@@ -514,7 +514,7 @@ export default function Inventaire() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-right text-stone-400">{casiers.toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-right text-stone-400">{casiers}</td>
                     <td className="px-3 py-2.5 text-right text-stone-400">{cost.toLocaleString('fr-FR')}</td>
                     <td className="px-3 py-2.5 text-right text-stone-300">{price.toLocaleString('fr-FR')}</td>
                     <td className="px-3 py-2.5 text-right font-medium text-amber-300/90">{valeur.toLocaleString('fr-FR')}</td>
@@ -539,7 +539,7 @@ export default function Inventaire() {
               <tr className="border-t-2 border-stone-700 bg-stone-800/60 font-semibold text-stone-100">
                 <td className="px-3 py-3" colSpan={3}>TOTAL</td>
                 <td className="px-3 py-3 text-right">{totals.units}</td>
-                <td className="px-3 py-3 text-right">{totals.casiers.toFixed(2)}</td>
+                <td className="px-3 py-3 text-right">{Math.floor(Number(totals.casiers))}</td>
                 <td className="px-3 py-3" />
                 <td className="px-3 py-3" />
                 <td className="px-3 py-3 text-right text-amber-400">{totals.value.toLocaleString('fr-FR')}</td>
@@ -599,7 +599,7 @@ export default function Inventaire() {
             <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm text-stone-300 flex justify-between">
               <span>Aperçu auto</span>
               <span>
-                {(Number(form.stock) / CASIER).toFixed(2)} casiers ·{' '}
+                {Math.floor(Number(form.stock) / CASIER)} casiers ·{' '}
                 {((Number(form.stock) || 0) * (Number(form.cost) || 0)).toLocaleString('fr-FR')} FCFA
               </span>
             </div>
