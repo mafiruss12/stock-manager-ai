@@ -255,7 +255,7 @@ export default function AuthPage() {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={mode === 'forgot' ? 'vous@exemple.com' : 'ex: gerant1 ou vous@exemple.com'}
+                  placeholder={mode === 'forgot' ? 'vous@exemple.com' : '0708091011, gerant1 ou email@gmail.com'}
                   className="input-field pl-10"
                 />
               </div>

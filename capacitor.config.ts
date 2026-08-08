@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     // APK charge toujours le site live (nouvelle adresse)
-    url: 'https://maquis-mananger.vercel.app',
+    url: 'https://stock-manager-ktp.vercel.app',
     cleartext: false,
     androidScheme: 'https',
     iosScheme: 'https',
