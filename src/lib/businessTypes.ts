@@ -129,48 +129,48 @@ export const BUSINESS_THEMES: Record<
 
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
-    '/dashboard', '/pos', '/inventory', '/inventory/scan', '/expenses', '/employees', '/team',
+    '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/expenses', '/employees', '/team',
     '/suivi', '/calendar', '/daily-report', '/statistics', '/reports', '/ai', '/chat',
     '/notifications', '/settings',
   ],
   bar: [
-    '/dashboard', '/pos', '/orders', '/tables', '/inventory', '/inventory/scan', '/expenses',
+    '/dashboard', '/pos', '/documents', '/orders', '/tables', '/inventory', '/inventory/scan', '/expenses',
     '/employees', '/team', '/suivi', '/daily-report', '/statistics', '/ai', '/chat',
     '/notifications', '/settings',
   ],
   restaurant: [
-    '/dashboard', '/pos', '/orders', '/kitchen', '/tables', '/inventory', '/inventory/scan',
+    '/dashboard', '/pos', '/documents', '/orders', '/kitchen', '/tables', '/inventory', '/inventory/scan',
     '/customers', '/employees', '/team', '/suivi', '/calendar', '/expenses',
     '/daily-report', '/statistics', '/accounting', '/ai', '/chat',
     '/notifications', '/settings',
   ],
   magasin: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   boutique: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   superette: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   pharmacie: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   quincaillerie: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   commerce: [
-  '/dashboard', '/pos', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
+  '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],

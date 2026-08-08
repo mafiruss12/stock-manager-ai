@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import AuthPage from '@/pages/AuthPage';
 import PendingAccessPage from '@/pages/PendingAccessPage';
 import Dashboard from '@/pages/Dashboard';
+import Documents from '@/pages/Documents';
 import Caisse from '@/pages/Caisse';
 import Inventaire from '@/pages/Inventaire';
 import ScanInventaire from '@/pages/ScanInventaire';
@@ -97,6 +98,7 @@ function ProtectedRoutes() {
         <Route path="/rent/calendar" element={<RentCalendar />} />
         <Route path="/rent/packs" element={<RentPacks />} />
         <Route path="/rent/invoices" element={<RentInvoices />} />
+        <Route path="/documents" element={<Documents />} />
         <Route path="/pos" element={<Caisse />} />
         <Route path="/caisse" element={<Navigate to="/pos" replace />} />
         <Route path="/orders" element={<Orders />} />
