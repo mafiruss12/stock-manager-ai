@@ -1,3 +1,4 @@
+import { toWhatsAppNumber } from '@/lib/login';
 /**
  * Intégrations P3 — WhatsApp & Mobile Money
  * Sans clés API : liens wa.me + méthodes de paiement locales.
@@ -24,18 +25,18 @@ export const MOBILE_MONEY_PROVIDERS: MobileMoneyProvider[] = [
   'card',
 ];
 
-/** Ouvre WhatsApp avec un message prérempli (fonctionne sans API Business) */
+/** Ouvre WhatsApp avec un message prérempli — format wa.me/225XXXXXXXXX */
 export function openWhatsApp(phone: string, message: string): void {
-  const digits = phone.replace(/\D/g, '');
-  // Côte d'Ivoire : si 10 chiffres commençant par 0 → 225…
-  let normalized = digits;
-  if (digits.startsWith('0') && digits.length === 10) {
-    normalized = `225${digits.slice(1)}`;
-  } else if (digits.length === 10 && !digits.startsWith('225')) {
-    normalized = `225${digits}`;
-  }
-  const url = `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+  const digits = toWhatsAppNumber(phone);
+  if (!digits) return;
+  // Format imposé : wa.me/225XXXXXXXXX (Côte d'Ivoire)
+  const url = `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+export function buildWhatsAppUrl(phone: string, message: string): string {
+  const digits = toWhatsAppNumber(phone);
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
 export function buildInvoiceWhatsAppMessage(opts: {

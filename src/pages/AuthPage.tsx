@@ -94,7 +94,7 @@ export default function AuthPage() {
     try {
       const login = email.trim();
       if (!login) {
-        setError('Identifiant ou e-mail requis');
+        setError('E-mail, téléphone ou identifiant requis');
         setLoading(false);
         return;
       }

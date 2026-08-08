@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { UserCircle, Plus, Loader2, MessageCircle, Pencil, Trash2, MapPin, Phone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { openWhatsApp, buildInvoiceWhatsAppMessage } from '@/lib/integrations';
+import { captureClientLocation } from '@/lib/geo';
 import { useAuth } from '@/lib/auth';
 import { EmptyState, Modal } from '@/components/ui';
 import type { RentalClient } from '@/lib/rentalTypes';
@@ -16,6 +17,7 @@ export default function RentClients() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -221,7 +223,34 @@ export default function RentClients() {
           </div>
           <div>
             <label className="label">Localisation / adresse livraison</label>
-            <input className="input-field" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Quartier, ville…" />
+            <div className="flex gap-2">
+              <input
+                className="input-field flex-1"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+                placeholder="Quartier, ville ou GPS…"
+              />
+              <button
+                type="button"
+                disabled={locating}
+                className="btn-secondary shrink-0 flex items-center gap-1.5 px-3"
+                onClick={async () => {
+                  setLocating(true);
+                  setError(null);
+                  try {
+                    const loc = await captureClientLocation();
+                    setForm((f) => ({ ...f, location: loc.label }));
+                  } catch (e: any) {
+                    setError(e?.message || "Impossible d'obtenir la position. Autorisez la localisation.");
+                  } finally {
+                    setLocating(false);
+                  }
+                }}
+              >
+                <MapPin size={16} /> {locating ? '…' : 'Localiser'}
+              </button>
+            </div>
+            <p className="text-[11px] text-stone-500 mt-1">GPS : position exacte du client (autorise la localisation).</p>
           </div>
           <div>
             <label className="label">Notes</label>

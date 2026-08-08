@@ -5,6 +5,9 @@ import { useAuth } from '@/lib/auth';
 import type { Customer } from '@/lib/types';
 import { formatFCFA } from '@/lib/format';
 import { Modal, EmptyState, StatCard } from '@/components/ui';
+import { openWhatsApp, buildInvoiceWhatsAppMessage } from '@/lib/integrations';
+import { captureClientLocation } from '@/lib/geo';
+import { MapPin, MessageCircle, Loader2 } from 'lucide-react';
 
 export default function Customers() {
   const { member } = useAuth();
@@ -12,7 +15,8 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
-  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', notes: '', location: '' });
+  const [locating, setLocating] = useState(false);
 
   async function load() {
     if (!member?.establishment_id) { setLoading(false); return; }
@@ -25,13 +29,19 @@ export default function Customers() {
 
   function openAdd() {
     setEditing(null);
-    setForm({ name: '', phone: '', email: '', notes: '' });
+    setForm({ name: '', phone: '', email: '', notes: '', location: '' });
     setModalOpen(true);
   }
 
   function openEdit(c: Customer) {
     setEditing(c);
-    setForm({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', notes: c.notes ?? '' });
+    setForm({
+      name: c.name,
+      phone: c.phone ?? '',
+      email: c.email ?? '',
+      notes: (c.notes ?? '').replace(/^LOC:[^\n]*\n?/, ''),
+      location: (c.notes ?? '').startsWith('LOC:') ? (c.notes ?? '').split('\n')[0].replace(/^LOC:/, '').trim() : '',
+    });
     setModalOpen(true);
   }
 
@@ -42,7 +52,7 @@ export default function Customers() {
       name: form.name,
       phone: form.phone || null,
       email: form.email || null,
-      notes: form.notes || null,
+      notes: [form.location ? `LOC:${form.location}` : '', form.notes || ''].filter(Boolean).join('\n') || null,
     };
     if (editing) {
       await supabase.from('customers').update(payload).eq('id', editing.id);
@@ -130,8 +140,34 @@ export default function Customers() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Téléphone</label>
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field" placeholder="+225 ..." />
+              <label className="label">Téléphone / WhatsApp</label>
+              <div className="flex gap-2">
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input-field flex-1" placeholder="07 XX XX XX XX" />
+                {form.phone && (
+                  <button type="button" className="btn-secondary px-3" title="WhatsApp"
+                    onClick={() => openWhatsApp(form.phone, buildInvoiceWhatsAppMessage({ businessName: 'Stock Manager AI', clientName: form.name, amount: 0, note: 'Bonjour,' }))}>
+                    <MessageCircle size={16} />
+                  </button>
+                )}
+              </div>
+              <label className="label mt-3">Localisation</label>
+              <div className="flex gap-2">
+                <input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input-field flex-1" placeholder="Adresse ou GPS" />
+                <button type="button" disabled={locating} className="btn-secondary px-3 flex items-center gap-1"
+                  onClick={async () => {
+                    setLocating(true);
+                    try {
+                      const loc = await captureClientLocation();
+                      setForm((f) => ({ ...f, location: loc.label }));
+                    } catch (e: any) {
+                      alert(e?.message || 'Localisation impossible');
+                    } finally {
+                      setLocating(false);
+                    }
+                  }}>
+                  <MapPin size={16} /> {locating ? '…' : 'Localiser'}
+                </button>
+              </div>
             </div>
             <div>
               <label className="label">Email</label>
