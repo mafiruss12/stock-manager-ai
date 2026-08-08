@@ -56,6 +56,8 @@ export function isSafeLogin(login: string): boolean {
   const v = login.trim();
   if (v.length < 2 || v.length > 80) return false;
   if (v.includes('@')) return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+  const digits = v.replace(/\D/g, '');
+  if (digits.length >= 9 && digits.length <= 15) return true;
   return /^[a-zA-Z0-9._-]{2,40}$/.test(v);
 }
 
