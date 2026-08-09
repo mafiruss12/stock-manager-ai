@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useEffect } from 'react';
+import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2,
@@ -43,7 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Gestion',
     items: [
-      { to: '/inventory', label: 'Inventaire', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/inventory', label: 'Inventaire', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/tables', label: 'Tables', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/employees', label: 'Employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/team', label: 'Mon équipe (accès)', icon: <UserCog size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
@@ -60,8 +60,6 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/purchases', label: 'Achats', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/accounting', label: 'Comptabilité', icon: <Calculator size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
-      { to: '/reports', label: 'Rapports', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
-      { to: '/daily-report', label: 'Clôture du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
     ],
   },
   {
@@ -71,6 +69,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/chat', label: 'Chat interne', icon: <MessageCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/settings', label: 'Profil & Paramètres', icon: <Settings size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/equipment', label: 'Matériel', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/clients', label: 'Clients location', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/rent/orders', label: 'Commandes location', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
@@ -94,7 +93,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const bizType = normalizeBusinessType(activeEstablishment?.type);
   const theme = BUSINESS_THEMES[bizType];
-  const allowedRoutes = MENU_BY_TYPE[bizType];
+  // Tous les types d'établissements ont accès aux mêmes menus (filtrage par rôle uniquement)
 
   useEffect(() => {
     applyBusinessTheme(bizType);
@@ -139,29 +138,105 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
-  const visibleSections = NAV_SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => {
-      if (!member) return false;
-      if (!item.roles.includes(member.role)) return false;
-      // Administration uniquement super_admin
-      if (item.to === '/admin') return member.role === 'super_admin';
-      // Super admin voit tout le menu métier
-      if (member.role === 'super_admin') return true;
-      // Autres rôles : menu filtré par type d'activité
-      return allowedRoutes.includes(item.to);
-    }),
-  })).filter((section) => section.items.length > 0);
+  const allowedRoutes = new Set(MENU_BY_TYPE[bizType] || MENU_BY_TYPE.maquis);
 
-  // Création d'activité UNIQUEMENT si vraiment aucun établissement
-  // (ni sur le membre, ni dans myEstablishments — évite de redemander aux comptes existants)
+  const RENT_ONLY = new Set([
+    '/rent/equipment',
+    '/rent/clients',
+    '/rent/orders',
+    '/rent/movements',
+    '/rent/payments',
+    '/rent/calendar',
+    '/rent/packs',
+    '/rent/invoices',
+  ]);
+
+  const isLocation = bizType === 'location_event';
+
+  const visibleSections = NAV_SECTIONS.map((section) => {
+    let items = section.items.filter((item) => {
+      if (!member) return false;
+      if (item.to === '/admin') return member.role === 'super_admin';
+
+      // Filtre métier : uniquement les routes du type d'établissement
+      if (!allowedRoutes.has(item.to)) return false;
+
+      // Modules location uniquement pour location_event (et dans Outils)
+      if (RENT_ONLY.has(item.to) && !isLocation) return false;
+      if (RENT_ONLY.has(item.to) && section.label !== 'Outils') return false;
+
+      if (['super_admin', 'admin', 'owner', 'manager'].includes(member.role)) {
+        return true;
+      }
+      return item.roles.includes(member.role);
+    });
+
+    // Libellés adaptés location
+    if (isLocation && section.label === 'Outils') {
+      items = items.map((item) => {
+        if (item.to === '/rent/equipment') return { ...item, label: 'Parc matériel' };
+        if (item.to === '/rent/clients') return { ...item, label: 'Clients' };
+        if (item.to === '/rent/orders') return { ...item, label: 'Commandes' };
+        if (item.to === '/rent/calendar') return { ...item, label: 'Calendrier' };
+        if (item.to === '/rent/invoices') return { ...item, label: 'Devis & Factures' };
+        if (item.to === '/rent/movements') return { ...item, label: 'Sorties & retours' };
+        if (item.to === '/rent/payments') return { ...item, label: 'Paiements' };
+        if (item.to === '/rent/packs') return { ...item, label: 'Packs événements' };
+        return item;
+      });
+    }
+
+    // Maquis / bar : renommer Cuisine
+    if ((bizType === 'maquis' || bizType === 'bar') && section.label === 'Principal') {
+      items = items.map((item) =>
+        item.to === '/kitchen' ? { ...item, label: bizType === 'bar' ? 'Bar / Préparation' : 'Grill / Bar' } : item
+      );
+    }
+
+    return { ...section, items };
+  }).filter((section) => section.items.length > 0);
+
+  // Cache local : une fois un établissement vu, ne plus JAMAIS imposer TypePicker
+  let cachedEst = false;
+  let cachedEstPayload: { id?: string; type?: string; name?: string } | null = null;
+  try {
+    const raw = localStorage.getItem('mm_active_est');
+    const ids = localStorage.getItem('mm_est_ids');
+    cachedEst = Boolean(raw || ids);
+    if (raw) cachedEstPayload = JSON.parse(raw);
+  } catch { /* */ }
+
   const hasEstablishment = Boolean(
     member?.establishment_id ||
     activeEstablishment?.id ||
-    (myEstablishments && myEstablishments.length > 0)
+    (myEstablishments && myEstablishments.length > 0) ||
+    cachedEst
   );
 
-  if (member && !hasEstablishment) {
+  // Persiste en session React : évite le clignotement à chaque refresh()
+  const hadEstRef = useRef(false);
+  if (hasEstablishment) hadEstRef.current = true;
+
+  // TypePicker UNIQUEMENT si :
+  // - membre chargé
+  // - aucun établissement (membre + liste + cache)
+  // - jamais eu d'établissement dans cette session
+  // - pas admin / super_admin
+  // - pas owner déjà lié (owner avec establishment_id ne doit jamais revoir l'écran)
+  const isPrivileged = ['super_admin', 'admin'].includes(member?.role || '');
+  const isExistingStaff =
+    ['owner', 'manager', 'cashier', 'employee'].includes(member?.role || '') &&
+    (Boolean(member?.establishment_id) || hadEstRef.current || cachedEst);
+
+  const showTypePicker =
+    Boolean(member) &&
+    !hasEstablishment &&
+    !hadEstRef.current &&
+    !isPrivileged &&
+    !isExistingStaff &&
+    !member?.establishment_id;
+
+  if (showTypePicker) {
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100">
         <TypePicker mode="create" onDone={() => refresh()} />
@@ -169,24 +244,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Type inconnu seulement si vraiment hors liste (pas les nouveaux métiers)
+  // Type inconnu : ne pas bloquer toute l'app — fallback type "commerce"
   const knownTypes = new Set([
     'maquis', 'bar', 'restaurant', 'magasin', 'boutique', 'superette',
     'pharmacie', 'quincaillerie', 'commerce', 'location_event',
   ]);
-  const rawType = (activeEstablishment?.type || '').toLowerCase().trim();
-  if (
-    member?.establishment_id &&
-    activeEstablishment &&
-    rawType &&
-    !knownTypes.has(rawType)
-  ) {
-    return (
-      <div className="min-h-screen bg-stone-950 text-stone-100">
-        <TypePicker mode="choose-type" onDone={() => refresh()} />
-      </div>
-    );
-  }
+  const rawType = (activeEstablishment?.type || cachedEstPayload?.type || '').toLowerCase().trim();
+  // Ancien écran "choose-type" désactivé pour éviter le spam récursif chez tous les users
+  // if (member?.establishment_id && activeEstablishment && rawType && !knownTypes.has(rawType)) { TypePicker choose-type }
+  void rawType;
+  void knownTypes;
 
   return (
     <div className="min-h-screen bg-stone-950 flex">

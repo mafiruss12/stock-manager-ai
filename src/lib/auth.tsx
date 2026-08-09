@@ -40,6 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [myEstablishments, setMyEstablishments] = useState<MyEstablishment[]>([]);
   const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(null);
 
+  // Restaurer établissement depuis localStorage pour éviter TypePicker au refresh
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('mm_active_est');
+      if (raw && !activeEstablishment) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.id) {
+          setActiveEstablishment((prev) => prev ?? ({ ...parsed, member_role: member?.role } as any));
+        }
+      }
+    } catch { /* */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   async function loadMyEstablishments(currentUser: User, currentMember: Member | null) {
     try {
       const { data: links } = await supabase
@@ -90,10 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const active =
         list.find((e) => e.id === currentMember?.establishment_id) ?? list[0] ?? null;
       setActiveEstablishment(active);
+      try {
+        if (list.length > 0) {
+          localStorage.setItem('mm_est_ids', JSON.stringify(list.map((e) => e.id)));
+          const act = list.find((e) => e.id === currentMember?.establishment_id) ?? list[0];
+          if (act) localStorage.setItem('mm_active_est', JSON.stringify({ id: act.id, type: act.type, name: act.name }));
+        }
+      } catch { /* */ }
     } catch (e) {
       console.error('loadMyEstablishments', e);
-      setMyEstablishments([]);
-      setActiveEstablishment(null);
+      // Ne PAS vider l'établissement actif : évite TypePicker récursif pour tout le monde
+      try {
+        const raw = localStorage.getItem('mm_active_est');
+        if (raw) {
+          const cached = JSON.parse(raw);
+          setActiveEstablishment((prev) => prev || ({ ...cached, member_role: member?.role } as MyEstablishment));
+        }
+      } catch { /* */ }
     }
   }
 
@@ -306,8 +334,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (recoveredEstId) {
         try { await loadMyEstablishments(currentUser, fb); } catch { /* */ }
       } else {
-        setMyEstablishments([]);
-        setActiveEstablishment(null);
+        // Ne pas vider si localStorage a un établissement (évite TypePicker)
+        try {
+          const raw = localStorage.getItem('mm_active_est');
+          if (!raw) {
+            setMyEstablishments([]);
+            setActiveEstablishment(null);
+          }
+        } catch {
+          setMyEstablishments([]);
+          setActiveEstablishment(null);
+        }
       }
       return fb;
     } catch (e) {
@@ -318,27 +355,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+
+
   useEffect(() => {
     let mounted = true;
     let memberLoadSeq = 0;
 
+    async function ensureMember(u: User) {
+      const seq = ++memberLoadSeq;
+      try {
+        const result = await Promise.race([
+          loadMemberData(u).then((m) => m),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
+        ]);
+        if (!mounted || seq !== memberLoadSeq) return;
+        if (result === null) {
+          setMember((prev) => prev ?? buildFallbackMember(u));
+          setNeedsAccess(false);
+        }
+      } catch {
+        if (mounted && seq === memberLoadSeq) {
+          setMember((prev) => prev ?? buildFallbackMember(u));
+          setNeedsAccess(false);
+        }
+      }
+    }
+
     async function boot() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // Double lecture session (corrige race localStorage juste après login)
+        let session = (await supabase.auth.getSession()).data.session;
+        if (!session) {
+          await new Promise((r) => setTimeout(r, 150));
+          session = (await supabase.auth.getSession()).data.session;
+        }
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          const seq = ++memberLoadSeq;
-          const result = await Promise.race([
-            loadMemberData(session.user).then((m) => m),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-          ]);
-          if (mounted && seq === memberLoadSeq && result === null) {
-            const fb = buildFallbackMember(session.user);
-            setMember(fb);
-            setNeedsAccess(false);
-          }
+          // Ne pas bloquer l'UI : profil en arrière-plan
+          void ensureMember(session.user);
         }
       } catch (e) {
         console.error('getSession', e);
@@ -349,35 +405,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     boot();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
-      // INITIAL_SESSION déjà géré par boot()
       if (event === 'INITIAL_SESSION') return;
 
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
+      // Ne jamais effacer un user valide sur TOKEN_REFRESHED raté
+      if (event === 'TOKEN_REFRESHED' && newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
+        return;
+      }
 
-      if (newSession?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-        const seq = ++memberLoadSeq;
-        try {
-          const result = await Promise.race([
-            loadMemberData(newSession.user).then((m) => m),
-            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-          ]);
-          if (mounted && seq === memberLoadSeq && result === null) {
-            setMember(buildFallbackMember(newSession.user));
-            setNeedsAccess(false);
-          }
-        } finally {
-          if (mounted && seq === memberLoadSeq) setLoading(false);
-        }
-      } else if (!newSession?.user && event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
         setMember(null);
         setAccessRequest(null);
         setNeedsAccess(false);
         setMyEstablishments([]);
         setActiveEstablishment(null);
         setLoading(false);
+        return;
+      }
+
+      if (newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
+        setLoading(false);
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          void ensureMember(newSession.user);
+        }
       }
     });
 
@@ -534,8 +591,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsAccess(false);
     setMyEstablishments([]);
     setActiveEstablishment(null);
+      try {
+        localStorage.removeItem('mm_active_est');
+        localStorage.removeItem('mm_est_ids');
+      } catch { /* */ }
     setLoading(false);
   }
+
+  /** Déconnexion auto après inactivité (15 min) */
+  useEffect(() => {
+    if (!user) return;
+    const IDLE_MS = 15 * 60 * 1000; // 15 minutes
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const reset = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        console.info('[auth] Déconnexion pour inactivité');
+        void signOut();
+        try {
+          alert('Session expirée pour inactivité (15 min). Reconnectez-vous.');
+        } catch {
+          /* */
+        }
+      }, IDLE_MS);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    reset();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+    // signOut is stable enough for this purpose
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   async function refresh() {
     if (user) {
