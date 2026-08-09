@@ -4,12 +4,15 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { DailyReport as Report } from '@/lib/types';
 import { EmptyState, Badge } from '@/components/ui';
+import { notifyOwnerOnReport, openOwnerMail, openOwnerWhatsApp } from '@/lib/notifyOwner';
+import { MessageCircle, Mail } from 'lucide-react';
 
 export default function DailyReportPage() {
   const { member } = useAuth();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<{ app: boolean; mail: boolean; whatsapp: boolean } | null>(null);
   const [form, setForm] = useState({ losses: '', broken: '', notes: '', signature: '' });
 
   async function loadReport() {
@@ -94,22 +97,50 @@ export default function DailyReportPage() {
   }
 
   async function lockReport() {
-    if (!report || !member) return;
-    if (!confirm('Voulez-vous verrouiller ce rapport ? Il ne pourra plus être modifié.')) return;
+    if (!member?.establishment_id || !report) return;
     setSaving(true);
-    await supabase
+    setNotifyResult(null);
+    const { error } = await supabase
       .from('daily_reports')
       .update({
         losses: Number(form.losses) || 0,
         broken: Number(form.broken) || 0,
-        notes: form.notes,
+        notes: form.notes || null,
         signature: form.signature,
         locked: true,
         locked_at: new Date().toISOString(),
         locked_by: member.user_id,
       })
       .eq('id', report.id);
-    await loadReport();
+    if (error) {
+      setSaving(false);
+      alert(error.message);
+      return;
+    }
+    const profit =
+      Number(report.total_sales) -
+      Number(report.total_expenses) -
+      (Number(form.losses) || 0) -
+      (Number(form.broken) || 0);
+    const summary = [
+      `Ventes: ${Number(report.total_sales).toLocaleString('fr-FR')} FCFA`,
+      `Dépenses: ${Number(report.total_expenses).toLocaleString('fr-FR')} FCFA`,
+      `Pertes/casse: ${((Number(form.losses)||0)+(Number(form.broken)||0)).toLocaleString('fr-FR')} FCFA`,
+      `Bénéfice estimé: ${profit.toLocaleString('fr-FR')} FCFA`,
+      form.notes ? `Notes: ${form.notes}` : null,
+      form.signature ? `Signé: ${form.signature}` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const nr = await notifyOwnerOnReport({
+      establishmentId: member.establishment_id,
+      senderName: member.full_name || member.email || 'Équipe',
+      senderRole: member.role || 'employé',
+      reportSummary: summary,
+      reportDate: report.date,
+    });
+    setNotifyResult({ app: nr.app, mail: nr.mail, whatsapp: nr.whatsapp });
+    setReport({ ...report, locked: true, losses: Number(form.losses)||0, broken: Number(form.broken)||0, notes: form.notes, signature: form.signature });
     setSaving(false);
   }
 
@@ -218,13 +249,38 @@ export default function DailyReportPage() {
 
       {/* Actions */}
       {!isLocked && (
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <button onClick={save} disabled={saving} className="btn-secondary flex items-center gap-2">
             {saving ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />} Enregistrer
           </button>
           <button onClick={lockReport} disabled={saving} className="btn-primary flex items-center gap-2">
-            {saving ? <Loader2 className="animate-spin" size={18} /> : <Lock size={18} />} Verrouiller le rapport
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <Lock size={18} />} Verrouiller & notifier le propriétaire
           </button>
+        </div>
+      )}
+      {notifyResult && (
+        <div className="card mt-4 border border-amber-500/30 bg-amber-500/10 space-y-3">
+          <p className="text-sm font-semibold text-amber-100">Notification propriétaire</p>
+          <p className="text-xs text-stone-300">
+            {notifyResult.app ? '✓ Notification in-app envoyée' : '○ In-app (propriétaire non lié)'}
+            {' · '}
+            {notifyResult.mail ? '✓ E-mail prêt' : '○ E-mail non configuré'}
+            {' · '}
+            {notifyResult.whatsapp ? '✓ WhatsApp prêt' : '○ WhatsApp non configuré'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {notifyResult.mail && (
+              <button type="button" onClick={openOwnerMail} className="btn-secondary flex items-center gap-2 text-sm">
+                <Mail size={16} /> Envoyer par e-mail
+              </button>
+            )}
+            {notifyResult.whatsapp && (
+              <button type="button" onClick={openOwnerWhatsApp} className="btn-primary flex items-center gap-2 text-sm">
+                <MessageCircle size={16} /> Envoyer par WhatsApp
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-stone-500">Configurez e-mail et téléphone du propriétaire dans Paramètres → Établissement.</p>
         </div>
       )}
     </div>

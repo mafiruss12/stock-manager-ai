@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const [pwdErr, setPwdErr] = useState<string | null>(null);
   const [pwdSaving, setPwdSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '', avatar_url: '' });
-  const [form, setForm] = useState({ name: '', type: 'maquis', address: '', phone: '', logo_url: '' });
+  const [form, setForm] = useState({ name: '', type: 'maquis', address: '', phone: '', logo_url: '', owner_email: '', owner_phone: '' });
   const [error, setError] = useState<string | null>(null);
 
   const canManageEst = member && ['super_admin', 'admin', 'owner'].includes(member.role);
@@ -110,6 +110,9 @@ export default function SettingsPage() {
           address: form.address || null,
           phone: form.phone || null,
           logo_url: form.logo_url || null,
+          owner_email: form.owner_email || null,
+          owner_phone: form.owner_phone || null,
+          owner_user_id: member.user_id,
         } as any)
         .eq('id', est.id);
       if (err) setError(err.message);
@@ -347,6 +350,33 @@ export default function SettingsPage() {
               </div>
               {canManageEst && (
                 <>
+                  
+                <div className="sm:col-span-2 mt-2 p-3 rounded-xl border border-amber-500/20 bg-amber-500/5">
+                  <p className="text-xs font-semibold text-amber-200 mb-2">Contacts propriétaire (rapports & alertes)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">E-mail du propriétaire</label>
+                      <input
+                        type="email"
+                        value={form.owner_email}
+                        onChange={(e) => setForm({ ...form, owner_email: e.target.value })}
+                        className="input-field"
+                        placeholder="proprio@email.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="label">WhatsApp du propriétaire</label>
+                      <input
+                        value={form.owner_phone}
+                        onChange={(e) => setForm({ ...form, owner_phone: e.target.value })}
+                        className="input-field"
+                        placeholder="07 XX XX XX XX"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-2">Quand un gérant/caissier verrouille le rapport, vous êtes notifié in-app + e-mail + WhatsApp.</p>
+                </div>
+
                   <button onClick={saveEstablishment} disabled={saving || !form.name} className="btn-primary w-full flex items-center justify-center gap-2">
                     {saved ? (
                       <><CheckCircle2 size={18} /> Enregistré !</>
@@ -362,7 +392,7 @@ export default function SettingsPage() {
                       className="btn-secondary w-full flex items-center justify-center gap-2 mt-2"
                       onClick={() => {
                         setEst(null);
-                        setForm({ name: '', type: 'maquis', address: '', phone: '', logo_url: '' });
+                        setForm({ name: '', type: 'maquis', address: '', phone: '', logo_url: '', owner_email: '', owner_phone: '' });
                       }}
                     >
                       <Plus size={18} /> Ajouter une autre activité
