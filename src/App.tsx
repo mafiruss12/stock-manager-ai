@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import AuthPage from '@/pages/AuthPage';
@@ -39,8 +40,9 @@ import RentInvoices from '@/pages/rent/Invoices';
 import { isLocationEvent } from '@/lib/businessTypes';
 
 import AppLayout from '@/components/AppLayout';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { Loader2 } from 'lucide-react';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 function ConfigError() {
   return (
@@ -70,10 +72,29 @@ function DashboardSwitch() {
 
 function ProtectedRoutes() {
   const { user, member, loading, needsAccess } = useAuth();
+  const [bootUser, setBootUser] = useState(user);
+
+  useEffect(() => {
+    setBootUser(user);
+  }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled && session?.user) {
+        setBootUser(session.user as any);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
 
   if (!isSupabaseConfigured) return <ConfigError />;
 
-  if (loading) {
+  const effectiveUser = user || bootUser;
+
+  if (loading && !effectiveUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-950">
         <Loader2 className="animate-spin text-primary-500" size={32} />
@@ -81,10 +102,8 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!user) return <AuthPage />;
-  // needsAccess uniquement si vraiment bloqué (rare)
-  if (needsAccess && !member) return <PendingAccessPage />;
-  // Toujours entrer dans l'app dès qu'il y a une session (profil créé en arrière-plan)
+  if (!effectiveUser) return <AuthPage />;
+  if (needsAccess && !member && !effectiveUser) return <PendingAccessPage />;
 
   return (
     <AppLayout>
@@ -115,7 +134,7 @@ function ProtectedRoutes() {
         <Route path="/purchases" element={<Purchases />} />
         <Route path="/accounting" element={<Accounting />} />
         <Route path="/statistics" element={<Statistics />} />
-        <Route path="/reports" element={<Reports />} />
+        <Route path="/reports" element={<Navigate to="/daily-report" replace />} />
         <Route path="/daily-report" element={<DailyReportPage />} />
         <Route path="/cloture" element={<Navigate to="/daily-report" replace />} />
         <Route path="/ai" element={<AIAssistant />} />
@@ -136,9 +155,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/*" element={<ProtectedRoutes />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/*" element={<ProtectedRoutes />} />
+          </Routes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

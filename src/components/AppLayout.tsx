@@ -84,7 +84,7 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh } = useAuth();
+  const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
@@ -165,10 +165,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (RENT_ONLY.has(item.to) && !isLocation) return false;
       if (RENT_ONLY.has(item.to) && section.label !== 'Outils') return false;
 
-      if (['super_admin', 'admin', 'owner', 'manager'].includes(effectiveRole || member.role)) {
+      const roleForMenu = effectiveRole || member.role;
+      if (['super_admin', 'admin', 'owner', 'manager'].includes(roleForMenu)) {
         return true;
       }
-      const r = effectiveRole || member.role;
+      const r = roleForMenu;
       return item.roles.includes(r);
     });
 
