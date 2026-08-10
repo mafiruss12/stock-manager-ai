@@ -40,10 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<Member | null>(null);
   const [accessRequest, setAccessRequest] = useState<AccessRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsAccess,
-        viewAsRole,
-        effectiveRole,
-        setViewAsRole, setNeedsAccess] = useState(false);
+  const [needsAccess, setNeedsAccess] = useState(false);
   const [viewAsRole, setViewAsRoleState] = useState<Member['role'] | null>(null);
 
   function setViewAsRole(role: Member['role'] | null) {
@@ -55,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch { /* */ }
   }
 
-  // restore viewAs
   useEffect(() => {
     try {
       const v = localStorage.getItem('mm_view_as_role') as Member['role'] | null;
