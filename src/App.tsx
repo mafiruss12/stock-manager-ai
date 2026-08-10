@@ -82,9 +82,18 @@ function ProtectedRoutes() {
     let cancelled = false;
     (async () => {
       if (user) return;
+      try {
+        if (sessionStorage.getItem('mm_signed_out') === '1') {
+          sessionStorage.removeItem('mm_signed_out');
+          setBootUser(null);
+          return;
+        }
+      } catch { /* */ }
       const { data: { session } } = await supabase.auth.getSession();
       if (!cancelled && session?.user) {
         setBootUser(session.user as any);
+      } else if (!cancelled) {
+        setBootUser(null);
       }
     })();
     return () => { cancelled = true; };

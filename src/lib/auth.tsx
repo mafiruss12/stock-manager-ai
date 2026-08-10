@@ -551,7 +551,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNeedsAccess(false);
         setMyEstablishments([]);
         setActiveEstablishment(null);
+        setViewAsRoleState(null);
         setLoading(false);
+        try {
+          const keys = Object.keys(localStorage);
+          for (const k of keys) {
+            if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
+              localStorage.removeItem(k);
+            }
+          }
+        } catch { /* */ }
         return;
       }
 
@@ -703,14 +712,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     try {
-      await supabase.auth.signOut({ scope: 'local' });
+      sessionStorage.setItem('mm_signed_out', '1');
+    } catch { /* */ }
+
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
     } catch {
       try {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
       } catch {
-        /* ignore network errors — on nettoie quand même l'état local */
+        /* ignore network — force local cleanup */
       }
     }
+
+    try {
+      const keys = Object.keys(localStorage);
+      for (const k of keys) {
+        if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch { /* */ }
+
     setSession(null);
     setUser(null);
     setMember(null);
@@ -718,10 +741,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setNeedsAccess(false);
     setMyEstablishments([]);
     setActiveEstablishment(null);
-      try {
-        localStorage.removeItem('mm_active_est');
-        localStorage.removeItem('mm_est_ids');
-      } catch { /* */ }
+    setViewAsRoleState(null);
     setLoading(false);
   }
 

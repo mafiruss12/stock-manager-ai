@@ -132,9 +132,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   async function handleSignOut() {
     try {
       await signOut();
+    } catch {
+      /* ignore */
     } finally {
-      // Force retour écran auth même si le réseau échoue
-      window.location.assign('/');
+      try {
+        sessionStorage.setItem('mm_signed_out', '1');
+        const keys = Object.keys(localStorage);
+        for (const k of keys) {
+          if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch { /* */ }
+      window.location.replace('/');
     }
   }
 
