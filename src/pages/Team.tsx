@@ -258,6 +258,11 @@ function TeamAccessForm({
       });
 
       if (signUpError) {
+        // Toujours restaurer le propriétaire même en erreur
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
         setError(
           signUpError.message.includes('already') || signUpError.message.includes('registered')
             ? 'Cet identifiant est déjà utilisé'
@@ -334,6 +339,7 @@ function TeamAccessForm({
         <div className="bg-success-500/10 border border-success-500/30 rounded-xl p-4 text-center">
           <CheckCircle2 className="mx-auto text-success-400 mb-2" size={28} />
           <p className="text-success-300 font-semibold">Compte créé</p>
+          <p className="text-xs text-stone-400 mt-1">Vous restez connecté en tant que propriétaire. Transmettez ces identifiants à l&apos;employé.</p>
         </div>
         <div className="bg-stone-800 rounded-xl p-4 space-y-2">
           <p className="text-xs text-stone-500">Identifiant</p>

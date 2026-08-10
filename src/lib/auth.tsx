@@ -198,6 +198,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (existingMember && !existingMember.establishment_id) {
         try {
+          // Priorité: lien équipe (member_establishments)
+          {
+            const { data: linkFirst } = await supabase
+              .from('member_establishments')
+              .select('establishment_id, role')
+              .eq('user_id', currentUser.id)
+              .eq('status', 'active')
+              .limit(1)
+              .maybeSingle();
+            if (linkFirst?.establishment_id) {
+              await supabase
+                .from('members')
+                .update({
+                  establishment_id: linkFirst.establishment_id,
+                  role: (linkFirst.role as any) || existingMember.role,
+                })
+                .eq('user_id', currentUser.id);
+              const { data: refreshed } = await supabase
+                .from('members')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
+              if (refreshed) existingMember = refreshed as Member;
+            }
+          }
           let estId: string | null = null;
           const { data: owned } = await supabase
             .from('establishments')
