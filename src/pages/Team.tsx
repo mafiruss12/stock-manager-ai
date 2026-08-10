@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   Users, Plus, Loader2, KeyRound, RefreshCw, Copy, Check, CheckCircle2, Ban, Trash2,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '@/lib/auth';
 import type { Member, Role } from '@/lib/types';
 import { ROLE_LABELS, ROLE_RANK } from '@/lib/types';
@@ -232,12 +233,25 @@ function TeamAccessForm({
         return;
       }
 
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // Client éphémère : signUp ne doit JAMAIS remplacer la session du propriétaire
+      const ephemeral = createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storage: {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          },
+        },
+      });
+      const { data, error: signUpError } = await ephemeral.auth.signUp({
         email: authEmail,
         password,
-        options: { data: { full_name: fullName, login: login.trim() } },
+        options: { data: { full_name: fullName, login: login.trim(), role } },
       });
-
+      // Restaurer explicitement la session propriétaire (filet de sécurité)
       await supabase.auth.setSession({
         access_token: adminSession.access_token,
         refresh_token: adminSession.refresh_token,
