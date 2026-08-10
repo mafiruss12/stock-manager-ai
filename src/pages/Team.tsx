@@ -273,85 +273,38 @@ function TeamAccessForm({
       }
 
       if (data.user) {
-        const { data: existing } = await supabase
-          .from('members')
-          .select('id')
-          .eq('user_id', data.user.id)
-          .maybeSingle();
+        // Restaurer session propriétaire AVANT RPC (SECURITY DEFINER utilise auth.uid())
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
 
-        const payload = {
-          full_name: fullName || null,
-          role,
-          establishment_id: establishmentId,
-          status: 'active' as const,
-          email: authEmail,
-        };
+        const { data: rpcData, error: rpcError } = await supabase.rpc('assign_team_member', {
+          p_user_id: data.user.id,
+          p_establishment_id: establishmentId,
+          p_role: role,
+          p_full_name: fullName || null,
+          p_email: authEmail,
+        });
 
-        if (existing) {
-          const { error: updateError } = await supabase.from('members').update(payload).eq('user_id', data.user.id);
-          if (updateError) {
-            setError(updateError.message);
-            setLoading(false);
-            return;
-          }
-        } else {
-          const { error: insertError } = await supabase.from('members').insert({
-            user_id: data.user.id,
-            ...payload,
-          });
-          if (insertError) {
-            setError(insertError.message);
-            setLoading(false);
-            return;
-          }
-        }
-
-        await supabase.from('member_establishments').upsert(
-          {
-            user_id: data.user.id,
-            establishment_id: establishmentId,
-            role,
-            status: 'active',
-          },
-          { onConflict: 'user_id,establishment_id' }
-        );
-        // Garantir le lien propriétaire sur l'établissement
-        await supabase
-          .from('establishments')
-          .update({ owner_user_id: adminSession.user?.id || undefined })
-          .eq('id', establishmentId)
-          .is('owner_user_id', null);
-        // Forcer le membre employé (établissement + rôle)
-        const { error: forceErr } = await supabase
-          .from('members')
-          .update({
-            establishment_id: establishmentId,
-            role,
-            status: 'active',
-            email: authEmail,
-            full_name: fullName || null,
-          })
-          .eq('user_id', data.user.id);
-        if (forceErr) {
-          setError('Compte créé mais liaison établissement échouée: ' + forceErr.message);
-          await supabase.auth.setSession({
-            access_token: adminSession.access_token,
-            refresh_token: adminSession.refresh_token,
-          });
+        if (rpcError) {
+          setError('Compte auth créé mais liaison équipe échouée: ' + rpcError.message);
           setLoading(false);
           return;
         }
+
+        // Vérification lecture
         const { data: verify } = await supabase
           .from('members')
           .select('establishment_id, role')
           .eq('user_id', data.user.id)
           .maybeSingle();
         if (!verify?.establishment_id) {
-          setError('Liaison établissement non confirmée. Réessayez ou contactez le support.');
-          await supabase.auth.setSession({
-            access_token: adminSession.access_token,
-            refresh_token: adminSession.refresh_token,
-          });
+          setError(
+            'Liaison non visible après assignation (RPC: ' +
+              JSON.stringify(rpcData) +
+              '). Réessayez.'
+          );
           setLoading(false);
           return;
         }

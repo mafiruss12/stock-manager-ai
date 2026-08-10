@@ -228,15 +228,37 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     ['owner', 'manager', 'cashier', 'employee'].includes(member?.role || '') &&
     (Boolean(member?.establishment_id) || hadEstRef.current || cachedEst);
 
-  // JAMAIS bloquer super_admin / admin / staff déjà lié / cache local
+  // Staff invité (gérant/caissier/employé) : JAMAIS l'écran "créer une activité"
+  const isInvitedStaffRole = ['manager', 'cashier', 'employee'].includes(member?.role || '');
+
+  // TypePicker uniquement pour un vrai nouveau propriétaire sans établissement
   const showTypePicker =
     Boolean(member) &&
     !isPrivileged &&
+    !isInvitedStaffRole &&
     !hasEstablishment &&
     !hadEstRef.current &&
     !isExistingStaff &&
     !member?.establishment_id &&
     !cachedEst;
+
+  if (isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-3">
+          <h1 className="text-xl font-bold">Compte équipe</h1>
+          <p className="text-stone-400 text-sm">
+            Votre compte est reconnu comme membre d&apos;équipe, mais aucun établissement
+            ne vous est encore lié. Demandez au propriétaire de recréer ou confirmer votre accès
+            dans <strong>Mon équipe</strong>.
+          </p>
+          <button type="button" className="btn-secondary" onClick={() => refresh()}>
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (showTypePicker) {
     return (
