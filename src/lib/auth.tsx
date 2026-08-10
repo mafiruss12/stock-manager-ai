@@ -166,6 +166,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } as Member;
   }
 
+  
+  /** Assure que staff (employé/gérant/caissier) a establishment + rôle depuis member_establishments */
+  async function ensureStaffEstablishment(currentUser: User, existing: Member): Promise<Member> {
+    let m = { ...existing };
+    try {
+      const { data: links } = await supabase
+        .from('member_establishments')
+        .select('establishment_id, role, status')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'active');
+
+      const link = (links && links[0]) || null;
+      if (link?.establishment_id) {
+        const needUpdate =
+          m.establishment_id !== link.establishment_id ||
+          (link.role && m.role !== link.role) ||
+          m.status !== 'active';
+        if (needUpdate) {
+          const payload: Record<string, unknown> = {
+            establishment_id: link.establishment_id,
+            status: 'active',
+          };
+          if (link.role && !['super_admin', 'admin'].includes(m.role)) {
+            payload.role = link.role;
+          }
+          await supabase.from('members').update(payload).eq('user_id', currentUser.id);
+          const { data: refreshed } = await supabase
+            .from('members')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+          if (refreshed) m = refreshed as Member;
+          else m = { ...m, establishment_id: link.establishment_id, role: (link.role as Member['role']) || m.role };
+        }
+      }
+
+      // Charger établissement actif + propriétaire (created_by)
+      if (m.establishment_id) {
+        const { data: est } = await supabase
+          .from('establishments')
+          .select('id, name, type, created_by, owner_user_id, owner_email, owner_phone')
+          .eq('id', m.establishment_id)
+          .maybeSingle();
+        if (est) {
+          try {
+            localStorage.setItem(
+              'mm_active_est',
+              JSON.stringify({
+                id: est.id,
+                type: est.type,
+                name: est.name,
+                owner_user_id: est.owner_user_id || est.created_by,
+              })
+            );
+            localStorage.setItem('mm_est_ids', JSON.stringify([est.id]));
+          } catch { /* */ }
+          setActiveEstablishment({
+            ...(est as any),
+            member_role: m.role,
+          });
+          setMyEstablishments([{ ...(est as any), member_role: m.role }]);
+        }
+      }
+    } catch (e) {
+      console.error('ensureStaffEstablishment', e);
+    }
+    return m;
+  }
+
   async function loadMemberData(currentUser: User): Promise<Member> {
     const fallback = buildFallbackMember(currentUser);
     try {
@@ -194,6 +263,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         existingMember = (data as Member) || null;
       } catch (e) {
         console.error('members select throw', e);
+      }
+
+      // Toujours rattacher staff → établissement + propriétaire
+      if (existingMember) {
+        existingMember = await ensureStaffEstablishment(currentUser, existingMember);
       }
 
       if (existingMember && !existingMember.establishment_id) {

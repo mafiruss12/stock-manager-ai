@@ -315,6 +315,23 @@ function TeamAccessForm({
           },
           { onConflict: 'user_id,establishment_id' }
         );
+        // Garantir le lien propriétaire sur l'établissement
+        await supabase
+          .from('establishments')
+          .update({ owner_user_id: adminSession.user?.id || undefined })
+          .eq('id', establishmentId)
+          .is('owner_user_id', null);
+        // Forcer le membre employé (établissement + rôle)
+        await supabase
+          .from('members')
+          .update({
+            establishment_id: establishmentId,
+            role,
+            status: 'active',
+            email: authEmail,
+            full_name: fullName || null,
+          })
+          .eq('user_id', data.user.id);
       }
 
       await supabase.auth.setSession({
