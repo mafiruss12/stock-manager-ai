@@ -228,13 +228,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     ['owner', 'manager', 'cashier', 'employee'].includes(member?.role || '') &&
     (Boolean(member?.establishment_id) || hadEstRef.current || cachedEst);
 
+  // JAMAIS bloquer super_admin / admin / staff déjà lié / cache local
   const showTypePicker =
     Boolean(member) &&
+    !isPrivileged &&
     !hasEstablishment &&
     !hadEstRef.current &&
-    !isPrivileged &&
     !isExistingStaff &&
-    !member?.establishment_id;
+    !member?.establishment_id &&
+    !cachedEst;
 
   if (showTypePicker) {
     return (

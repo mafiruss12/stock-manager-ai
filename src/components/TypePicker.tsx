@@ -94,6 +94,17 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
           },
           { onConflict: 'user_id,establishment_id' }
         );
+        await supabase
+          .from('establishments')
+          .update({ owner_user_id: user.id })
+          .eq('id', est.id);
+        try {
+          localStorage.setItem(
+            'mm_active_est',
+            JSON.stringify({ id: est.id, type: selected, name: name.trim() })
+          );
+          localStorage.setItem('mm_est_ids', JSON.stringify([est.id]));
+        } catch { /* */ }
       } else {
         // choose-type sur établissement existant
         if (!member.establishment_id) throw new Error('Aucun établissement');
@@ -105,6 +116,8 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
       }
       await refresh();
       onDone();
+      // Évite de rester bloqué sur l'écran si refresh async
+      window.location.assign('/dashboard');
     } catch (e: any) {
       setError(e?.message || 'Erreur');
     } finally {
