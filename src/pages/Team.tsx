@@ -322,7 +322,7 @@ function TeamAccessForm({
           .eq('id', establishmentId)
           .is('owner_user_id', null);
         // Forcer le membre employé (établissement + rôle)
-        await supabase
+        const { error: forceErr } = await supabase
           .from('members')
           .update({
             establishment_id: establishmentId,
@@ -332,6 +332,29 @@ function TeamAccessForm({
             full_name: fullName || null,
           })
           .eq('user_id', data.user.id);
+        if (forceErr) {
+          setError('Compte créé mais liaison établissement échouée: ' + forceErr.message);
+          await supabase.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token,
+          });
+          setLoading(false);
+          return;
+        }
+        const { data: verify } = await supabase
+          .from('members')
+          .select('establishment_id, role')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        if (!verify?.establishment_id) {
+          setError('Liaison établissement non confirmée. Réessayez ou contactez le support.');
+          await supabase.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token,
+          });
+          setLoading(false);
+          return;
+        }
       }
 
       await supabase.auth.setSession({
