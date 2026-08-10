@@ -17,6 +17,10 @@ interface AuthContextValue {
   accessRequest: AccessRequest | null;
   loading: boolean;
   needsAccess: boolean;
+  /** Rôle effectif pour menus (owner peut basculer vers un rôle équipe) */
+  viewAsRole: Member['role'] | null;
+  effectiveRole: Member['role'] | null;
+  setViewAsRole: (role: Member['role'] | null) => void;
   /** Établissements auxquels l'utilisateur est rattaché (phase 2) */
   myEstablishments: MyEstablishment[];
   activeEstablishment: MyEstablishment | null;
@@ -36,7 +40,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [member, setMember] = useState<Member | null>(null);
   const [accessRequest, setAccessRequest] = useState<AccessRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsAccess, setNeedsAccess] = useState(false);
+  const [needsAccess,
+        viewAsRole,
+        effectiveRole,
+        setViewAsRole, setNeedsAccess] = useState(false);
+  const [viewAsRole, setViewAsRoleState] = useState<Member['role'] | null>(null);
+
+  function setViewAsRole(role: Member['role'] | null) {
+    if (role && !['manager', 'cashier', 'employee', 'owner'].includes(role)) return;
+    setViewAsRoleState(role);
+    try {
+      if (role) localStorage.setItem('mm_view_as_role', role);
+      else localStorage.removeItem('mm_view_as_role');
+    } catch { /* */ }
+  }
+
+  // restore viewAs
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('mm_view_as_role') as Member['role'] | null;
+      if (v && ['manager', 'cashier', 'employee'].includes(v)) setViewAsRoleState(v);
+    } catch { /* */ }
+  }, []);
+
+  const effectiveRole: Member['role'] | null = (() => {
+    if (!member) return null;
+    if (member.role === 'super_admin' || member.role === 'admin') return member.role;
+    if (member.role === 'owner' && viewAsRole) return viewAsRole;
+    return member.role;
+  })();
   const [myEstablishments, setMyEstablishments] = useState<MyEstablishment[]>([]);
   const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(null);
 
@@ -745,6 +777,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accessRequest,
         loading,
         needsAccess,
+        viewAsRole,
+        effectiveRole,
+        setViewAsRole,
         myEstablishments,
         activeEstablishment,
         switchEstablishment,

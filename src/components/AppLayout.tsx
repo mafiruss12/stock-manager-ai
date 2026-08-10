@@ -165,10 +165,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (RENT_ONLY.has(item.to) && !isLocation) return false;
       if (RENT_ONLY.has(item.to) && section.label !== 'Outils') return false;
 
-      if (['super_admin', 'admin', 'owner', 'manager'].includes(member.role)) {
+      if (['super_admin', 'admin', 'owner', 'manager'].includes(effectiveRole || member.role)) {
         return true;
       }
-      return item.roles.includes(member.role);
+      const r = effectiveRole || member.role;
+      return item.roles.includes(r);
     });
 
     // Libellés adaptés location

@@ -50,7 +50,7 @@ function aiStatus(stock: number, min: number): { label: string; color: 'error' |
 
 export default function Inventaire() {
   const navigate = useNavigate();
-  const { member, activeEstablishment } = useAuth();
+  const { member, activeEstablishment, effectiveRole } = useAuth();
   const ui = getBusinessUI(activeEstablishment?.type);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -182,6 +182,63 @@ export default function Inventaire() {
       await queueAdd('products', 'delete', {}, { id: p.id });
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
     }
+  }
+
+
+  async function sendCatalogToTeam() {
+    if (!member?.establishment_id || !member.user_id) return;
+    const n = products.length;
+    if (!confirm(`Envoyer / partager le catalogue boissons (${n} produits) à toute l'équipe de cet établissement ?`)) return;
+    const { error } = await supabase.from('catalog_events').insert({
+      establishment_id: member.establishment_id,
+      actor_id: member.user_id,
+      event_type: 'send',
+      message: `Catalogue partagé (${n} produits)`,
+      payload: { product_count: n, product_names: products.slice(0, 50).map((p) => p.name) },
+    });
+    if (error) {
+      alert('Erreur envoi catalogue: ' + error.message);
+      return;
+    }
+    // Notifications aux autres membres de l'établissement
+    const { data: team } = await supabase
+      .from('members')
+      .select('user_id')
+      .eq('establishment_id', member.establishment_id)
+      .eq('status', 'active')
+      .neq('user_id', member.user_id);
+    if (team?.length) {
+      await supabase.from('notifications').insert(
+        team.map((t) => ({
+          user_id: t.user_id,
+          title: 'Catalogue boissons mis à jour',
+          body: `${member.full_name || 'Un collègue'} a partagé le catalogue (${n} produits). Voir Inventaire.`,
+          type: 'catalog',
+          link: '/inventory',
+          read: false,
+        }))
+      );
+    }
+    alert('Catalogue envoyé à l\'équipe.');
+  }
+
+  async function resetCatalogStock() {
+    if (!member?.establishment_id) return;
+    const role = effectiveRole || member.role;
+    if (!['super_admin', 'admin', 'owner', 'manager'].includes(role)) {
+      alert('Seul le propriétaire / gérant peut remettre le stock à zéro.');
+      return;
+    }
+    if (!confirm('REMETTRE TOUS LES STOCKS À ZÉRO pour cet établissement ? Action irréversible.')) return;
+    const { data, error } = await supabase.rpc('reset_establishment_stock', {
+      p_est: member.establishment_id,
+    });
+    if (error) {
+      alert('Erreur reset: ' + error.message);
+      return;
+    }
+    await loadProducts();
+    alert(`Stock remis à zéro (${(data as any)?.products_updated ?? '?'} produits).`);
   }
 
   async function seedCatalog() {
@@ -378,6 +435,14 @@ export default function Inventaire() {
           <button type="button" onClick={() => navigate('/inventory/scan')} className="btn-secondary flex items-center gap-2">
             <Camera size={18} /> Scanner photo (IA)
           </button>
+          <button type="button" onClick={sendCatalogToTeam} className="px-3 py-2 rounded-xl border border-amber-600/50 text-amber-200 text-sm hover:bg-amber-500/10">
+            Envoyer catalogue
+          </button>
+          {['super_admin','admin','owner','manager'].includes((effectiveRole || member?.role || '') as string) && (
+            <button type="button" onClick={resetCatalogStock} className="px-3 py-2 rounded-xl border border-error-500/40 text-error-300 text-sm hover:bg-error-500/10">
+              Reset stock → 0
+            </button>
+          )}
           <button onClick={openAdd} className="btn-primary flex items-center gap-2">
             <Plus size={18} /> Ajouter
           </button>
