@@ -55,9 +55,11 @@ export async function notifyOwnerOnReport(opts: {
       user_id: owner.owner_user_id,
       title,
       body,
+      message: body,
       type: 'report',
-      link: '/daily-report',
+      link: `/daily-report?date=${opts.reportDate}`,
       read: false,
+      action_label: 'Ouvrir le rapport',
     });
     result.app = !error;
     await supabase.from('report_notifications').insert({
