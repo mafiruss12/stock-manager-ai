@@ -1,4 +1,5 @@
 import { getBusinessUI, normalizeBusinessType } from '@/lib/businessTypes';
+import { getSeedCatalog, catalogLabel, usesCasiers, casierSize } from '@/lib/catalogs';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,36 +12,6 @@ import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 
-const CASIER = 24;
-
-const SEED_PRODUCTS = [
-  { name: 'BOCK 66', category: 'Alcool', unit: 'Bouteille 65cl', stock: 0, min_stock: 12, cost: 450, price: 600 },
-  { name: 'Castel / bières locales', category: 'Alcool', unit: 'Bouteille 50cl', stock: 26, min_stock: 12, cost: 400, price: 550 },
-  { name: 'Racine fort / bières locales', category: 'Alcool', unit: 'Bouteille 50cl', stock: 0, min_stock: 12, cost: 400, price: 550 },
-  { name: 'Racine / bières locales', category: 'Alcool', unit: 'Bouteille 50cl', stock: 26, min_stock: 12, cost: 400, price: 550 },
-  { name: 'Dopel / bières locales', category: 'Alcool', unit: 'Bouteille 50cl', stock: 20, min_stock: 12, cost: 400, price: 550 },
-  { name: 'Despe', category: 'Alcool', unit: 'Bouteille 33cl', stock: 0, min_stock: 6, cost: 700, price: 1000 },
-  { name: 'Beauford 50cl', category: 'Alcool', unit: 'Bouteille 50cl', stock: 0, min_stock: 12, cost: 450, price: 650 },
-  { name: 'Beauford 33cl', category: 'Alcool', unit: 'Bouteille 33cl', stock: 0, min_stock: 6, cost: 500, price: 700 },
-  { name: 'Chamberi', category: 'Alcool', unit: 'Bouteille 75cl', stock: 0, min_stock: 2, cost: 2500, price: 4000 },
-  { name: 'RLS', category: 'Alcool', unit: 'Bouteille 75cl', stock: 0, min_stock: 2, cost: 2500, price: 4000 },
-  { name: 'Codis bières bleu', category: 'Alcool', unit: 'Canette 33cl', stock: 0, min_stock: 12, cost: 350, price: 500 },
-  { name: 'Codis bières blanc', category: 'Alcool', unit: 'Canette 33cl', stock: 0, min_stock: 12, cost: 350, price: 500 },
-  { name: 'Vody vodka mix 18%', category: 'Alcool', unit: 'Canette 33cl', stock: 16, min_stock: 12, cost: 400, price: 600 },
-  { name: 'Tropial', category: 'Alcool', unit: 'Canette 33cl', stock: 16, min_stock: 12, cost: 350, price: 500 },
-  { name: 'OKALAMAR', category: 'Alcool', unit: 'Canette 33cl', stock: 0, min_stock: 12, cost: 350, price: 500 },
-  { name: 'Everess', category: 'Alcool', unit: 'Canette 33cl', stock: 3, min_stock: 12, cost: 350, price: 500 },
-  { name: 'Rhino', category: 'Soda', unit: 'Bouteille 33cl', stock: 6, min_stock: 12, cost: 250, price: 400 },
-  { name: 'Codis énergie', category: 'Soda', unit: 'Canette 33cl', stock: 0, min_stock: 6, cost: 300, price: 500 },
-  { name: 'Fanta', category: 'Soda', unit: 'Bouteille 33cl', stock: 0, min_stock: 12, cost: 250, price: 400 },
-  { name: 'Orangina', category: 'Soda', unit: 'Bouteille 33cl', stock: 1, min_stock: 6, cost: 300, price: 450 },
-  { name: 'Coca', category: 'Soda', unit: 'Bouteille 33cl', stock: 1, min_stock: 12, cost: 250, price: 400 },
-  { name: 'WordCola', category: 'Soda', unit: 'Bouteille 33cl', stock: 0, min_stock: 12, cost: 250, price: 400 },
-  { name: 'Sprite', category: 'Soda', unit: 'Bouteille 33cl', stock: 1, min_stock: 12, cost: 250, price: 400 },
-  { name: 'Youki Pomme', category: 'Soda', unit: 'Bouteille', stock: 4, min_stock: 6, cost: 200, price: 350 },
-  { name: 'Youki Moka Café', category: 'Soda', unit: 'Bouteille', stock: 2, min_stock: 6, cost: 200, price: 350 },
-];
-
 function aiStatus(stock: number, min: number): { label: string; color: 'error' | 'warning' | 'success' | 'primary' } {
   if (stock <= 0) return { label: 'RUPTURE', color: 'error' };
   if (stock <= min) return { label: 'À COMMANDER', color: 'warning' };
@@ -51,7 +22,11 @@ function aiStatus(stock: number, min: number): { label: string; color: 'error' |
 export default function Inventaire() {
   const navigate = useNavigate();
   const { member, activeEstablishment, effectiveRole } = useAuth();
-  const ui = getBusinessUI(activeEstablishment?.type);
+  const bizType = normalizeBusinessType((activeEstablishment as any)?.type);
+  const ui = getBusinessUI(bizType);
+  const showCasiers = usesCasiers(bizType);
+  const showCasiers = usesCasiers(bizType);
+  const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('Tous');
@@ -188,12 +163,12 @@ export default function Inventaire() {
   async function sendCatalogToTeam() {
     if (!member?.establishment_id || !member.user_id) return;
     const n = products.length;
-    if (!confirm(`Envoyer / partager le catalogue boissons (${n} produits) à toute l'équipe de cet établissement ?`)) return;
+    if (!confirm(`Envoyer / partager le catalogue produits (${n} produits) à toute l'équipe de cet établissement ?`)) return;
     const { error } = await supabase.from('catalog_events').insert({
       establishment_id: member.establishment_id,
       actor_id: member.user_id,
       event_type: 'send',
-      message: `Catalogue partagé (${n} produits)`,
+      message: `Catalogue produits partagé (${n} produits)`,
       payload: { product_count: n, product_names: products.slice(0, 50).map((p) => p.name) },
     });
     if (error) {
@@ -211,7 +186,7 @@ export default function Inventaire() {
       await supabase.from('notifications').insert(
         team.map((t) => ({
           user_id: t.user_id,
-          title: 'Catalogue boissons mis à jour',
+          title: 'Catalogue produits mis à jour',
           body: `${member.full_name || 'Un collègue'} a partagé le catalogue (${n} produits). Voir Inventaire.`,
           type: 'catalog',
           link: '/inventory',
@@ -243,10 +218,10 @@ export default function Inventaire() {
 
   async function seedCatalog() {
     if (!member?.establishment_id) return;
-    if (!confirm('Importer le catalogue maquis (bières, sodas, Vody…) ? Les produits déjà présents (même nom) ne seront pas dupliqués.')) return;
+    if (!confirm(`Importer : ${catalogLabel(bizType)} ? Les produits déjà présents (même nom) ne seront pas dupliqués.`)) return;
     setSeeding(true);
     const existing = new Set(products.map((p) => p.name.toLowerCase()));
-    const toInsert = SEED_PRODUCTS.filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
+    const toInsert = getSeedCatalog(bizType).filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
       ...s,
       establishment_id: member.establishment_id,
     }));
@@ -309,7 +284,7 @@ export default function Inventaire() {
         <td>${escapeHtml(p.name)}</td>
         <td>${escapeHtml(p.unit || '')}</td>
         <td class="num">${stock}</td>
-        <td class="num">${casiers}</td>
+        ${showCasiers ? `<td class="num">${casiers}</td>` : ''}
         <td class="num">${Number(p.cost || 0).toLocaleString('fr-FR')}</td>
         <td class="num">${Number(p.price || 0).toLocaleString('fr-FR')}</td>
         <td class="num">${val.toLocaleString('fr-FR')}</td>
@@ -322,7 +297,7 @@ export default function Inventaire() {
       <th>Prix achat</th><th>Observation</th>`;
     const headersStock = `
       <th>N°</th><th>Catégorie</th><th>Produit</th><th>Format</th>
-      <th>Qté</th><th>Casiers</th><th>P. achat</th><th>P. vente</th><th>Valeur</th>`;
+      <th>Qté</th>${showCasiers ? '<th>Casiers</th>' : ''}<th>P. achat</th><th>P. vente</th><th>Valeur</th>`;
 
     const html = `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"/>
@@ -342,7 +317,7 @@ export default function Inventaire() {
   .sign div { width: 30%; border-top: 1px solid #333; padding-top: 4px; text-align: center; }
   @media print { .no-print { display: none; } }
 </style></head><body>
-  <h1>{ui.inventoryTitle} physique — Stock Manager AI</h1>
+  <h1>${ui.inventoryTitle} physique — Stock Manager AI</h1>
   <div class="meta">${dateStr} · Mode : ${mode === 'blank' ? 'Feuille manuscrite (comptage)' : 'État du stock'}</div>
   <table>
     <thead><tr>${mode === 'blank' ? headersBlank : headersStock}</tr></thead>
@@ -413,7 +388,7 @@ export default function Inventaire() {
             disabled={seeding}
             className="px-3 py-2 rounded-xl border border-stone-700 text-stone-300 text-sm hover:bg-stone-800 flex items-center gap-1.5"
           >
-            <Download size={16} /> {seeding ? 'Import…' : 'Catalogue boissons'}
+            <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
           </button>
           )}
           <button
@@ -458,7 +433,7 @@ export default function Inventaire() {
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
           <p className="text-xs text-stone-500 uppercase tracking-wide">Unités / Casiers</p>
           <p className="text-xl font-bold text-stone-100 mt-1">
-            {totals.units} <span className="text-sm font-normal text-stone-400">· {Math.floor(Number(totals.casiers))} casiers</span>
+            {totals.units}{showCasiers ? <span className="text-sm font-normal text-stone-400"> · {Math.floor(Number(totals.casiers))} casiers</span> : null}
           </p>
         </div>
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
@@ -510,7 +485,7 @@ export default function Inventaire() {
         <EmptyState
           icon={<Package size={48} />}
           title="Aucun article"
-          message="Cliquez sur « Catalogue maquis » pour importer les boissons, ou « Ajouter »."
+          message={`Cliquez sur « ${catalogLabel(bizType)} » pour démarrer, ou « Ajouter ».`}
         />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-stone-800 bg-stone-900/50">
@@ -521,9 +496,11 @@ export default function Inventaire() {
                 <th className="px-3 py-3 font-medium">Produit / Marque</th>
                 <th className="px-3 py-3 font-medium">Format</th>
                 <th className="px-3 py-3 font-medium text-right">Qté</th>
+                {showCasiers && (
                 <th className="px-3 py-3 font-medium text-right">
                   <span className="inline-flex items-center gap-1"><Calculator size={12} /> Casiers</span>
                 </th>
+                )}
                 <th className="px-3 py-3 font-medium text-right">Achat</th>
                 <th className="px-3 py-3 font-medium text-right">Vente</th>
                 <th className="px-3 py-3 font-medium text-right">Valeur stock</th>
@@ -579,7 +556,7 @@ export default function Inventaire() {
                         </button>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-right text-stone-400">{casiers}</td>
+                    {showCasiers && <td className="px-3 py-2.5 text-right text-stone-400">{casiers}</td>}
                     <td className="px-3 py-2.5 text-right text-stone-400">{cost.toLocaleString('fr-FR')}</td>
                     <td className="px-3 py-2.5 text-right text-stone-300">{price.toLocaleString('fr-FR')}</td>
                     <td className="px-3 py-2.5 text-right font-medium text-amber-300/90">{valeur.toLocaleString('fr-FR')}</td>
@@ -604,7 +581,7 @@ export default function Inventaire() {
               <tr className="border-t-2 border-stone-700 bg-stone-800/60 font-semibold text-stone-100">
                 <td className="px-3 py-3" colSpan={3}>TOTAL</td>
                 <td className="px-3 py-3 text-right">{totals.units}</td>
-                <td className="px-3 py-3 text-right">{Math.floor(Number(totals.casiers))}</td>
+                {showCasiers && <td className="px-3 py-3 text-right">{Math.floor(Number(totals.casiers))}</td>}
                 <td className="px-3 py-3" />
                 <td className="px-3 py-3" />
                 <td className="px-3 py-3 text-right text-amber-400">{totals.value.toLocaleString('fr-FR')}</td>
@@ -624,7 +601,7 @@ export default function Inventaire() {
         <div className="space-y-3">
           <div>
             <label className="label">Nom / Marque</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="ex: Castel" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder={`ex: ${ui.productSingular || "article"}`} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -637,7 +614,7 @@ export default function Inventaire() {
             </div>
             <div>
               <label className="label">Format / Unité</label>
-              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" placeholder="Bouteille 50cl" />
+              <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" placeholder={ui.unitDefault || "unité"} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -664,7 +641,7 @@ export default function Inventaire() {
             <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm text-stone-300 flex justify-between">
               <span>Aperçu auto</span>
               <span>
-                {Math.floor(Number(form.stock) / CASIER)} casiers ·{' '}
+                {showCasiers ? `${Math.floor(Number(form.stock) / CASIER)} casiers · ` : ''}
                 {((Number(form.stock) || 0) * (Number(form.cost) || 0)).toLocaleString('fr-FR')} FCFA
               </span>
             </div>
