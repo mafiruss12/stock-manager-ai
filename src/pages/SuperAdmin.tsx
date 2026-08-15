@@ -515,15 +515,11 @@ export default function SuperAdmin() {
               className="input-field"
             >
               <option value="maquis">Maquis</option>
-              <option value="bar">Bar</option>
-              <option value="restaurant">Restaurant</option>
-              <option value="magasin">Magasin</option>
+                                          <option value="magasin">Magasin</option>
               <option value="boutique">Boutique</option>
               <option value="superette">Supérette</option>
-              <option value="pharmacie">Pharmacie</option>
-              <option value="quincaillerie">Quincaillerie</option>
-              <option value="commerce">Commerce général</option>
-              <option value="location_event">Location événementielle</option>
+                            <option value="quincaillerie">Quincaillerie</option>
+                            <option value="location_event">Location événementielle</option>
             </select>
           </div>
           <div>
@@ -658,9 +654,7 @@ export default function SuperAdmin() {
                 className="input-field"
               >
                 <option value="maquis">Maquis</option>
-                <option value="restaurant">Restaurant</option>
-                <option value="bar">Bar</option>
-                <option value="magasin">Magasin</option>
+                                                <option value="magasin">Magasin</option>
               </select>
             </div>
             <div>

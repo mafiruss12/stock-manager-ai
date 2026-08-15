@@ -199,9 +199,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
 
     // Maquis / bar : renommer Cuisine
-    if ((bizType === 'maquis' || bizType === 'bar') && section.label === 'Principal') {
+    if ((bizType === 'maquis') && section.label === 'Principal') {
       items = items.map((item) =>
-        item.to === '/kitchen' ? { ...item, label: bizType === 'bar' ? 'Bar / Préparation' : 'Grill / Bar' } : item
+        item.to === '/kitchen' ? { ...item, label: 'Grill / Bar' } : item
       );
     }
 
@@ -280,10 +280,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Type inconnu : ne pas bloquer toute l'app — fallback type "commerce"
+  // Type inconnu : ne pas bloquer toute l'app — fallback type "maquis"
   const knownTypes = new Set([
-    'maquis', 'bar', 'restaurant', 'magasin', 'boutique', 'superette',
-    'pharmacie', 'quincaillerie', 'commerce', 'location_event',
+    'maquis', 'magasin', 'boutique', 'superette',
+    'quincaillerie', 'location_event',
   ]);
   const rawType = (activeEstablishment?.type || cachedEstPayload?.type || '').toLowerCase().trim();
   // Ancien écran "choose-type" désactivé pour éviter le spam récursif chez tous les users

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Beer, Wine, UtensilsCrossed, Store, CalendarDays, Loader2, Check, ShoppingBag, Pill, Wrench, Building2, ShoppingCart } from 'lucide-react';
+import { Beer, Store, CalendarDays, Loader2, Check, ShoppingBag, Wrench, ShoppingCart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import {
@@ -12,14 +12,10 @@ import {
 
 const ICONS: Record<BusinessType, typeof Beer> = {
   maquis: Beer,
-  bar: Wine,
-  restaurant: UtensilsCrossed,
   magasin: Store,
   boutique: ShoppingBag,
   superette: ShoppingCart,
-  pharmacie: Pill,
   quincaillerie: Wrench,
-  commerce: Building2,
   location_event: CalendarDays,
 };
 

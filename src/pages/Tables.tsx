@@ -127,7 +127,6 @@ export default function Tables() {
               <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input-field">
                 <option value="salle">Salle</option>
                 <option value="terrasse">Terrasse</option>
-                <option value="bar">Bar</option>
                 <option value="vip">VIP</option>
                 <option value="exterieur">Extérieur</option>
               </select>

@@ -242,7 +242,7 @@ export default function Dashboard() {
         {bizType === 'restaurant' && (
           <StatCard title="Tables" value={`${data.occupiedTables}/${data.occupiedTables + data.freeTables}`} icon={<LayoutDashboard size={20} />} />
         )}
-        {(bizType === 'maquis' || bizType === 'magasin' || bizType === 'bar') && (
+        {(bizType === 'maquis' || bizType === 'magasin') && (
           <StatCard title={ui.stockAlert} value={String(data.lowStockCount)} icon={<AlertTriangle size={20} />} />
         )}
         {bizType === 'magasin' && (

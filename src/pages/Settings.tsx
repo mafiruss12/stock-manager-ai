@@ -300,7 +300,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div>
-                <label className="label">Nom du maquis / bar / restaurant</label>
+                <label className="label">Nom de l'établissement</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -318,15 +318,11 @@ export default function SettingsPage() {
                   disabled={!canManageEst && !!est}
                 >
                   <option value="maquis">Maquis</option>
-                  <option value="bar">Bar</option>
-                  <option value="restaurant">Restaurant</option>
-                  <option value="magasin">Magasin</option>
+                                                      <option value="magasin">Magasin</option>
                   <option value="boutique">Boutique</option>
                   <option value="superette">Supérette</option>
-                  <option value="pharmacie">Pharmacie</option>
-                  <option value="quincaillerie">Quincaillerie</option>
-                  <option value="commerce">Commerce général</option>
-                  <option value="location_event">Location événementielle</option>
+                                    <option value="quincaillerie">Quincaillerie</option>
+                                    <option value="location_event">Location événementielle</option>
                 </select>
                 <p className="text-xs text-stone-500 mt-1">Change le menu, le thème et le tableau de bord.</p>
               </div>
