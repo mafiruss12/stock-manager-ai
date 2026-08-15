@@ -25,7 +25,10 @@ export default function Inventaire() {
   const bizType = normalizeBusinessType((activeEstablishment as any)?.type);
   const ui = getBusinessUI(bizType);
   const showCasiers = usesCasiers(bizType);
-  const showCasiers = usesCasiers(bizType);
+  const estId = activeEstablishment?.id || member?.establishment_id || null;
+  const canEditStock = ['super_admin', 'admin', 'owner', 'manager'].includes(
+    String(effectiveRole || member?.role || '')
+  );
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -35,20 +38,20 @@ export default function Inventaire() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [form, setForm] = useState({
-    name: '', category: 'Alcool', price: '', cost: '', stock: '', min_stock: '12', unit: 'Bouteille 50cl',
+    name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité',
   });
 
   async function loadProducts() {
-    if (!member?.establishment_id) {
+    if (!estId) {
       setLoading(false);
       return;
     }
-    const cacheKey = `products:${member.establishment_id}`;
+    const cacheKey = `products:${estId}`;
     const { data } = await fetchWithCache<Product[]>(cacheKey, async () => {
       const res = await supabase
         .from('products')
         .select('*')
-        .eq('establishment_id', member.establishment_id)
+        .eq('establishment_id', estId)
         .order('category')
         .order('name');
       return (res.data ?? []) as Product[];
@@ -60,7 +63,7 @@ export default function Inventaire() {
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [member]);
+  }, [member, estId]);
 
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category || 'Autre'));
@@ -95,7 +98,7 @@ export default function Inventaire() {
 
   function openAdd() {
     setEditing(null);
-    setForm({ name: '', category: 'Alcool', price: '', cost: '', stock: '', min_stock: '12', unit: 'Bouteille 50cl' });
+    setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité' });
     setModalOpen(true);
   }
 
@@ -114,9 +117,9 @@ export default function Inventaire() {
   }
 
   async function save() {
-    if (!member?.establishment_id || !form.name.trim()) return;
+    if (!estId || !form.name.trim()) return;
     const payload = {
-      establishment_id: member.establishment_id,
+      establishment_id: estId,
       name: form.name.trim(),
       category: form.category || 'Autre',
       price: Number(form.price) || 0,
@@ -165,7 +168,7 @@ export default function Inventaire() {
     const n = products.length;
     if (!confirm(`Envoyer / partager le catalogue produits (${n} produits) à toute l'équipe de cet établissement ?`)) return;
     const { error } = await supabase.from('catalog_events').insert({
-      establishment_id: member.establishment_id,
+      establishment_id: estId,
       actor_id: member.user_id,
       event_type: 'send',
       message: `Catalogue produits partagé (${n} produits)`,
@@ -179,7 +182,7 @@ export default function Inventaire() {
     const { data: team } = await supabase
       .from('members')
       .select('user_id')
-      .eq('establishment_id', member.establishment_id)
+      .eq('establishment_id', estId)
       .eq('status', 'active')
       .neq('user_id', member.user_id);
     if (team?.length) {
@@ -198,7 +201,7 @@ export default function Inventaire() {
   }
 
   async function resetCatalogStock() {
-    if (!member?.establishment_id) return;
+    if (!estId) return;
     const role = effectiveRole || member.role;
     if (!['super_admin', 'admin', 'owner', 'manager'].includes(role)) {
       alert('Seul le propriétaire / gérant peut remettre le stock à zéro.');
@@ -206,7 +209,7 @@ export default function Inventaire() {
     }
     if (!confirm('REMETTRE TOUS LES STOCKS À ZÉRO pour cet établissement ? Action irréversible.')) return;
     const { data, error } = await supabase.rpc('reset_establishment_stock', {
-      p_est: member.establishment_id,
+      p_est: estId,
     });
     if (error) {
       alert('Erreur reset: ' + error.message);
@@ -217,13 +220,13 @@ export default function Inventaire() {
   }
 
   async function seedCatalog() {
-    if (!member?.establishment_id) return;
+    if (!estId) return;
     if (!confirm(`Importer : ${catalogLabel(bizType)} ? Les produits déjà présents (même nom) ne seront pas dupliqués.`)) return;
     setSeeding(true);
     const existing = new Set(products.map((p) => p.name.toLowerCase()));
     const toInsert = getSeedCatalog(bizType).filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
       ...s,
-      establishment_id: member.establishment_id,
+      establishment_id: estId,
     }));
     if (toInsert.length === 0) {
       alert('Tous les produits du catalogue sont déjà présents.');
@@ -246,8 +249,8 @@ export default function Inventaire() {
     if (isOnline()) {
       await supabase.from('products').update({ stock: next }).eq('id', p.id);
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
-      if (member?.establishment_id) {
-        await cacheSet(`products:${member.establishment_id}`, products.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
+      if (estId) {
+        await cacheSet(`products:${estId}`, products.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
       }
     } else {
       await queueAdd('products', 'update', { stock: next }, { id: p.id });
@@ -358,7 +361,7 @@ export default function Inventaire() {
     return <div className="flex items-center justify-center py-20 text-stone-400">Chargement inventaire…</div>;
   }
 
-  if (!member?.establishment_id) {
+  if (!estId) {
     return (
       <EmptyState
         icon={<Package size={48} />}
