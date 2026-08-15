@@ -1,12 +1,15 @@
 /**
- * Sécurité côté client
- * - RLS + clé anon uniquement côté serveur/Supabase
- * - Rate-limit login, validation, anti-XSS basique
+ * Sécurité Stock Manager / Maquis
+ * 1) Session : cookies Supabase — ne pas stocker access_token en localStorage custom
+ * 2) Rôles admin : toujours re-vérifier depuis members (DB), jamais trust localStorage seul
+ * 3) Rate-limit login
+ * 4) Mots de passe robustes + HIBP
+ * 5) Messages d'erreur non révélateurs
  */
 
 const LOGIN_ATTEMPTS_KEY = 'mm_login_attempts';
 const MAX_ATTEMPTS = 5;
-const LOCK_MS = 2 * 60 * 1000; // 2 minutes
+const LOCK_MS = 15 * 60 * 1000; // 15 minutes
 
 interface AttemptState {
   count: number;
@@ -61,8 +64,41 @@ export function isSafeLogin(login: string): boolean {
   return /^[a-zA-Z0-9._-]{2,40}$/.test(v);
 }
 
-export function isStrongEnoughPassword(password: string): boolean {
-  return password.length >= 6;
+export function isStrongEnoughPassword(password: string): { ok: true } | { ok: false; reason: string } {
+  if (password.length < 10) return { ok: false, reason: 'Mot de passe : minimum 10 caractères.' };
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
+    return { ok: false, reason: 'Mot de passe : majuscule et minuscule requises.' };
+  }
+  if (!/[0-9]/.test(password)) return { ok: false, reason: 'Mot de passe : au moins un chiffre.' };
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return { ok: false, reason: 'Mot de passe : au moins un caractère spécial.' };
+  }
+  return { ok: true };
+}
+
+export async function isPasswordBreached(password: string): Promise<boolean> {
+  try {
+    const buf = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(password));
+    const hash = Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase();
+    const prefix = hash.slice(0, 5);
+    const suffix = hash.slice(5);
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+      headers: { 'Add-Padding': 'true' },
+    });
+    if (!res.ok) return false;
+    const text = await res.text();
+    return text.split('\n').some((line) => line.split(':')[0]?.trim() === suffix);
+  } catch {
+    return false;
+  }
+}
+
+/** Rôles privilégiés : à valider uniquement via row members Supabase */
+export function isPrivilegedRole(role: string | null | undefined): boolean {
+  return role === 'super_admin' || role === 'admin';
 }
 
 export function escapeHtml(text: string): string {
@@ -84,11 +120,12 @@ export function isSafeImageUrl(url: string): boolean {
   }
 }
 
-/** Sanitize message erreur (ne pas exposer détails internes) */
 export function safeErrorMessage(err: unknown, fallback = 'Une erreur est survenue'): string {
   if (!err) return fallback;
-  const msg = typeof err === 'string' ? err : (err as any)?.message || fallback;
-  if (/password|invalid|credentials|email/i.test(msg)) return msg;
+  const msg = typeof err === 'string' ? err : (err as { message?: string })?.message || fallback;
+  if (/password|invalid|credentials|email/i.test(msg)) {
+    return 'Identifiant ou mot de passe incorrect.';
+  }
   if (/network|fetch|Failed to fetch/i.test(msg)) return 'Réseau indisponible. Mode hors ligne activé.';
   if (/JWT|token|session/i.test(msg)) return 'Session expirée. Reconnectez-vous.';
   return fallback;

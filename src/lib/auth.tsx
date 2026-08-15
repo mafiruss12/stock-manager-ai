@@ -3,7 +3,7 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { toAuthEmail } from './login';
 import { isOnline, cacheAuthProfile, getCachedAuthProfile, prefetchForOffline } from './offline';
-import { getLoginLockRemaining, registerLoginFailure, registerLoginSuccess, isSafeLogin, safeErrorMessage } from './security';
+import { getLoginLockRemaining, registerLoginFailure, registerLoginSuccess, isSafeLogin, safeErrorMessage, isStrongEnoughPassword, isPasswordBreached } from './security';
 import type { Member, AccessRequest, Establishment } from './types';
 
 export interface MyEstablishment extends Establishment {
@@ -582,9 +582,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signIn(login: string, password: string) {
     try {
-      try {
-        localStorage.removeItem('mm_login_attempts');
-      } catch { /* */ }
+      const lockLeft = getLoginLockRemaining();
+      if (lockLeft > 0) {
+        const min = Math.ceil(lockLeft / 60000);
+        return { error: `Trop de tentatives. Réessayez dans ${min} min.` };
+      }
       if (!login.trim()) return { error: 'Saisissez votre identifiant ou e-mail.' };
       if (!password) return { error: 'Saisissez votre mot de passe.' };
       if (!isSafeLogin(login)) {
@@ -597,6 +599,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerLoginFailure();
         setLoading(false);
         return { error: safeErrorMessage(error, 'Identifiant ou mot de passe incorrect') };
+      }
+      // Email vérifié si compte email réel (pas @maquis.local)
+      if (
+        data.user &&
+        email.includes('@') &&
+        !email.endsWith('@maquis.local') &&
+        !data.user.email_confirmed_at &&
+        data.user.app_metadata?.provider === 'email'
+      ) {
+        await supabase.auth.signOut();
+        setLoading(false);
+        return { error: 'Email non vérifié. Confirmez votre boîte mail avant de vous connecter.' };
       }
       registerLoginSuccess();
       const user = data.user ?? data.session?.user ?? null;
@@ -626,8 +640,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isSafeLogin(login)) {
       return { error: 'Identifiant invalide (e-mail ou login simple).' };
     }
-    if (!password || password.length < 6) {
-      return { error: 'Mot de passe trop court (minimum 6 caractères).' };
+    const strength = isStrongEnoughPassword(password);
+    if (!strength.ok) return { error: strength.reason };
+    if (await isPasswordBreached(password)) {
+      return { error: 'Ce mot de passe apparaît dans des fuites connues. Choisissez-en un autre.' };
     }
     const email = toAuthEmail(login);
     setLoading(true);
