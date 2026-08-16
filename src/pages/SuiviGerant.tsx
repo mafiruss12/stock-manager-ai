@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui';
 import type { Member } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 import { Link } from 'react-router-dom';
+import { logAudit, newClientOpId } from '@/lib/audit';
 
 type ProductRow = {
   id: string;
@@ -47,6 +48,8 @@ export default function SuiviGerant() {
   const [editMin, setEditMin] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [auditRows, setAuditRows] = useState<any[]>([]);
+  const [auditError, setAuditError] = useState('');
 
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const role = String(effectiveRole || member?.role || '');
@@ -109,6 +112,20 @@ export default function SuiviGerant() {
     setProducts(prods);
     setLowStock(prods.filter((p) => Number(p.stock) <= Number(p.min_stock)).length);
     setReportToday((reportRes.data as Record<string, unknown>) || null);
+
+    const { data: audits, error: audErr } = await supabase
+      .from('operation_audit')
+      .select('id, action, entity_label, actor_name, old_value, new_value, reason, created_at')
+      .eq('establishment_id', estId)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (audErr) {
+      setAuditError(audErr.message);
+      setAuditRows([]);
+    } else {
+      setAuditError('');
+      setAuditRows(audits || []);
+    }
     setLoading(false);
   }
 
@@ -159,8 +176,21 @@ export default function SuiviGerant() {
       setMsg(error.message);
       return;
     }
+    await logAudit({
+      establishment_id: estId,
+      actor_id: member?.user_id,
+      actor_name: member?.full_name || member?.email,
+      action: 'stock.adjust',
+      entity_type: 'product',
+      entity_id: p.id,
+      entity_label: p.name,
+      old_value: { stock: p.stock, min_stock: p.min_stock },
+      new_value: { stock, min_stock: Number.isNaN(min_stock) ? p.min_stock : min_stock },
+      reason: 'Correction propriétaire / suivi',
+      client_op_id: newClientOpId(),
+    });
     setEditId(null);
-    setMsg('Stock mis à jour');
+    setMsg('Stock mis à jour (tracé dans l’audit)');
     await load();
   }
 
@@ -469,6 +499,53 @@ export default function SuiviGerant() {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      <div className="card">
+        <h2 className="font-semibold text-stone-100 mb-3">Journal d&apos;audit (récent)</h2>
+        <p className="text-xs text-stone-500 mb-3">
+          Qui a modifié quoi — source de vérité pour le propriétaire (stock, produits).
+        </p>
+        {auditError ? (
+          <p className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+            Audit non disponible sur la base pour l&apos;instant ({auditError}). La migration{' '}
+            <code className="text-xs">operation_audit</code> doit être appliquée sur Supabase.
+          </p>
+        ) : auditRows.length === 0 ? (
+          <p className="text-sm text-stone-500">Aucune opération sensible enregistrée pour le moment.</p>
+        ) : (
+          <ul className="space-y-2 max-h-80 overflow-y-auto">
+            {auditRows.map((a) => {
+              const oldS = a.old_value?.stock;
+              const newS = a.new_value?.stock;
+              const detail =
+                oldS !== undefined && newS !== undefined
+                  ? `stock ${oldS} → ${newS}`
+                  : a.action;
+              return (
+                <li key={a.id} className="text-sm border-b border-stone-800/80 pb-2">
+                  <p className="text-stone-200">
+                    <span className="text-amber-300">{a.entity_label || a.entity_type}</span>
+                    {' · '}
+                    {detail}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    {a.actor_name || 'Utilisateur'} · {a.action} ·{' '}
+                    {a.created_at
+                      ? new Date(a.created_at).toLocaleString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : ''}
+                    {a.reason ? ` · ${a.reason}` : ''}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
 

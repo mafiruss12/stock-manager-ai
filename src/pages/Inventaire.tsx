@@ -1,5 +1,6 @@
 import { getBusinessUI, normalizeBusinessType } from '@/lib/businessTypes';
 import { getSeedCatalog, catalogLabel, usesCasiers, casierSize } from '@/lib/catalogs';
+import { logAudit, newClientOpId } from '@/lib/audit';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -128,20 +129,51 @@ export default function Inventaire() {
       min_stock: Number(form.min_stock) || 0,
       unit: form.unit || 'unité',
     };
+    const opId = newClientOpId();
     if (isOnline()) {
       if (editing) {
+        const old = {
+          name: editing.name,
+          stock: editing.stock,
+          min_stock: editing.min_stock,
+          price: editing.price,
+          cost: editing.cost,
+        };
         await supabase.from('products').update(payload).eq('id', editing.id);
+        await logAudit({
+          establishment_id: estId,
+          actor_id: member?.user_id,
+          actor_name: member?.full_name || member?.email,
+          action: 'product.update',
+          entity_type: 'product',
+          entity_id: editing.id,
+          entity_label: payload.name,
+          old_value: old,
+          new_value: payload,
+          client_op_id: opId,
+        });
       } else {
-        await supabase.from('products').insert(payload);
+        const { data: ins } = await supabase.from('products').insert(payload).select('id').maybeSingle();
+        await logAudit({
+          establishment_id: estId,
+          actor_id: member?.user_id,
+          actor_name: member?.full_name || member?.email,
+          action: 'product.create',
+          entity_type: 'product',
+          entity_id: ins?.id || null,
+          entity_label: payload.name,
+          new_value: payload,
+          client_op_id: opId,
+        });
       }
       await loadProducts();
     } else {
       if (editing) {
-        await queueAdd('products', 'update', payload, { id: editing.id });
+        await queueAdd('products', 'update', { ...payload, _client_op_id: opId }, { id: editing.id });
         setProducts((prev) => prev.map((p) => (p.id === editing.id ? { ...p, ...payload } : p)));
       } else {
         const tempId = `offline-${Date.now()}`;
-        await queueAdd('products', 'insert', payload);
+        await queueAdd('products', 'insert', { ...payload, _client_op_id: opId });
         setProducts((prev) => [
           ...prev,
           { id: tempId, created_at: new Date().toISOString(), ...payload } as Product,
@@ -153,11 +185,23 @@ export default function Inventaire() {
 
   async function remove(p: Product) {
     if (!confirm(`Supprimer « ${p.name} » ?`)) return;
+    const opId = newClientOpId();
     if (isOnline()) {
       await supabase.from('products').delete().eq('id', p.id);
+      await logAudit({
+        establishment_id: estId,
+        actor_id: member?.user_id,
+        actor_name: member?.full_name || member?.email,
+        action: 'product.delete',
+        entity_type: 'product',
+        entity_id: p.id,
+        entity_label: p.name,
+        old_value: { name: p.name, stock: p.stock, price: p.price },
+        client_op_id: opId,
+      });
       await loadProducts();
     } else {
-      await queueAdd('products', 'delete', {}, { id: p.id });
+      await queueAdd('products', 'delete', { _client_op_id: opId }, { id: p.id });
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
     }
   }
@@ -248,6 +292,18 @@ export default function Inventaire() {
     const next = Math.max(0, (Number(p.stock) || 0) + delta);
     if (isOnline()) {
       await supabase.from('products').update({ stock: next }).eq('id', p.id);
+      await logAudit({
+        establishment_id: estId,
+        actor_id: member?.user_id,
+        actor_name: member?.full_name || member?.email,
+        action: 'stock.adjust',
+        entity_type: 'product',
+        entity_id: p.id,
+        entity_label: p.name,
+        old_value: { stock: p.stock },
+        new_value: { stock: next },
+        client_op_id: newClientOpId(),
+      });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
       if (estId) {
         await cacheSet(`products:${estId}`, products.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
