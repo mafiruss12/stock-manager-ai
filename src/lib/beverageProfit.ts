@@ -19,23 +19,29 @@ export type BeveragePeriodReport = {
 
 type ReportItem = { product_id?: string; name?: string; price?: number; qty?: number; cost?: number };
 
-/** Agrège sorties + bénéfice brut depuis les rapports journaliers (notes JSON). */
+
+/** Agrège sorties + bénéfice brut : ventes caisse + rapports journaliers (sans double compter la même qté). */
 export async function loadBeverageProfitFromReports(
   establishmentId: string,
   sinceISO: string
 ): Promise<BeveragePeriodReport> {
-  const { data: reports } = await supabase
-    .from('daily_reports')
-    .select('date, notes, total_sales')
-    .eq('establishment_id', establishmentId)
-    .gte('date', sinceISO.slice(0, 10))
-    .order('date', { ascending: false });
+  const sinceDate = sinceISO.slice(0, 10);
+  const sinceTs = sinceISO.length === 10 ? `${sinceISO}T00:00:00.000Z` : sinceISO;
 
-  // coûts / prix actuels produits (fallback)
-  const { data: products } = await supabase
-    .from('products')
-    .select('id, name, cost, price')
-    .eq('establishment_id', establishmentId);
+  const [{ data: reports }, { data: products }, { data: sales }] = await Promise.all([
+    supabase
+      .from('daily_reports')
+      .select('date, notes, total_sales')
+      .eq('establishment_id', establishmentId)
+      .gte('date', sinceDate)
+      .order('date', { ascending: false }),
+    supabase.from('products').select('id, name, cost, price').eq('establishment_id', establishmentId),
+    supabase
+      .from('sales')
+      .select('product_id, qty, unit_price, total, created_at')
+      .eq('establishment_id', establishmentId)
+      .gte('created_at', sinceTs),
+  ]);
 
   const costMap = new Map<string, number>();
   const priceMap = new Map<string, number>();
@@ -46,7 +52,23 @@ export async function loadBeverageProfitFromReports(
     nameMap.set(p.id, p.name);
   }
 
-  const agg = new Map<string, BeverageLineProfit>();
+  type Acc = { qty: number; ca: number; cost: number; name: string };
+  const fromSales = new Map<string, Acc>();
+  const fromReports = new Map<string, Acc>();
+
+  for (const s of sales || []) {
+    const id = String(s.product_id || '');
+    if (!id) continue;
+    const qty = Math.max(0, Math.floor(Number(s.qty) || 0));
+    if (!qty) continue;
+    const unitPrice = Number(s.unit_price) || (Number(s.total) || 0) / qty || priceMap.get(id) || 0;
+    const unitCost = costMap.get(id) || 0;
+    const cur = fromSales.get(id) || { qty: 0, ca: 0, cost: 0, name: nameMap.get(id) || 'Boisson' };
+    cur.qty += qty;
+    cur.ca += qty * unitPrice;
+    cur.cost += qty * unitCost;
+    fromSales.set(id, cur);
+  }
 
   for (const r of reports || []) {
     let items: ReportItem[] = [];
@@ -65,24 +87,36 @@ export async function loadBeverageProfitFromReports(
       const id = String(it.product_id || it.name || 'unknown');
       const unitPrice = Number(it.price) || priceMap.get(id) || 0;
       const unitCost = Number(it.cost) || costMap.get(id) || 0;
-      const name = it.name || nameMap.get(id) || 'Boisson';
-      const cur = agg.get(id) || {
-        product_id: id,
-        name,
-        qty_out: 0,
+      const cur = fromReports.get(id) || {
+        qty: 0,
         ca: 0,
         cost: 0,
-        profit: 0,
+        name: it.name || nameMap.get(id) || 'Boisson',
       };
-      cur.qty_out += qty;
+      cur.qty += qty;
       cur.ca += qty * unitPrice;
       cur.cost += qty * unitCost;
-      cur.profit = cur.ca - cur.cost;
-      agg.set(id, cur);
+      fromReports.set(id, cur);
     }
   }
 
-  const lines = Array.from(agg.values()).sort((a, b) => b.profit - a.profit);
+  // Fusion : pour chaque produit, on prend la source avec le plus de sorties (évite caisse + même rapport)
+  const ids = new Set([...fromSales.keys(), ...fromReports.keys()]);
+  const lines: BeverageLineProfit[] = [];
+  for (const id of ids) {
+    const a = fromSales.get(id);
+    const b = fromReports.get(id);
+    const pick = !a ? b! : !b ? a : a.qty >= b.qty ? a : b;
+    lines.push({
+      product_id: id,
+      name: pick.name,
+      qty_out: pick.qty,
+      ca: pick.ca,
+      cost: pick.cost,
+      profit: pick.ca - pick.cost,
+    });
+  }
+  lines.sort((x, y) => y.profit - x.profit);
   const totalQty = lines.reduce((s, l) => s + l.qty_out, 0);
   const totalCA = lines.reduce((s, l) => s + l.ca, 0);
   const totalCost = lines.reduce((s, l) => s + l.cost, 0);

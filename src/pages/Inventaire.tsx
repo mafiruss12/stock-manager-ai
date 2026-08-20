@@ -404,6 +404,20 @@ export default function Inventaire() {
           created_by: member?.user_id || null,
         });
       } catch { /* table optionnelle */ }
+      // Synchro comptable : arrivage = achat reçu
+      try {
+        const unitCost = Number(p.cost) || 0;
+        await supabase.from('purchases').insert({
+          establishment_id: estId,
+          product_id: p.id,
+          qty,
+          unit_cost: unitCost,
+          total: unitCost * qty,
+          status: 'received',
+          notes: arrivageForm.note || `Arrivage auto — ${p.name}`,
+          created_by: member?.user_id || null,
+        });
+      } catch { /* schéma purchases variable */ }
       await loadProducts();
       await loadAudit();
     } else {

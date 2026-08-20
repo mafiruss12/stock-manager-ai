@@ -344,7 +344,7 @@ export default function Dashboard() {
           <div>
             <h2 className="text-lg font-semibold text-stone-100">Sorties boissons &amp; bénéfice</h2>
             <p className="text-xs text-stone-500">
-              Calcul auto depuis les rapports journaliers × (prix vente − prix achat)
+              Calcul auto : rapports du jour + ventes caisse × (prix vente − prix achat)
             </p>
           </div>
           <Link to="/daily-report" className="text-sm text-amber-400 hover:underline">

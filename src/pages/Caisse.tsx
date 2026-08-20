@@ -92,6 +92,20 @@ export default function Caisse() {
         if (online) {
           await supabase.from('sales').insert(salePayload);
           await supabase.from('products').update({ stock: newStock }).eq('id', item.product.id);
+          try {
+            await supabase.from('stock_movements').insert({
+              establishment_id: member.establishment_id,
+              product_id: item.product.id,
+              product_name: item.product.name,
+              qty: -item.qty,
+              movement_type: 'pos_sale',
+              unit_cost: Number(item.product.cost) || 0,
+              unit_price: Number(item.product.price) || 0,
+              reason: 'caisse',
+              note: `Vente caisse ${paymentMethod}`,
+              created_by: member.user_id,
+            });
+          } catch { /* */ }
         } else {
           // Hors ligne : file d'attente + mise à jour locale
           await queueAdd('sales', 'insert', salePayload);
