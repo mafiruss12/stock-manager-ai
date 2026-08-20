@@ -35,6 +35,12 @@ interface DashboardData {
   topProducts: { name: string; revenue: number }[];
   aiAlerts: string[];
   dataPartial: boolean;
+  monthSales: number;
+  monthExpenses: number;
+  monthPurchases: number;
+  monthProfit: number;
+  stockValue: number;
+  todayCogs: number;
 }
 
 export default function Dashboard() {
@@ -83,6 +89,28 @@ export default function Dashboard() {
 
       const todaySales = (salesRes.data ?? []).reduce((s, x) => s + Number(x.total), 0);
       const todayExpenses = (expensesRes.data ?? []).reduce((s, x) => s + Number(x.amount), 0);
+
+      // Comptabilité mois en cours + valeur stock
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const [monthSalesRes, monthExpRes, stockValRes, purchRes] = await Promise.all([
+        supabase.from('sales').select('total').eq('establishment_id', estId).gte('created_at', monthStart.toISOString()),
+        supabase.from('expenses').select('amount').eq('establishment_id', estId).gte('created_at', monthStart.toISOString()),
+        supabase.from('products').select('stock, cost').eq('establishment_id', estId),
+        supabase.from('purchases').select('total').eq('establishment_id', estId).gte('created_at', monthStart.toISOString()),
+      ]);
+      const monthSales = (monthSalesRes.data ?? []).reduce((s, x) => s + Number(x.total || 0), 0);
+      const monthExpenses = (monthExpRes.data ?? []).reduce((s, x) => s + Number(x.amount || 0), 0);
+      const monthPurchases = (purchRes.data ?? []).reduce((s, x) => s + Number(x.total || 0), 0);
+      const stockValue = (stockValRes.data ?? []).reduce(
+        (s, p) => s + (Number(p.stock) || 0) * (Number(p.cost) || 0),
+        0
+      );
+      const monthProfit = monthSales - monthExpenses - monthPurchases;
+      // coût estimatif des ventes du jour si colonne cost dispo
+      const todayCogs = 0;
+
       const products = productsRes.data ?? [];
       const lowStockItems = products.filter((p) => Number(p.stock) <= Number(p.min_stock));
       const lowStock = lowStockItems.length;
@@ -148,6 +176,12 @@ export default function Dashboard() {
           topProducts,
           aiAlerts,
           dataPartial,
+          monthSales,
+          monthExpenses,
+          monthPurchases,
+          monthProfit,
+          stockValue,
+          todayCogs,
         });
       }
       } catch (e) {
@@ -155,7 +189,7 @@ export default function Dashboard() {
         console.error(e);
         if (!cancelled) {
           setData({
-            todaySales: 0, todayExpenses: 0, todayProfit: 0, weekSalesTotal: 0, lowStockCount: 0,
+            todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0, monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekSalesTotal: 0, lowStockCount: 0,
             employeeCount: 0, activeOrders: 0, freeTables: 0, occupiedTables: 0,
             weeklyData: [], weekValues: [], recentSales: [], activeOrdersList: [], topProducts: [],
             aiAlerts: [], dataPartial: true,
@@ -228,6 +262,41 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: theme.primarySoft, color: theme.primary }}>
           <Sparkline values={data.weekValues} color={theme.primary} />
           7 jours
+        </div>
+      </div>
+
+      {/* Comptabilité */}
+      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-100">Comptabilité</h2>
+            <p className="text-xs text-stone-500">Chiffres de gestion (indicatifs, pas une comptabilité certifiée)</p>
+          </div>
+          <Link to="/accounting" className="text-sm text-amber-400 hover:underline">
+            Voir détail →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard title="CA du jour" value={formatFCFA(data.todaySales)} icon={<DollarSign size={20} />} />
+          <StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} />
+          <StatCard title="Résultat du jour" value={formatFCFA(data.todayProfit)} icon={<TrendingUp size={20} />} />
+          <StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} />
+          <StatCard title="CA du mois" value={formatFCFA(data.monthSales ?? 0)} icon={<TrendingUp size={20} />} />
+          <StatCard title="Dépenses du mois" value={formatFCFA(data.monthExpenses ?? 0)} icon={<DollarSign size={20} />} />
+          <StatCard title="Achats stock (mois)" value={formatFCFA(data.monthPurchases ?? 0)} icon={<Package size={20} />} />
+          <StatCard title="Résultat mois" value={formatFCFA(data.monthProfit ?? 0)} icon={<TrendingUp size={20} />} />
+        </div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+            <p className="text-stone-500 text-xs">Valeur du stock (au coût d&apos;achat)</p>
+            <p className="text-amber-300 font-semibold text-lg">{formatFCFA(data.stockValue ?? 0)}</p>
+          </div>
+          <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+            <p className="text-stone-500 text-xs">Marge jour (CA − dépenses)</p>
+            <p className={`font-semibold text-lg ${(data.todayProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {formatFCFA(data.todayProfit ?? 0)}
+            </p>
+          </div>
         </div>
       </div>
 
