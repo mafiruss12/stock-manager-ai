@@ -11,7 +11,7 @@ import type { Product } from '@/lib/types';
 import { EmptyState, Badge } from '@/components/ui';
 import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
-import { notifyOwnerOnReport, getOwnerContacts } from '@/lib/notifyOwner';
+import { notifyOwnerOnReport, getOwnerContacts, openOwnerChannelsAfterReport } from '@/lib/notifyOwner';
 import { ROLE_LABELS } from '@/lib/types';
 
 function todayISO() {
@@ -406,6 +406,7 @@ export default function DailyReportPage() {
         reportSummary: reportText(),
         reportDate: date,
       });
+      openOwnerChannelsAfterReport();
     } catch {
       // fallback notifications basiques
       try {

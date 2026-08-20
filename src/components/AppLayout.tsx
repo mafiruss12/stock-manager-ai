@@ -1,6 +1,7 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
+import DailyReportGate from '@/components/DailyReportGate';
   LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2,
   Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle,
   Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText,
@@ -69,7 +70,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/chat', label: 'Chat interne', icon: <MessageCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/settings', label: 'Profil & Paramètres', icon: <Settings size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
-      { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
+      { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/rent/equipment', label: 'Matériel', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/clients', label: 'Clients location', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/rent/orders', label: 'Commandes location', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
@@ -427,7 +428,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 pb-24">{children}</main>
+        <main className="flex-1 p-4 lg:p-8 pb-24"><DailyReportGate />
+        {children}</main>
         <UpdateBanner />
       <footer className="px-4 py-3 text-center text-[11px] text-stone-500 border-t border-stone-800/80">
         <span className="text-stone-400 font-medium">Stock Manager AI</span>

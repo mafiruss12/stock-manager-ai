@@ -93,3 +93,15 @@ export function openOwnerWhatsApp() {
   const msg = (window as any).__ownerWaMsg as string | undefined;
   if (phone && msg) openWhatsApp(phone, msg);
 }
+
+
+/** Ouvre les canaux gratuits (WhatsApp + mailto) après envoi du rapport — sans API payante */
+export function openOwnerChannelsAfterReport() {
+  try {
+    openOwnerWhatsApp();
+  } catch { /* */ }
+  try {
+    // mailto en second (peut être bloqué si WA a pris le focus)
+    setTimeout(() => openOwnerMail(), 600);
+  } catch { /* */ }
+}
