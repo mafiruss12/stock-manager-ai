@@ -1,11 +1,11 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-import DailyReportGate from '@/components/DailyReportGate';
   LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2,
   Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle,
   Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText,
 } from 'lucide-react';
+import DailyReportGate from '@/components/DailyReportGate';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
