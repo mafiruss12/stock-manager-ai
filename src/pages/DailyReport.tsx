@@ -18,7 +18,7 @@ function todayISO() {
   return new Date().toISOString().split('T')[0];
 }
 
-type Line = { product_id: string; name: string; price: number; qty: number };
+type Line = { product_id: string; name: string; price: number; cost: number; qty: number };
 
 type SavedPayload = {
   items: Line[];
@@ -75,6 +75,7 @@ export default function DailyReportPage() {
       product_id: p.id,
       name: p.name,
       price: Number(p.price) || 0,
+      cost: Number(p.cost) || 0,
       qty: Math.max(0, Math.floor(Number(qtyMap[p.id]) || 0)),
     }));
   }, [products, qtyMap]);
@@ -251,7 +252,11 @@ export default function DailyReportPage() {
         await supabase.from('stock_movements').insert({
           establishment_id: estId,
           product_id: line.product_id,
+          product_name: line.name,
           qty: -line.qty,
+          movement_type: 'report_sale',
+          unit_cost: line.cost || Number(prod.cost) || 0,
+          unit_price: line.price || Number(prod.price) || 0,
           reason: 'rapport_du_jour',
           note: `Rapport ${date}`,
           created_by: member?.user_id || null,

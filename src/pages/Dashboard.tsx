@@ -17,6 +17,12 @@ import {
   getBusinessUI,
 } from '@/lib/businessTypes';
 import type { Sale, Order } from '@/lib/types';
+import {
+  loadBeverageProfitFromReports,
+  dateDaysAgo,
+  monthStartISO,
+  type BeveragePeriodReport,
+} from '@/lib/beverageProfit';
 
 interface DashboardData {
   todaySales: number;
@@ -44,6 +50,9 @@ interface DashboardData {
   weekExpenses: number;
   weekPurchases: number;
   weekProfit: number;
+  bevToday: BeveragePeriodReport;
+  bevWeek: BeveragePeriodReport;
+  bevMonth: BeveragePeriodReport;
 }
 
 export default function Dashboard() {
@@ -177,6 +186,12 @@ export default function Dashboard() {
       }));
 
       if (!cancelled) {
+        const [bevToday, bevWeek, bevMonth] = await Promise.all([
+          loadBeverageProfitFromReports(estId, dateDaysAgo(0)),
+          loadBeverageProfitFromReports(estId, dateDaysAgo(6)),
+          loadBeverageProfitFromReports(estId, monthStartISO()),
+        ]);
+
         setData({
           todaySales, todayExpenses, todayProfit: todaySales - todayExpenses,
           weekSalesTotal, lowStockCount: lowStock,
@@ -196,6 +211,9 @@ export default function Dashboard() {
           weekExpenses,
           weekPurchases,
           weekProfit,
+          bevToday,
+          bevWeek,
+          bevMonth,
         });
       }
       } catch (e) {
@@ -203,7 +221,7 @@ export default function Dashboard() {
         console.error(e);
         if (!cancelled) {
           setData({
-            todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0, monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekExpenses: 0, weekPurchases: 0, weekProfit: 0, weekSalesTotal: 0, lowStockCount: 0,
+            todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0, monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekExpenses: 0, weekPurchases: 0, weekProfit: 0, bevToday: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 }, bevWeek: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 }, bevMonth: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 }, weekSalesTotal: 0, lowStockCount: 0,
             employeeCount: 0, activeOrders: 0, freeTables: 0, occupiedTables: 0,
             weeklyData: [], weekValues: [], recentSales: [], activeOrdersList: [], topProducts: [],
             aiAlerts: [], dataPartial: true,
@@ -319,6 +337,71 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+
+      {/* Sorties boissons & bénéfice auto (rapports du jour) */}
+      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-100">Sorties boissons &amp; bénéfice</h2>
+            <p className="text-xs text-stone-500">
+              Calcul auto depuis les rapports journaliers × (prix vente − prix achat)
+            </p>
+          </div>
+          <Link to="/daily-report" className="text-sm text-amber-400 hover:underline">
+            Rapport du jour →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {[
+            { label: "Aujourd'hui", r: data.bevToday },
+            { label: '7 jours', r: data.bevWeek },
+            { label: 'Mois', r: data.bevMonth },
+          ].map((b) => (
+            <div key={b.label} className="rounded-xl border border-stone-700 bg-stone-800/50 px-3 py-3">
+              <p className="text-xs text-stone-500 uppercase">{b.label}</p>
+              <p className="text-stone-300 text-sm mt-1">{b.r?.totalQty ?? 0} sorties</p>
+              <p className="text-stone-400 text-xs">CA {formatFCFA(b.r?.totalCA ?? 0)}</p>
+              <p className={`text-lg font-bold mt-1 ${(b.r?.totalProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {formatFCFA(b.r?.totalProfit ?? 0)}
+              </p>
+              <p className="text-[11px] text-stone-500">bénéfice brut boissons</p>
+            </div>
+          ))}
+        </div>
+        {(data.bevToday?.lines?.length ?? 0) > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr className="text-stone-500 text-left border-b border-stone-800">
+                  <th className="py-2">Boisson</th>
+                  <th className="py-2">Sorties (jour)</th>
+                  <th className="py-2">CA</th>
+                  <th className="py-2">Coût</th>
+                  <th className="py-2">Bénéfice</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.bevToday?.lines ?? []).slice(0, 12).map((l) => (
+                  <tr key={l.product_id} className="border-b border-stone-800/60">
+                    <td className="py-2 text-stone-200">{l.name}</td>
+                    <td className="py-2 text-stone-300">{l.qty_out}</td>
+                    <td className="py-2 text-stone-300">{formatFCFA(l.ca)}</td>
+                    <td className="py-2 text-stone-400">{formatFCFA(l.cost)}</td>
+                    <td className={`py-2 font-medium ${l.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {formatFCFA(l.profit)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-stone-500">
+            Aucune sortie boisson dans les rapports du jour pour aujourd&apos;hui. Faites la clôture pour alimenter ce rapport.
+          </p>
+        )}
+      </div>
+
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
             <p className="text-stone-500 text-xs">Valeur du stock (au coût d&apos;achat)</p>

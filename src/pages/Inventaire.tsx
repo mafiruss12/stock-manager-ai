@@ -390,6 +390,20 @@ export default function Inventaire() {
         reason: arrivageForm.note || 'Nouvel arrivage',
         client_op_id: newClientOpId(),
       });
+      try {
+        await supabase.from('stock_movements').insert({
+          establishment_id: estId,
+          product_id: p.id,
+          product_name: p.name,
+          qty: qty,
+          movement_type: 'arrival',
+          unit_cost: Number(p.cost) || 0,
+          unit_price: Number(p.price) || 0,
+          reason: 'arrivage',
+          note: arrivageForm.note || 'Nouvel arrivage',
+          created_by: member?.user_id || null,
+        });
+      } catch { /* table optionnelle */ }
       await loadProducts();
       await loadAudit();
     } else {
