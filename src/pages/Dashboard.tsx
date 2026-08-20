@@ -41,6 +41,9 @@ interface DashboardData {
   monthProfit: number;
   stockValue: number;
   todayCogs: number;
+  weekExpenses: number;
+  weekPurchases: number;
+  weekProfit: number;
 }
 
 export default function Dashboard() {
@@ -108,8 +111,15 @@ export default function Dashboard() {
         0
       );
       const monthProfit = monthSales - monthExpenses - monthPurchases;
-      // coût estimatif des ventes du jour si colonne cost dispo
       const todayCogs = 0;
+
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+      const [weekExpRes, weekPurchRes] = await Promise.all([
+        supabase.from('expenses').select('amount').eq('establishment_id', estId).gte('created_at', weekAgo),
+        supabase.from('purchases').select('total').eq('establishment_id', estId).gte('created_at', weekAgo),
+      ]);
+      const weekExpenses = (weekExpRes.data ?? []).reduce((s, x) => s + Number(x.amount || 0), 0);
+      const weekPurchases = (weekPurchRes.data ?? []).reduce((s, x) => s + Number(x.total || 0), 0);
 
       const products = productsRes.data ?? [];
       const lowStockItems = products.filter((p) => Number(p.stock) <= Number(p.min_stock));
@@ -141,6 +151,7 @@ export default function Dashboard() {
         weekValues.push(sum);
       }
       const weekSalesTotal = weekValues.reduce((a, b) => a + b, 0);
+      const weekProfit = weekSalesTotal - weekExpenses - weekPurchases;
 
       const aiAlerts: string[] = [];
       for (const p of lowStockItems.slice(0, 5)) {
@@ -182,6 +193,9 @@ export default function Dashboard() {
           monthProfit,
           stockValue,
           todayCogs,
+          weekExpenses,
+          weekPurchases,
+          weekProfit,
         });
       }
       } catch (e) {
@@ -189,7 +203,7 @@ export default function Dashboard() {
         console.error(e);
         if (!cancelled) {
           setData({
-            todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0, monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekSalesTotal: 0, lowStockCount: 0,
+            todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0, monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekExpenses: 0, weekPurchases: 0, weekProfit: 0, weekSalesTotal: 0, lowStockCount: 0,
             employeeCount: 0, activeOrders: 0, freeTables: 0, occupiedTables: 0,
             weeklyData: [], weekValues: [], recentSales: [], activeOrdersList: [], topProducts: [],
             aiAlerts: [], dataPartial: true,
@@ -284,7 +298,26 @@ export default function Dashboard() {
           <StatCard title="CA du mois" value={formatFCFA(data.monthSales ?? 0)} icon={<TrendingUp size={20} />} />
           <StatCard title="Dépenses du mois" value={formatFCFA(data.monthExpenses ?? 0)} icon={<DollarSign size={20} />} />
           <StatCard title="Achats stock (mois)" value={formatFCFA(data.monthPurchases ?? 0)} icon={<Package size={20} />} />
-          <StatCard title="Résultat mois" value={formatFCFA(data.monthProfit ?? 0)} icon={<TrendingUp size={20} />} />
+        </div>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+            <p className="text-emerald-200/80 text-xs uppercase tracking-wide">Bénéfice net — semaine (7 j)</p>
+            <p className={`text-2xl font-bold mt-1 ${(data.weekProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {formatFCFA(data.weekProfit ?? 0)}
+            </p>
+            <p className="text-[11px] text-stone-500 mt-1">
+              CA {formatFCFA(data.weekSalesTotal)} − dépenses {formatFCFA(data.weekExpenses ?? 0)} − achats {formatFCFA(data.weekPurchases ?? 0)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <p className="text-amber-200/80 text-xs uppercase tracking-wide">Bénéfice net — mois</p>
+            <p className={`text-2xl font-bold mt-1 ${(data.monthProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {formatFCFA(data.monthProfit ?? 0)}
+            </p>
+            <p className="text-[11px] text-stone-500 mt-1">
+              CA {formatFCFA(data.monthSales ?? 0)} − dépenses {formatFCFA(data.monthExpenses ?? 0)} − achats {formatFCFA(data.monthPurchases ?? 0)}
+            </p>
+          </div>
         </div>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
@@ -292,7 +325,7 @@ export default function Dashboard() {
             <p className="text-amber-300 font-semibold text-lg">{formatFCFA(data.stockValue ?? 0)}</p>
           </div>
           <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
-            <p className="text-stone-500 text-xs">Marge jour (CA − dépenses)</p>
+            <p className="text-stone-500 text-xs">Résultat du jour (CA − dépenses)</p>
             <p className={`font-semibold text-lg ${(data.todayProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {formatFCFA(data.todayProfit ?? 0)}
             </p>
