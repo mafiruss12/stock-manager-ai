@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Package, Plus, Pencil, Trash2, Search, AlertTriangle,
   Sparkles, Download, Calculator, Camera, Printer,
+  Truck, MoreHorizontal, History, RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -38,6 +39,11 @@ export default function Inventaire() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [tab, setTab] = useState<'stock' | 'arrivage' | 'options'>('stock');
+  const [auditRows, setAuditRows] = useState<any[]>([]);
+  const [liveNote, setLiveNote] = useState('');
+  const [arrivageForm, setArrivageForm] = useState({ productId: '', qty: '', note: '' });
+
   const [form, setForm] = useState({
     name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité',
   });
@@ -61,10 +67,44 @@ export default function Inventaire() {
     setLoading(false);
   }
 
+  async function loadAudit() {
+    if (!estId) return;
+    const { data } = await supabase
+      .from('operation_audit')
+      .select('id, action, entity_label, actor_name, old_value, new_value, reason, created_at')
+      .eq('establishment_id', estId)
+      .order('created_at', { ascending: false })
+      .limit(40);
+    setAuditRows(data || []);
+  }
+
   useEffect(() => {
     loadProducts();
+    loadAudit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member, estId]);
+
+  // Temps réel : tout le monde voit le stock à jour
+  useEffect(() => {
+    if (!estId) return;
+    const channel = supabase
+      .channel(`products-live-${estId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products', filter: `establishment_id=eq.${estId}` },
+        () => {
+          setLiveNote('Stock mis à jour (équipe)');
+          loadProducts();
+          loadAudit();
+          setTimeout(() => setLiveNote(''), 2500);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estId]);
 
   const categories = useMemo(() => {
     const set = new Set(products.map((p) => p.category || 'Autre'));
@@ -315,6 +355,52 @@ export default function Inventaire() {
   }
 
 
+  async function receiveArrivage() {
+    if (!estId || !arrivageForm.productId || !arrivageForm.qty) {
+      alert('Choisissez une boisson et une quantité.');
+      return;
+    }
+    const qty = Number(arrivageForm.qty);
+    if (!qty || qty <= 0) {
+      alert('Quantité invalide');
+      return;
+    }
+    const p = products.find((x) => x.id === arrivageForm.productId);
+    if (!p) {
+      alert('Produit introuvable');
+      return;
+    }
+    const next = (Number(p.stock) || 0) + qty;
+    if (isOnline()) {
+      const { error } = await supabase.from('products').update({ stock: next }).eq('id', p.id);
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      await logAudit({
+        establishment_id: estId,
+        actor_id: member?.user_id,
+        actor_name: member?.full_name || member?.email,
+        action: 'stock.arrival',
+        entity_type: 'product',
+        entity_id: p.id,
+        entity_label: p.name,
+        old_value: { stock: p.stock },
+        new_value: { stock: next, arrival_qty: qty },
+        reason: arrivageForm.note || 'Nouvel arrivage',
+        client_op_id: newClientOpId(),
+      });
+      await loadProducts();
+      await loadAudit();
+    } else {
+      await queueAdd('products', 'update', { stock: next }, { id: p.id });
+      setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
+    }
+    setArrivageForm({ productId: '', qty: '', note: '' });
+    setTab('stock');
+    alert(`Arrivage enregistré : +${qty} ${p.name}`);
+  }
+
   function printInventory(mode: 'stock' | 'blank' = 'blank') {
     const estName = member?.establishment_id ? 'Établissement' : 'Activité';
     const dateStr = new Date().toLocaleDateString('fr-FR', {
@@ -436,53 +522,191 @@ export default function Inventaire() {
             <Package className="text-amber-400" size={26} /> {ui.inventoryTitle}
           </h1>
           <p className="text-stone-400 text-sm mt-0.5">
-            {ui.inventorySubtitle} · calculs auto · alertes IA
+            {ui.inventorySubtitle}
+            {liveNote ? <span className="text-emerald-400 ml-2">· {liveNote}</span> : null}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {(normalizeBusinessType(activeEstablishment?.type) === 'maquis' ||
-            normalizeBusinessType(activeEstablishment?.type) === 'bar') && (
-          <button
-            onClick={seedCatalog}
-            disabled={seeding}
-            className="px-3 py-2 rounded-xl border border-stone-700 text-stone-300 text-sm hover:bg-stone-800 flex items-center gap-1.5"
-          >
-            <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
-          </button>
-          )}
-          <button
-            type="button"
-            onClick={() => printInventory('blank')}
-            className="px-3 py-2 rounded-xl border border-stone-700 text-stone-300 text-sm hover:bg-stone-800 flex items-center gap-1.5"
-            title="Feuille à remplir à la main"
-          >
-            <Printer size={16} /> Imprimer (manuscrit)
-          </button>
-          <button
-            type="button"
-            onClick={() => printInventory('stock')}
-            className="px-3 py-2 rounded-xl border border-stone-700 text-stone-300 text-sm hover:bg-stone-800 flex items-center gap-1.5"
-            title="État actuel du stock"
-          >
-            <Printer size={16} /> Imprimer stock
-          </button>
-          <button type="button" onClick={() => navigate('/inventory/scan')} className="btn-secondary flex items-center gap-2">
-            <Camera size={18} /> Scanner photo (IA)
-          </button>
-          <button type="button" onClick={sendCatalogToTeam} className="px-3 py-2 rounded-xl border border-amber-600/50 text-amber-200 text-sm hover:bg-amber-500/10">
-            Envoyer catalogue
-          </button>
-          {['super_admin','admin','owner','manager'].includes((effectiveRole || member?.role || '') as string) && (
-            <button type="button" onClick={resetCatalogStock} className="px-3 py-2 rounded-xl border border-error-500/40 text-error-300 text-sm hover:bg-error-500/10">
-              Reset stock → 0
-            </button>
-          )}
-          <button onClick={openAdd} className="btn-primary flex items-center gap-2">
-            <Plus size={18} /> Ajouter
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => { loadProducts(); loadAudit(); }}
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <RefreshCw size={16} /> Actualiser
+        </button>
       </div>
 
+      {/* 3 sections inventaire */}
+      <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-stone-900 border border-stone-800">
+        <button
+          type="button"
+          onClick={() => setTab('stock')}
+          className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
+            tab === 'stock' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
+          }`}
+        >
+          <Package size={16} className="inline mr-1" /> Mon stock
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('arrivage')}
+          className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
+            tab === 'arrivage' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
+          }`}
+        >
+          <Truck size={16} className="inline mr-1" /> Nouvel arrivage
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('options')}
+          className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
+            tab === 'options' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
+          }`}
+        >
+          <MoreHorizontal size={16} className="inline mr-1" /> Plus d&apos;options
+        </button>
+      </div>
+
+      {tab === 'arrivage' && (
+        <div className="card space-y-4">
+          <h2 className="font-semibold text-stone-100 flex items-center gap-2">
+            <Truck className="text-amber-400" size={18} /> Enregistrer un arrivage
+          </h2>
+          <p className="text-sm text-stone-400">
+            Ajoutez la quantité reçue : le stock est mis à jour pour toute l&apos;équipe (temps réel).
+          </p>
+          <div>
+            <label className="label">Boisson / produit</label>
+            <select
+              className="input-field"
+              value={arrivageForm.productId}
+              onChange={(e) => setArrivageForm({ ...arrivageForm, productId: e.target.value })}
+            >
+              <option value="">— Choisir —</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (stock : {p.stock})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Quantité reçue</label>
+              <input
+                type="number"
+                min={1}
+                className="input-field"
+                value={arrivageForm.qty}
+                onChange={(e) => setArrivageForm({ ...arrivageForm, qty: e.target.value })}
+                placeholder="ex: 24"
+              />
+            </div>
+            <div>
+              <label className="label">Note (optionnel)</label>
+              <input
+                className="input-field"
+                value={arrivageForm.note}
+                onChange={(e) => setArrivageForm({ ...arrivageForm, note: e.target.value })}
+                placeholder="Fournisseur, BL…"
+              />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={receiveArrivage} className="btn-primary">
+              Valider l&apos;arrivage
+            </button>
+            <button type="button" onClick={() => { openAdd(); setTab('stock'); }} className="btn-secondary">
+              Nouvelle référence produit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tab === 'options' && (
+        <div className="space-y-4">
+          <div className="card">
+            <h2 className="font-semibold text-stone-100 mb-3 flex items-center gap-2">
+              <MoreHorizontal size={18} /> Actions inventaire
+            </h2>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <button type="button" onClick={() => printInventory('blank')} className="btn-secondary flex items-center gap-2 justify-center">
+                <Printer size={16} /> Imprimer (manuscrit)
+              </button>
+              <button type="button" onClick={() => printInventory('stock')} className="btn-secondary flex items-center gap-2 justify-center">
+                <Printer size={16} /> Imprimer stock
+              </button>
+              <button type="button" onClick={() => navigate('/inventory/scan')} className="btn-secondary flex items-center gap-2 justify-center">
+                <Camera size={16} /> Scanner photo (IA)
+              </button>
+              <button type="button" onClick={sendCatalogToTeam} className="btn-secondary flex items-center gap-2 justify-center text-amber-200">
+                Envoyer catalogue équipe
+              </button>
+              <button type="button" onClick={seedCatalog} disabled={seeding} className="btn-secondary flex items-center gap-2 justify-center">
+                <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
+              </button>
+              <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-2 justify-center">
+                <Plus size={16} /> Ajouter un produit
+              </button>
+              {['super_admin','admin','owner','manager'].includes((effectiveRole || member?.role || '') as string) && (
+                <button type="button" onClick={resetCatalogStock} className="px-3 py-2 rounded-xl border border-error-500/40 text-error-300 text-sm hover:bg-error-500/10 sm:col-span-2">
+                  Remettre tous les stocks à zéro
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="card">
+            <h2 className="font-semibold text-stone-100 mb-2 flex items-center gap-2">
+              <History size={18} className="text-amber-400" /> Historique des mouvements
+            </h2>
+            <p className="text-xs text-stone-500 mb-3">
+              Traces visibles par le propriétaire : arrivages, corrections, créations, suppressions.
+            </p>
+            {auditRows.length === 0 ? (
+              <p className="text-sm text-stone-500">
+                Aucune trace pour le moment (ou table audit non encore créée sur Supabase).
+              </p>
+            ) : (
+              <ul className="space-y-2 max-h-96 overflow-y-auto">
+                {auditRows.map((a) => {
+                  const oldS = a.old_value?.stock;
+                  const newS = a.new_value?.stock;
+                  const arr = a.new_value?.arrival_qty;
+                  const detail =
+                    arr != null
+                      ? `arrivage +${arr} (stock ${oldS} → ${newS})`
+                      : oldS !== undefined && newS !== undefined
+                        ? `stock ${oldS} → ${newS}`
+                        : a.action;
+                  return (
+                    <li key={a.id} className="text-sm border-b border-stone-800/80 pb-2">
+                      <p className="text-stone-200">
+                        <span className="text-amber-300">{a.entity_label || a.entity_type}</span>
+                        {' · '}
+                        {detail}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        {a.actor_name || 'Utilisateur'} · {a.action}
+                        {a.created_at
+                          ? ` · ${new Date(a.created_at).toLocaleString('fr-FR', {
+                              day: '2-digit',
+                              month: 'short',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}`
+                          : ''}
+                        {a.reason ? ` · ${a.reason}` : ''}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'stock' && (
+        <>
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
@@ -522,6 +746,9 @@ export default function Inventaire() {
             className="input-field pl-10"
           />
         </div>
+        <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
+          <Plus size={18} /> Ajouter
+        </button>
         <div className="flex gap-2 flex-wrap">
           {categories.map((c) => (
             <button
@@ -654,6 +881,9 @@ export default function Inventaire() {
       <p className="text-xs text-stone-500">
         Casiers = Qté ÷ 24 · Valeur stock = Qté × prix d&apos;achat · Statut IA : RUPTURE / À COMMANDER / SURVEILLER / OK selon stock min.
       </p>
+
+        </>
+      )}
 
       {/* Modal add/edit */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Modifier le produit' : 'Nouveau produit'}>
