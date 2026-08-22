@@ -40,12 +40,15 @@ export function setPaymentWhatsApp(phone: string) {
 export function paymentWhatsAppLink(message?: string): string {
   let d = getPaymentWhatsApp().replace(/\D/g, '');
   if (d.startsWith('00')) d = d.slice(2);
-  if (d.startsWith('0') && d.length === 10) d = '225' + d.slice(1);
-  if (!d.startsWith('225') && d.length === 10) d = '225' + d;
+  // 0502012011 → 2250502012011 (garder le 0 local après 225)
+  if (d.startsWith('0') && d.length === 10) d = '225' + d;
+  else if (!d.startsWith('225') && d.length === 10) d = '225' + d;
+  // Format demandé : https://wa.me/+2250502012011
+  const withPlus = d.startsWith('+') ? d : `+${d}`;
   const text =
     message ||
     `Bonjour, je souhaite payer mon abonnement Stock Manager (${PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois). Mon établissement : `;
-  return `https://wa.me/${d}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${withPlus}?text=${encodeURIComponent(text)}`;
 }
 
 export function priceForMonths(months: number): number {
