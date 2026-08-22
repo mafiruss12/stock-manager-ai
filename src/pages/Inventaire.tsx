@@ -62,15 +62,7 @@ export default function Inventaire() {
         .eq('establishment_id', estId)
         .order('category')
         .order('name');
-      return (
-    <>
-    {isStaffOnly && !canEditStock && (
-      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-        Accès inventaire en lecture seule. Les modifications (arrivages, corrections) sont réservées au propriétaire.
-        Votre rôle : faire le <strong>rapport du jour</strong>.
-      </div>
-    )}
-res.data ?? []) as Product[];
+      return (res.data ?? []) as Product[];
     });
     setProducts(data ?? []);
     setLoading(false);
@@ -553,6 +545,13 @@ res.data ?? []) as Product[];
   }
 
   return (
+    <>
+    {isStaffOnly && !canEditStock && (
+      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        Accès inventaire en lecture seule. Les modifications (arrivages, corrections) sont réservées au propriétaire.
+        Votre rôle : faire le <strong>rapport du jour</strong>.
+      </div>
+    )}
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
