@@ -31,6 +31,7 @@ export default function Inventaire() {
   const canEditStock = ['super_admin', 'admin', 'owner', 'manager'].includes(
     String(effectiveRole || member?.role || '')
   );
+  const isStaffOnly = ['employee', 'cashier'].includes(String(effectiveRole || member?.role || ''));
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -61,7 +62,15 @@ export default function Inventaire() {
         .eq('establishment_id', estId)
         .order('category')
         .order('name');
-      return (res.data ?? []) as Product[];
+      return (
+    <>
+    {isStaffOnly && !canEditStock && (
+      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        Accès inventaire en lecture seule. Les modifications (arrivages, corrections) sont réservées au propriétaire.
+        Votre rôle : faire le <strong>rapport du jour</strong>.
+      </div>
+    )}
+res.data ?? []) as Product[];
     });
     setProducts(data ?? []);
     setLoading(false);
@@ -158,6 +167,7 @@ export default function Inventaire() {
   }
 
   async function save() {
+    if (!canEditStock) { alert(\'Modification réservée au propriétaire / gérant.\'); return; }
     if (!estId || !form.name.trim()) return;
     const payload = {
       establishment_id: estId,
@@ -356,6 +366,7 @@ export default function Inventaire() {
 
 
   async function receiveArrivage() {
+    if (!canEditStock) { alert(\'Arrivage réservé au propriétaire / gérant.\'); return; }
     if (!estId || !arrivageForm.productId || !arrivageForm.qty) {
       alert('Choisissez une boisson et une quantité.');
       return;
@@ -675,7 +686,7 @@ export default function Inventaire() {
               <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-2 justify-center">
                 <Plus size={16} /> Ajouter un produit
               </button>
-              {['super_admin','admin','owner','manager'].includes((effectiveRole || member?.role || '') as string) && (
+              {['super_admin','admin','owner'].includes((effectiveRole || member?.role || '') as string) && (
                 <button type="button" onClick={resetCatalogStock} className="px-3 py-2 rounded-xl border border-error-500/40 text-error-300 text-sm hover:bg-error-500/10 sm:col-span-2">
                   Remettre tous les stocks à zéro
                 </button>
@@ -967,5 +978,6 @@ export default function Inventaire() {
         </div>
       </Modal>
     </div>
+    </>
   );
 }

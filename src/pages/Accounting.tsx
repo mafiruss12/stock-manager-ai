@@ -16,7 +16,8 @@ interface PeriodData {
 }
 
 export default function Accounting() {
-  const { member } = useAuth();
+  const { member, effectiveRole } = useAuth();
+  const canSeeFinance = ['super_admin', 'admin', 'owner'].includes(String(effectiveRole || member?.role || ''));
   const [period, setPeriod] = useState<'today' | 'week' | 'month' | 'year'>('month');
   const [data, setData] = useState<PeriodData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,7 @@ export default function Accounting() {
     })();
   }, [member, period]);
 
+  if (!canSeeFinance) return <div className="p-6 text-stone-400">Comptabilité réservée au propriétaire.</div>;
   if (loading) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
   if (!member?.establishment_id) return <EmptyState icon={<Calculator size={48} />} title="Aucun établissement" message="Vous n'êtes rattaché à aucun établissement." />;
   if (!data) return null;

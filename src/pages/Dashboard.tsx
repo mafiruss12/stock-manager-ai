@@ -56,7 +56,9 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
-  const { member, activeEstablishment } = useAuth();
+  const { member, activeEstablishment, effectiveRole } = useAuth();
+  const role = String(effectiveRole || member?.role || '');
+  const canSeeFinance = ['super_admin', 'admin', 'owner'].includes(role);
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -297,6 +299,8 @@ export default function Dashboard() {
         </div>
       </div>
 
+{canSeeFinance && (
+      <>
       {/* Comptabilité */}
       <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -415,12 +419,24 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </>
+      )}
 
+      {/* Stats résumées — montants réservés au propriétaire */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {canSeeFinance ? (
+          <>
         <StatCard title="Ventes du jour" value={formatFCFA(data.todaySales)} icon={<DollarSign size={20} />} />
         <StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} />
         <StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} />
         <StatCard title="Bénéfice jour" value={formatFCFA(data.todayProfit)} icon={<TrendingUp size={20} />} />
+          </>
+        ) : (
+          <>
+        <StatCard title="Stock bas" value={String(data.lowStockCount)} icon={<AlertTriangle size={20} />} />
+        <StatCard title="Équipe" value={String(data.employeeCount)} icon={<Users size={20} />} />
+          </>
+        )}
         {(bizType === 'restaurant' || bizType === 'bar') && (
           <StatCard title="Commandes actives" value={String(data.activeOrders)} icon={<Receipt size={20} />} />
         )}
