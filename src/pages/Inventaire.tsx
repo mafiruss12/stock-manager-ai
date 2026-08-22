@@ -159,7 +159,7 @@ export default function Inventaire() {
   }
 
   async function save() {
-    if (!canEditStock) { alert(\'Modification réservée au propriétaire / gérant.\'); return; }
+    if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     if (!estId || !form.name.trim()) return;
     const payload = {
       establishment_id: estId,
@@ -358,7 +358,7 @@ export default function Inventaire() {
 
 
   async function receiveArrivage() {
-    if (!canEditStock) { alert(\'Arrivage réservé au propriétaire / gérant.\'); return; }
+    if (!canEditStock) { alert('Arrivage réservé au propriétaire / gérant.'); return; }
     if (!estId || !arrivageForm.productId || !arrivageForm.qty) {
       alert('Choisissez une boisson et une quantité.');
       return;
