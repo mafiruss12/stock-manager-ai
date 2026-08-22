@@ -8,6 +8,7 @@ import {
 import DailyReportGate from '@/components/DailyReportGate';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
+import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
@@ -87,6 +88,18 @@ const NAV_SECTIONS: NavSection[] = [
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
+
+  // Déconnexion auto après 15 min sans activité
+  useIdleTimeout(() => {
+    void (async () => {
+      try {
+        await signOut();
+      } finally {
+        window.location.assign('/');
+      }
+    })();
+  }, Boolean(member));
+
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
