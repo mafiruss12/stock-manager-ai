@@ -341,6 +341,7 @@ export default function Dashboard() {
             </p>
           </div>
         </div>
+      </div>
 
       {/* Sorties boissons & bénéfice auto (rapports du jour) */}
       <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
