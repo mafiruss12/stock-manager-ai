@@ -252,7 +252,7 @@ export default function Inventaire() {
   async function sendCatalogToTeam() {
     if (!member?.establishment_id || !member.user_id) return;
     const n = products.length;
-    if (!confirm(`Envoyer / partager le catalogue produits (${n} produits) à toute l'équipe de cet établissement ?`)) return;
+    if (!confirm(`Envoyer / partager le catalogue produits (${n} produits) a toute l equipe de cet etablissement ?`)) return;
     const { error } = await supabase.from('catalog_events').insert({
       establishment_id: estId,
       actor_id: member.user_id,

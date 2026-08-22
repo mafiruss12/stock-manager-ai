@@ -406,17 +406,16 @@ export default function Dashboard() {
         )}
       </div>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
-            <p className="text-stone-500 text-xs">Valeur du stock (au coût d&apos;achat)</p>
-            <p className="text-amber-300 font-semibold text-lg">{formatFCFA(data.stockValue ?? 0)}</p>
-          </div>
-          <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
-            <p className="text-stone-500 text-xs">Résultat du jour (CA − dépenses)</p>
-            <p className={`font-semibold text-lg ${(data.todayProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {formatFCFA(data.todayProfit ?? 0)}
-            </p>
-          </div>
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+          <p className="text-stone-500 text-xs">Valeur du stock (au coût d&apos;achat)</p>
+          <p className="text-amber-300 font-semibold text-lg">{formatFCFA(data.stockValue ?? 0)}</p>
+        </div>
+        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+          <p className="text-stone-500 text-xs">Résultat du jour (CA − dépenses)</p>
+          <p className={`font-semibold text-lg ${(data.todayProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {formatFCFA(data.todayProfit ?? 0)}
+          </p>
         </div>
       </div>
       </>
