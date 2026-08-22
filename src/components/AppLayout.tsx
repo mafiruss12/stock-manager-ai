@@ -6,6 +6,7 @@ import {
   Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText,
 } from 'lucide-react';
 import DailyReportGate from '@/components/DailyReportGate';
+import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
@@ -428,7 +429,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 pb-24"><DailyReportGate />
+        <main className="flex-1 p-4 lg:p-8 pb-24"><SubscriptionGate />
+          <DailyReportGate />
         {children}</main>
         <UpdateBanner />
       <footer className="px-4 py-3 text-center text-[11px] text-stone-500 border-t border-stone-800/80">

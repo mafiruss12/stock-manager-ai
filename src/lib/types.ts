@@ -15,6 +15,10 @@ export interface Establishment {
   created_by: string | null;
   created_at: string;
   logo_url?: string | null;
+  subscription_status?: string | null;
+  trial_ends_at?: string | null;
+  subscription_ends_at?: string | null;
+  last_payment_at?: string | null;
 }
 
 export interface Member {

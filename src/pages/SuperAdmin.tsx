@@ -168,14 +168,44 @@ export default function SuperAdmin() {
     }
   }
 
+  async function markSubscriptionPaid(estId: string) {
+    const end = new Date();
+    end.setDate(end.getDate() + 30);
+    const { error: err } = await supabase.from('establishments').update({
+      subscription_status: 'active',
+      subscription_ends_at: end.toISOString(),
+      last_payment_at: new Date().toISOString(),
+    }).eq('id', estId);
+    if (err) setError(err.message);
+    else {
+      flash('Abonnement activé 30 jours (10 000 F)');
+      await loadData();
+    }
+  }
+
+  async function suspendSubscription(estId: string) {
+    const { error: err } = await supabase.from('establishments').update({
+      subscription_status: 'suspended',
+    }).eq('id', estId);
+    if (err) setError(err.message);
+    else {
+      flash('Établissement suspendu');
+      await loadData();
+    }
+  }
+
   async function createEstablishment() {
     if (!estForm.name || !member) return;
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 30);
     const { error: err } = await supabase.from('establishments').insert({
       name: estForm.name,
       type: estForm.type,
       address: estForm.address || null,
       phone: estForm.phone || null,
       created_by: member.user_id,
+      subscription_status: 'trial',
+      trial_ends_at: trialEnd.toISOString(),
     });
     if (err) setError(err.message);
     else {
@@ -424,6 +454,11 @@ export default function SuperAdmin() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-stone-100">{est.name}</p>
+                          <p className="text-[11px] text-stone-500">Abo: {(est as any).subscription_status || 'trial'}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <button type="button" className="text-[11px] px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-200" onClick={() => markSubscriptionPaid(est.id)}>Activer 30j (10k)</button>
+                            <button type="button" className="text-[11px] px-2 py-0.5 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>Suspendre</button>
+                          </div>
                           <p className="text-sm text-stone-400">{est.type || 'maquis'}</p>
                           {est.address && <p className="text-xs text-stone-500 mt-1">{est.address}</p>}
                           {est.phone && <p className="text-xs text-stone-500">{est.phone}</p>}

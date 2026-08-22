@@ -49,6 +49,8 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
             name: name.trim(),
             type: selected,
             created_by: user.id,
+            subscription_status: 'trial',
+            trial_ends_at: new Date(Date.now() + 30 * 86400000).toISOString(),
           })
           .select()
           .single();

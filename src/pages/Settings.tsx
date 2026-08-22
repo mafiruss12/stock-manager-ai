@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { PLAN, getSubscriptionState, paymentInstructions } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 
 export default function SettingsPage() {
-  const { member, refresh, signOut } = useAuth();
+  const { member, activeEstablishment, refresh, signOut } = useAuth();
   const [est, setEst] = useState<Establishment | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,7 +132,7 @@ export default function SettingsPage() {
           address: form.address || null,
           phone: form.phone || null,
           logo_url: form.logo_url || null,
-          created_by: member.user_id,
+          created_by: member.user_id, subscription_status: 'trial', trial_ends_at: new Date(Date.now()+30*86400000).toISOString(),
         } as any)
         .select()
         .single();
@@ -164,6 +165,15 @@ export default function SettingsPage() {
   if (loading) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
 
   return (
+    <>
+    {activeEstablishment && (
+      <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-stone-200">
+        <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
+        <p>{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
+        <p className="text-xs text-stone-400 mt-2 whitespace-pre-wrap">{paymentInstructions()}</p>
+      </div>
+    )}
+
     <div>
       <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Profil & Paramètres</h1>
       <p className="text-stone-400 text-sm mb-6">Personnalisez votre compte et votre établissement</p>
@@ -469,5 +479,6 @@ export default function SettingsPage() {
 
       </div>
     </div>
+    </>
   );
 }
