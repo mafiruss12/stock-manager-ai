@@ -5,6 +5,7 @@ import {
   History, PackageMinus,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { isOnline, queueAdd, cacheSet, cacheGet } from '@/lib/offline';
 import { useAuth } from '@/lib/auth';
 import { useEstId } from '@/lib/useEstId';
 import type { Product } from '@/lib/types';
@@ -209,7 +210,26 @@ export default function DailyReportPage() {
     };
     if (markSent) row.sent_at = new Date().toISOString();
 
-    if (reportId) {
+    // Hors ligne : file d'attente + cache local
+    if (!isOnline()) {
+      const localId = reportId || `offline-report-${estId}-${date}`;
+      if (reportId && !String(reportId).startsWith('offline-')) {
+        await queueAdd('daily_reports', 'update', row, { id: reportId });
+      } else {
+        await queueAdd('daily_reports', 'insert', { ...row, _local_id: localId });
+      }
+      setReportId(localId);
+      try {
+        const key = `daily_reports:${estId}`;
+        const cached = (await cacheGet<Record<string, unknown>[]>(key)) || [];
+        const filtered = cached.filter((r) => r.date !== date);
+        filtered.unshift({ ...row, id: localId });
+        await cacheSet(key, filtered.slice(0, 60));
+      } catch { /* */ }
+      return localId;
+    }
+
+    if (reportId && !String(reportId).startsWith('offline-')) {
       const { error } = await supabase.from('daily_reports').update(row).eq('id', reportId);
       if (error && String(error.message).includes('sent_at')) {
         const { sent_at: _s, ...rest } = row;
@@ -242,10 +262,14 @@ export default function DailyReportPage() {
       const prod = products.find((p) => p.id === line.product_id);
       if (!prod) continue;
       const next = Math.max(0, Math.floor(Number(prod.stock) || 0) - line.qty);
-      const { error } = await supabase.from('products').update({ stock: next }).eq('id', line.product_id);
-      if (error) {
-        ok = false;
-        continue;
+      if (!isOnline()) {
+        await queueAdd('products', 'update', { stock: next }, { id: line.product_id });
+      } else {
+        const { error } = await supabase.from('products').update({ stock: next }).eq('id', line.product_id);
+        if (error) {
+          ok = false;
+          continue;
+        }
       }
       // trace optionnelle
       try {

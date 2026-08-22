@@ -232,7 +232,7 @@ export async function prefetchForOffline(
 ): Promise<void> {
   if (!isOnline() || !establishmentId) return;
   try {
-    const tables = ['products', 'expenses', 'sales'] as const;
+    const tables = ['products', 'expenses', 'sales', 'daily_reports'] as const;
     for (const table of tables) {
       const { data } = await supabase
         .from(table)

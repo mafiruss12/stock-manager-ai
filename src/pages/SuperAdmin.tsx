@@ -13,6 +13,7 @@ import {
   PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
   getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink,
 } from '@/lib/subscription';
+import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 
 type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions';
 
@@ -35,6 +36,9 @@ export default function SuperAdmin() {
 
   const [estForm, setEstForm] = useState({ name: '', type: 'maquis', address: '', phone: '' });
   const [subMonths, setSubMonths] = useState(1);
+  const [mfaSecret, setMfaSecret] = useState<string | null>(null);
+  const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaTestCode, setMfaTestCode] = useState('');
   const [waPhone, setWaPhone] = useState(() => {
     try { return getPaymentWhatsApp(); } catch { return '2250502012011'; }
   });
@@ -190,6 +194,44 @@ export default function SuperAdmin() {
     } finally {
       setActionLoading(null);
     }
+  }
+
+  async function enableAdminMfa() {
+    if (!member?.user_id) return;
+    const secret = generateTotpSecret();
+    setMfaSecret(secret);
+    setMfaQr(otpauthUrl(secret, member.email || member.user_id));
+  }
+
+  async function confirmAdminMfa() {
+    if (!member?.user_id || !mfaSecret) return;
+    const ok = await verifyTotp(mfaSecret, mfaTestCode);
+    if (!ok) {
+      setError('Code 2FA incorrect — vérifiez Google Authenticator / Authy');
+      return;
+    }
+    const { error: err } = await supabase.from('members').update({
+      mfa_enabled: true,
+      mfa_secret: mfaSecret,
+    }).eq('user_id', member.user_id);
+    if (err) setError(err.message + ' (colonnes mfa_enabled / mfa_secret requises)');
+    else {
+      flash('2FA admin activée');
+      setMfaSecret(null);
+      setMfaQr(null);
+      setMfaTestCode('');
+    }
+  }
+
+  async function disableAdminMfa() {
+    if (!member?.user_id) return;
+    if (!confirm('Désactiver la double authentification ?')) return;
+    const { error: err } = await supabase.from('members').update({
+      mfa_enabled: false,
+      mfa_secret: null,
+    }).eq('user_id', member.user_id);
+    if (err) setError(err.message);
+    else flash('2FA désactivée');
   }
 
   async function activateSubscription(estId: string, months: number) {
@@ -596,6 +638,37 @@ export default function SuperAdmin() {
 
       {tab === 'subscriptions' && (
         <div className="space-y-4">
+          <div className="card space-y-3 border border-amber-500/30">
+            <h2 className="text-lg font-semibold text-stone-100">Sécurité admin — 2FA</h2>
+            <p className="text-xs text-stone-500">
+              Double authentification pour votre compte admin (Google Authenticator, Authy…).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="btn-primary text-sm" onClick={enableAdminMfa}>
+                Configurer / régénérer 2FA
+              </button>
+              <button type="button" className="btn-secondary text-sm" onClick={disableAdminMfa}>
+                Désactiver 2FA
+              </button>
+            </div>
+            {mfaQr && mfaSecret && (
+              <div className="space-y-2 pt-2 border-t border-stone-800">
+                <p className="text-xs text-stone-400">Scannez ce QR avec votre app d&apos;authentification :</p>
+                <img src={mfaQr} alt="QR 2FA" className="w-[200px] h-[200px] rounded-lg bg-white p-2" />
+                <p className="text-[11px] font-mono text-stone-500 break-all">Secret : {mfaSecret}</p>
+                <input
+                  className="input-field font-mono"
+                  placeholder="Code à 6 chiffres pour confirmer"
+                  value={mfaTestCode}
+                  onChange={(e) => setMfaTestCode(e.target.value)}
+                  maxLength={6}
+                />
+                <button type="button" className="btn-primary" onClick={confirmAdminMfa}>
+                  Confirmer et activer
+                </button>
+              </div>
+            )}
+          </div>
           <div className="card space-y-3">
             <h2 className="text-lg font-semibold text-stone-100">WhatsApp paiements</h2>
             <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN). Numéro par défaut : 05 02 01 20 11.</p>

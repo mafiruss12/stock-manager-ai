@@ -13,7 +13,7 @@ const MARQUEE_MESSAGES = [
   'Contrôle total des accès',
 ];
 
-type Mode = 'signin' | 'signup' | 'forgot';
+type Mode = 'signin' | 'signup' | 'forgot' | 'recovery' | 'mfa';
 
 function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'other' = 'other'): string {
   const e = (err || '').toLowerCase();
@@ -51,6 +51,9 @@ function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'ot
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const [mode, setMode] = useState<Mode>('signin');
+  const [newPassword, setNewPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [pendingMfaUserId, setPendingMfaUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -86,6 +89,36 @@ export default function AuthPage() {
   }, [user, authLoading]);
 
 
+  
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('recovery');
+        setError(null);
+        setSuccess('Choisissez un nouveau mot de passe sécurisé.');
+      }
+    });
+    // Lien de récupération dans l'URL
+    const hash = window.location.hash || '';
+    if (hash.includes('type=recovery')) {
+      setMode('recovery');
+    }
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+async function resendConfirmation() {
+    const authEmail = toAuthEmail(login);
+    if (!authEmail.includes('@') || authEmail.endsWith('@maquis.local')) {
+      setError('Indiquez une vraie adresse e-mail pour renvoyer la confirmation.');
+      return;
+    }
+    setLoading(true);
+    const { error: err } = await supabase.auth.resend({ type: 'signup', email: authEmail });
+    setLoading(false);
+    if (err) setError(mapAuthError(err.message, 'other'));
+    else setSuccess(`E-mail de confirmation renvoyé à ${authEmail}`);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -109,7 +142,7 @@ export default function AuthPage() {
           return;
         }
         const { error: err } = await supabase.auth.resetPasswordForEmail(authEmail, {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/?type=recovery`,
         });
         if (err) setError(mapAuthError(err.message, 'forgot'));
         else
@@ -117,6 +150,52 @@ export default function AuthPage() {
             `Un e-mail de réinitialisation a été envoyé à ${authEmail} s'il existe un compte.`
           );
         setLoading(false);
+        return;
+      }
+
+      if (mode === 'recovery') {
+        if (!newPassword || newPassword.length < 8) {
+          setError('Nouveau mot de passe : 8 caractères minimum');
+          setLoading(false);
+          return;
+        }
+        const { error: err } = await supabase.auth.updateUser({ password: newPassword });
+        if (err) setError(mapAuthError(err.message, 'other'));
+        else {
+          setSuccess('Mot de passe mis à jour. Vous pouvez vous connecter.');
+          setMode('signin');
+          setNewPassword('');
+          window.history.replaceState({}, '', '/');
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (mode === 'mfa') {
+        if (!pendingMfaUserId) {
+          setMode('signin');
+          setLoading(false);
+          return;
+        }
+        const { data: mem } = await supabase
+          .from('members')
+          .select('mfa_secret, mfa_enabled')
+          .eq('user_id', pendingMfaUserId)
+          .maybeSingle();
+        if (!mem?.mfa_enabled || !mem?.mfa_secret) {
+          setError('2FA non configuré');
+          setLoading(false);
+          return;
+        }
+        const { verifyTotp } = await import('@/lib/totp');
+        const ok = await verifyTotp(String(mem.mfa_secret), mfaCode);
+        if (!ok) {
+          setError('Code 2FA incorrect');
+          setLoading(false);
+          return;
+        }
+        setSuccess('Vérification 2FA OK…');
+        window.location.replace('/dashboard');
         return;
       }
 
@@ -132,6 +211,27 @@ export default function AuthPage() {
           setError(mapAuthError(err, 'signin'));
           setLoading(false);
           return;
+        }
+        // 2FA admin
+        const { data: sess } = await supabase.auth.getSession();
+        const uid = sess.session?.user?.id;
+        if (uid) {
+          const { data: mem } = await supabase
+            .from('members')
+            .select('role, mfa_enabled, mfa_secret')
+            .eq('user_id', uid)
+            .maybeSingle();
+          if (
+            mem?.mfa_enabled &&
+            mem?.mfa_secret &&
+            ['super_admin', 'admin'].includes(String(mem.role))
+          ) {
+            setPendingMfaUserId(uid);
+            setMode('mfa');
+            setSuccess('Entrez le code de votre application d\'authentification');
+            setLoading(false);
+            return;
+          }
         }
         setSuccess('Connexion réussie…');
         window.location.replace('/dashboard');
@@ -200,7 +300,12 @@ export default function AuthPage() {
           </div>
 
           {/* Alertes */}
-          {error && (
+          {error && (error.toLowerCase().includes('confirm') || error.toLowerCase().includes('confirmé')) && (
+              <button type="button" className="text-sm text-amber-400 underline mb-2" onClick={resendConfirmation}>
+                Renvoyer l&apos;e-mail de confirmation
+              </button>
+            )}
+            {error && (
             <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex gap-2">
               <AlertCircle size={18} className="shrink-0 mt-0.5" />
               <div>
@@ -261,7 +366,7 @@ export default function AuthPage() {
               </div>
             </div>
 
-            {mode !== 'forgot' && (
+            {mode !== 'forgot' && mode !== 'recovery' && mode !== 'mfa' && (
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="label mb-0">Mot de passe</label>
@@ -298,6 +403,10 @@ export default function AuthPage() {
             <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
               {loading ? (
                 <Loader2 className="animate-spin" size={18} />
+              ) : mode === 'recovery' ? (
+                'Enregistrer le nouveau mot de passe'
+              ) : mode === 'mfa' ? (
+                'Valider le code 2FA'
               ) : mode === 'forgot' ? (
                 <><KeyRound size={18} /> Envoyer le lien</>
               ) : mode === 'signin' ? (
