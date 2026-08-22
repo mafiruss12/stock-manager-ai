@@ -36,7 +36,7 @@ export default function SuperAdmin() {
   const [estForm, setEstForm] = useState({ name: '', type: 'maquis', address: '', phone: '' });
   const [subMonths, setSubMonths] = useState(1);
   const [waPhone, setWaPhone] = useState(() => {
-    try { return getPaymentWhatsApp(); } catch { return '2250700000000'; }
+    try { return getPaymentWhatsApp(); } catch { return '2250502012011'; }
   });
   const [approveForm, setApproveForm] = useState<{ role: Role; establishmentId: string }>({
     role: 'employee',
@@ -1087,7 +1087,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
         <div className="space-y-4">
           <div className="card space-y-3">
             <h2 className="text-lg font-semibold text-stone-100">WhatsApp paiements</h2>
-            <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN).</p>
+            <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN). Numéro par défaut : 05 02 01 20 11.</p>
             <div className="flex flex-wrap gap-2 items-end">
               <div className="flex-1 min-w-[200px]">
                 <label className="label">Numéro WhatsApp (ex: 22507xxxxxxxx)</label>
@@ -1155,24 +1155,59 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
                           {est.subscription_ends_at ? new Date(est.subscription_ends_at).toLocaleDateString('fr-FR') : '—'}
                         </td>
                         <td className="py-2">
-                          <div className="flex flex-wrap gap-1">
-                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>
-                              +{subMonths} mois
-                            </button>
-                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/30 text-sky-200" onClick={() => setTrialDays(est.id, 30)}>
-                              Essai +30j
-                            </button>
-                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>
-                              Suspendre
-                            </button>
-                            <input
-                              type="date"
-                              className="text-[11px] bg-stone-800 border border-stone-700 rounded px-1 py-0.5 text-stone-300"
-                              title="Date de fin exacte"
-                              onChange={(e) => {
-                                if (e.target.value) setExactEndDate(est.id, e.target.value);
-                              }}
-                            />
+                          <div className="flex flex-col gap-2 min-w-[220px]">
+                            <div className="flex flex-wrap gap-1">
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>
+                                Activer / prolonger +{subMonths} mois
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/30 text-sky-200" onClick={() => setTrialDays(est.id, 30)}>
+                                Essai 30 j
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/20 text-sky-300" onClick={() => setTrialDays(est.id, 7)}>
+                                Essai 7 j
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>
+                                Suspendre
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[11px] px-2 py-1 rounded bg-amber-600/30 text-amber-200"
+                                onClick={() => activateSubscription(est.id, 1)}
+                              >
+                                Réactiver 1 mois
+                              </button>
+                            </div>
+                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
+                              Date de fin d&apos;abonnement
+                              <input
+                                type="date"
+                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
+                                defaultValue={est.subscription_ends_at ? new Date(est.subscription_ends_at).toISOString().slice(0, 10) : ''}
+                                onBlur={(e) => {
+                                  if (e.target.value) setExactEndDate(est.id, e.target.value);
+                                }}
+                              />
+                            </label>
+                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
+                              Date de fin d&apos;essai
+                              <input
+                                type="date"
+                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
+                                defaultValue={est.trial_ends_at ? new Date(est.trial_ends_at).toISOString().slice(0, 10) : ''}
+                                onBlur={(e) => {
+                                  if (!e.target.value) return;
+                                  const end = new Date(e.target.value);
+                                  end.setHours(23, 59, 59, 999);
+                                  supabase.from('establishments').update({
+                                    subscription_status: 'trial',
+                                    trial_ends_at: end.toISOString(),
+                                  }).eq('id', est.id).then(({ error: err }) => {
+                                    if (err) setError(err.message);
+                                    else { flash('Date d\'essai mise à jour'); loadData(); }
+                                  });
+                                }}
+                              />
+                            </label>
                           </div>
                         </td>
                       </tr>

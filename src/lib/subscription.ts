@@ -30,7 +30,7 @@ export function getPaymentWhatsApp(): string {
   } catch {
     /* */
   }
-  return '2250700000000'; // à configurer dans Super Admin
+  return '2250502012011';
 }
 
 export function setPaymentWhatsApp(phone: string) {
