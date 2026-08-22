@@ -1,7 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
-import { AlertTriangle, CreditCard } from 'lucide-react';
+import { AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { getSubscriptionState, PLAN, paymentInstructions } from '@/lib/subscription';
+import {
+  getSubscriptionState,
+  PLAN,
+  paymentInstructions,
+  paymentWhatsAppLink,
+} from '@/lib/subscription';
 
 const ALLOWED_WHEN_BLOCKED = ['/settings', '/notifications', '/chat', '/subscription'];
 
@@ -12,29 +17,40 @@ export default function SubscriptionGate() {
   const isPlatformAdmin = ['super_admin', 'admin'].includes(role);
 
   const state = getSubscriptionState(activeEstablishment as Parameters<typeof getSubscriptionState>[0]);
+  const estName = activeEstablishment?.name || '';
 
   if (isPlatformAdmin) return null;
   if (!activeEstablishment) return null;
 
   const pathOk = ALLOWED_WHEN_BLOCKED.some((p) => location.pathname.startsWith(p));
+  const wa = paymentWhatsAppLink(
+    `Bonjour, je souhaite payer l'abonnement Stock Manager.\nÉtablissement : ${estName}\nOffre : ${PLAN.monthlyFcfa} F/mois (1, 3, 6, 12 mois ou plus).`
+  );
 
   return (
     <>
       {!state.blocked && state.message && (
         <div
-          className={`mx-3 mt-2 sm:mx-4 rounded-xl px-3 py-2 text-xs sm:text-sm border ${
+          className={`mx-3 mt-2 sm:mx-4 rounded-xl px-3 py-2 text-xs sm:text-sm border flex flex-wrap items-center gap-2 ${
             state.status === 'past_due'
               ? 'border-amber-500/40 bg-amber-500/10 text-amber-100'
               : 'border-stone-700 bg-stone-900/80 text-stone-300'
           }`}
         >
-          <span className="font-medium">{state.label}</span>
-          {' · '}
-          {state.message}
-          {(state.status === 'past_due' || (state.daysLeft != null && state.daysLeft <= 5)) && (
-            <span className="ml-2 text-amber-300">
-              {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois
-            </span>
+          <span className="flex-1">
+            <span className="font-medium">{state.label}</span>
+            {' · '}
+            {state.message}
+          </span>
+          {(state.status === 'past_due' || (state.daysLeft != null && state.daysLeft <= 7)) && (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-600 text-white text-xs font-medium"
+            >
+              <MessageCircle size={14} /> Payer WhatsApp
+            </a>
           )}
         </div>
       )}
@@ -50,17 +66,17 @@ export default function SubscriptionGate() {
             <pre className="text-xs text-stone-400 whitespace-pre-wrap bg-stone-950/50 rounded-xl p-3 border border-stone-800">
               {paymentInstructions()}
             </pre>
-            <p className="text-xs text-stone-500">
-              Après paiement Mobile Money, l&apos;administrateur réactive votre établissement.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                to="/settings"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-stone-950 text-sm font-medium"
-              >
-                <CreditCard size={16} /> Voir consignes
-              </Link>
-            </div>
+            <a
+              href={wa}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 text-white font-medium"
+            >
+              <MessageCircle size={18} /> Contacter pour payer (WhatsApp)
+            </a>
+            <Link to="/settings" className="block text-center text-sm text-stone-400 hover:text-stone-200">
+              Paramètres
+            </Link>
           </div>
         </div>
       )}

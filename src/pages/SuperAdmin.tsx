@@ -9,8 +9,12 @@ import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 import { Modal, Badge, EmptyState } from '@/components/ui';
 import { toAuthEmail, displayLogin, generatePassword, generateLogin } from '@/lib/login';
+import {
+  PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
+  getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink,
+} from '@/lib/subscription';
 
-type Tab = 'requests' | 'members' | 'establishments';
+type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions';
 
 export default function SuperAdmin() {
   const { member } = useAuth();
@@ -30,6 +34,10 @@ export default function SuperAdmin() {
   const [editEst, setEditEst] = useState<Establishment | null>(null);
 
   const [estForm, setEstForm] = useState({ name: '', type: 'maquis', address: '', phone: '' });
+  const [subMonths, setSubMonths] = useState(1);
+  const [waPhone, setWaPhone] = useState(() => {
+    try { return getPaymentWhatsApp(); } catch { return '2250700000000'; }
+  });
   const [approveForm, setApproveForm] = useState<{ role: Role; establishmentId: string }>({
     role: 'employee',
     establishmentId: '',
@@ -168,9 +176,46 @@ export default function SuperAdmin() {
     }
   }
 
-  async function markSubscriptionPaid(estId: string) {
+  async function activateSubscription(estId: string, months: number) {
+    const est = establishments.find((e) => e.id === estId);
+    const now = new Date();
+    let start = now;
+    if (est?.subscription_ends_at) {
+      const cur = new Date(est.subscription_ends_at);
+      if (cur > now) start = cur;
+    }
+    const endISO = addMonthsISO(start, months);
+    const total = priceForMonths(months);
+    const { error: err } = await supabase.from('establishments').update({
+      subscription_status: 'active',
+      subscription_ends_at: endISO,
+      last_payment_at: new Date().toISOString(),
+    }).eq('id', estId);
+    if (err) setError(err.message);
+    else {
+      flash(`Abonnement +${months} mois activé (${total.toLocaleString('fr-FR')} F) jusqu'au ${new Date(endISO).toLocaleDateString('fr-FR')}`);
+      await loadData();
+    }
+  }
+
+  async function setTrialDays(estId: string, days: number) {
     const end = new Date();
-    end.setDate(end.getDate() + 30);
+    end.setDate(end.getDate() + days);
+    end.setHours(23, 59, 59, 999);
+    const { error: err } = await supabase.from('establishments').update({
+      subscription_status: 'trial',
+      trial_ends_at: end.toISOString(),
+    }).eq('id', estId);
+    if (err) setError(err.message);
+    else {
+      flash(`Essai prolongé de ${days} jours`);
+      await loadData();
+    }
+  }
+
+  async function setExactEndDate(estId: string, isoDate: string) {
+    const end = new Date(isoDate);
+    end.setHours(23, 59, 59, 999);
     const { error: err } = await supabase.from('establishments').update({
       subscription_status: 'active',
       subscription_ends_at: end.toISOString(),
@@ -178,7 +223,7 @@ export default function SuperAdmin() {
     }).eq('id', estId);
     if (err) setError(err.message);
     else {
-      flash('Abonnement activé 30 jours (10 000 F)');
+      flash(`Fin d'abonnement fixée au ${end.toLocaleDateString('fr-FR')}`);
       await loadData();
     }
   }
@@ -333,6 +378,7 @@ export default function SuperAdmin() {
             ['requests', <Clock size={16} key="c" />, 'Demandes'],
             ['members', <Users size={16} key="u" />, 'Membres'],
             ['establishments', <Building2 size={16} key="b" />, 'Établissements'],
+            ['subscriptions', <KeyRound size={16} key="s" />, 'Abonnements'],
           ] as const
         ).map(([id, icon, label]) => (
           <button
@@ -456,7 +502,7 @@ export default function SuperAdmin() {
                           <p className="font-medium text-stone-100">{est.name}</p>
                           <p className="text-[11px] text-stone-500">Abo: {(est as any).subscription_status || 'trial'}</p>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            <button type="button" className="text-[11px] px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-200" onClick={() => markSubscriptionPaid(est.id)}>Activer 30j (10k)</button>
+                            <button type="button" className="text-[11px] px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>Activer {subMonths} mois</button>
                             <button type="button" className="text-[11px] px-2 py-0.5 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>Suspendre</button>
                           </div>
                           <p className="text-sm text-stone-400">{est.type || 'maquis'}</p>
@@ -1036,6 +1082,110 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
       <button onClick={submit} disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">
         {loading ? <Loader2 className="animate-spin" size={18} /> : <KeyRound size={18} />} Créer le compte
       </button>
+
+      {tab === 'subscriptions' && (
+        <div className="space-y-4">
+          <div className="card space-y-3">
+            <h2 className="text-lg font-semibold text-stone-100">WhatsApp paiements</h2>
+            <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN).</p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <label className="label">Numéro WhatsApp (ex: 22507xxxxxxxx)</label>
+                <input className="input-field" value={waPhone} onChange={(e) => setWaPhone(e.target.value)} placeholder="22507xxxxxxxx" />
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setPaymentWhatsApp(waPhone);
+                  flash('Numéro WhatsApp enregistré sur cet appareil admin');
+                }}
+              >
+                Enregistrer
+              </button>
+            </div>
+            <a className="text-sm text-emerald-400" href={paymentWhatsAppLink('Test Stock Manager')} target="_blank" rel="noreferrer">
+              Tester le lien WhatsApp
+            </a>
+          </div>
+
+          <div className="card space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-stone-100">Gestion des abonnements</h2>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-stone-400">Durée à activer</label>
+                <select className="input-field w-auto" value={subMonths} onChange={(e) => setSubMonths(Number(e.target.value))}>
+                  {SUB_PERIODS.map((p) => (
+                    <option key={p.months} value={p.months}>
+                      {p.label} — {priceForMonths(p.months).toLocaleString('fr-FR')} F
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-stone-500">
+              Offre : essai {PLAN.trialDays} j puis {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois. Prolongation = à partir de la date de fin actuelle si encore active.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="text-left text-stone-500 border-b border-stone-800">
+                    <th className="py-2">Établissement</th>
+                    <th className="py-2">Statut</th>
+                    <th className="py-2">Essai fin</th>
+                    <th className="py-2">Abo fin</th>
+                    <th className="py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {establishments.map((est) => {
+                    const st = getSubscriptionState(est);
+                    return (
+                      <tr key={est.id} className="border-b border-stone-800/60">
+                        <td className="py-2 text-stone-200">{est.name}</td>
+                        <td className="py-2">
+                          <span className={st.blocked ? 'text-red-400' : st.status === 'active' ? 'text-emerald-400' : 'text-amber-300'}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="py-2 text-stone-400 text-xs">
+                          {est.trial_ends_at ? new Date(est.trial_ends_at).toLocaleDateString('fr-FR') : '—'}
+                        </td>
+                        <td className="py-2 text-stone-400 text-xs">
+                          {est.subscription_ends_at ? new Date(est.subscription_ends_at).toLocaleDateString('fr-FR') : '—'}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex flex-wrap gap-1">
+                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>
+                              +{subMonths} mois
+                            </button>
+                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/30 text-sky-200" onClick={() => setTrialDays(est.id, 30)}>
+                              Essai +30j
+                            </button>
+                            <button type="button" className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>
+                              Suspendre
+                            </button>
+                            <input
+                              type="date"
+                              className="text-[11px] bg-stone-800 border border-stone-700 rounded px-1 py-0.5 text-stone-300"
+                              title="Date de fin exacte"
+                              onChange={(e) => {
+                                if (e.target.value) setExactEndDate(est.id, e.target.value);
+                              }}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }

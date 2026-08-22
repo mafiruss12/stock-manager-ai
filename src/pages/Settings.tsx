@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
-import { PLAN, getSubscriptionState, paymentInstructions } from '@/lib/subscription';
+import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
@@ -171,6 +171,14 @@ export default function SettingsPage() {
         <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
         <p>{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
         <p className="text-xs text-stone-400 mt-2 whitespace-pre-wrap">{paymentInstructions()}</p>
+        <a
+          href={paymentWhatsAppLink(`Bonjour, paiement abonnement Stock Manager — ${activeEstablishment?.name || ''}`)}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex mt-3 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium"
+        >
+          Contacter pour payer (WhatsApp)
+        </a>
       </div>
     )}
 
