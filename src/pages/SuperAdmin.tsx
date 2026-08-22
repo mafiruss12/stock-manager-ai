@@ -56,6 +56,7 @@ export default function SuperAdmin() {
   });
 
   async function loadData() {
+    setLoading(true);
     const [reqRes, memRes, estRes] = await Promise.all([
       supabase.from('access_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('members').select('*').order('created_at', { ascending: false }),
@@ -64,6 +65,9 @@ export default function SuperAdmin() {
     setRequests((reqRes.data ?? []) as AccessRequest[]);
     setMembers((memRes.data ?? []) as Member[]);
     setEstablishments((estRes.data ?? []) as Establishment[]);
+    const errs = [reqRes.error?.message, memRes.error?.message, estRes.error?.message].filter(Boolean);
+    if (errs.length) setError(errs.join(' · '));
+    else setError(null);
     setLoading(false);
   }
 
@@ -1126,6 +1130,21 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
             <p className="text-xs text-stone-500">
               Offre : essai {PLAN.trialDays} j puis {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois. Prolongation = à partir de la date de fin actuelle si encore active.
             </p>
+            {establishments.length === 0 ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 space-y-2">
+                <p className="font-medium">Aucun établissement affiché</p>
+                <p className="text-amber-100/80 text-xs">
+                  Soit aucun établissement n&apos;existe encore, soit le compte connecté n&apos;a pas le rôle
+                  <strong> super_admin / admin</strong> actif, soit les droits de lecture (RLS) bloquent la liste.
+                </p>
+                <p className="text-xs text-stone-400">
+                  Vérifie l&apos;onglet Établissements. Crée un établissement ou reconnecte-toi avec le compte admin.
+                </p>
+                <button type="button" className="btn-secondary text-sm" onClick={() => loadData()}>
+                  Recharger la liste
+                </button>
+              </div>
+            ) : null}
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[720px]">
                 <thead>
