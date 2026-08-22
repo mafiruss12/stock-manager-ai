@@ -80,6 +80,18 @@ export default function SuperAdmin() {
     setTimeout(() => setSuccess(null), 2500);
   }
 
+  function safeDateInput(iso?: string | null): string {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toISOString().slice(0, 10);
+    } catch {
+      return '';
+    }
+  }
+
+
   async function approveRequest(req: AccessRequest) {
     if (!req.user_id || !approveForm.establishmentId) return;
     setActionLoading(req.id);
@@ -581,6 +593,159 @@ export default function SuperAdmin() {
       </Modal>
 
       {/* Create establishment */}
+
+      {tab === 'subscriptions' && (
+        <div className="space-y-4">
+          <div className="card space-y-3">
+            <h2 className="text-lg font-semibold text-stone-100">WhatsApp paiements</h2>
+            <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN). Numéro par défaut : 05 02 01 20 11.</p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <label className="label">Numéro WhatsApp (ex: 22507xxxxxxxx)</label>
+                <input className="input-field" value={waPhone} onChange={(e) => setWaPhone(e.target.value)} placeholder="22507xxxxxxxx" />
+              </div>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  setPaymentWhatsApp(waPhone);
+                  flash('Numéro WhatsApp enregistré sur cet appareil admin');
+                }}
+              >
+                Enregistrer
+              </button>
+            </div>
+            <a className="text-sm text-emerald-400" href={paymentWhatsAppLink('Test Stock Manager')} target="_blank" rel="noreferrer">
+              Tester le lien WhatsApp
+            </a>
+          </div>
+
+          <div className="card space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-stone-100">Gestion des abonnements</h2>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-stone-400">Durée à activer</label>
+                <select className="input-field w-auto" value={subMonths} onChange={(e) => setSubMonths(Number(e.target.value))}>
+                  {SUB_PERIODS.map((p) => (
+                    <option key={p.months} value={p.months}>
+                      {p.label} — {priceForMonths(p.months).toLocaleString('fr-FR')} F
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-stone-500">
+              Offre : essai {PLAN.trialDays} j puis {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois. Prolongation = à partir de la date de fin actuelle si encore active.
+            </p>
+            {establishments.length === 0 ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 space-y-2">
+                <p className="font-medium">Aucun établissement affiché</p>
+                <p className="text-amber-100/80 text-xs">
+                  Soit aucun établissement n&apos;existe encore, soit le compte connecté n&apos;a pas le rôle
+                  <strong> super_admin / admin</strong> actif, soit les droits de lecture (RLS) bloquent la liste.
+                </p>
+                <p className="text-xs text-stone-400">
+                  Vérifie l&apos;onglet Établissements. Crée un établissement ou reconnecte-toi avec le compte admin.
+                </p>
+                <button type="button" className="btn-secondary text-sm" onClick={() => loadData()}>
+                  Recharger la liste
+                </button>
+              </div>
+            ) : null}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="text-left text-stone-500 border-b border-stone-800">
+                    <th className="py-2">Établissement</th>
+                    <th className="py-2">Statut</th>
+                    <th className="py-2">Essai fin</th>
+                    <th className="py-2">Abo fin</th>
+                    <th className="py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {establishments.map((est) => {
+                    const st = getSubscriptionState(est);
+                    return (
+                      <tr key={est.id} className="border-b border-stone-800/60">
+                        <td className="py-2 text-stone-200">{est.name}</td>
+                        <td className="py-2">
+                          <span className={st.blocked ? 'text-red-400' : st.status === 'active' ? 'text-emerald-400' : 'text-amber-300'}>
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="py-2 text-stone-400 text-xs">
+                          {safeDateInput(est.trial_ends_at) ? new Date(est.trial_ends_at!).toLocaleDateString('fr-FR') : '—'}
+                        </td>
+                        <td className="py-2 text-stone-400 text-xs">
+                          {safeDateInput(est.subscription_ends_at) ? new Date(est.subscription_ends_at!).toLocaleDateString('fr-FR') : '—'}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex flex-col gap-2 min-w-[220px]">
+                            <div className="flex flex-wrap gap-1">
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>
+                                Activer / prolonger +{subMonths} mois
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/30 text-sky-200" onClick={() => setTrialDays(est.id, 30)}>
+                                Essai 30 j
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/20 text-sky-300" onClick={() => setTrialDays(est.id, 7)}>
+                                Essai 7 j
+                              </button>
+                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>
+                                Suspendre
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[11px] px-2 py-1 rounded bg-amber-600/30 text-amber-200"
+                                onClick={() => activateSubscription(est.id, 1)}
+                              >
+                                Réactiver 1 mois
+                              </button>
+                            </div>
+                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
+                              Date de fin d&apos;abonnement
+                              <input
+                                type="date"
+                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
+                                defaultValue={safeDateInput(est.subscription_ends_at)}
+                                onBlur={(e) => {
+                                  if (e.target.value) setExactEndDate(est.id, e.target.value);
+                                }}
+                              />
+                            </label>
+                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
+                              Date de fin d&apos;essai
+                              <input
+                                type="date"
+                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
+                                defaultValue={safeDateInput(est.trial_ends_at)}
+                                onBlur={(e) => {
+                                  if (!e.target.value) return;
+                                  const end = new Date(e.target.value);
+                                  end.setHours(23, 59, 59, 999);
+                                  supabase.from('establishments').update({
+                                    subscription_status: 'trial',
+                                    trial_ends_at: end.toISOString(),
+                                  }).eq('id', est.id).then(({ error: err }) => {
+                                    if (err) setError(err.message);
+                                    else { flash('Date d\'essai mise à jour'); loadData(); }
+                                  });
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Modal open={estModal} onClose={() => setEstModal(false)} title="Nouvel établissement">
         <div className="space-y-3">
           <div>
@@ -1087,157 +1252,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
         {loading ? <Loader2 className="animate-spin" size={18} /> : <KeyRound size={18} />} Créer le compte
       </button>
 
-      {tab === 'subscriptions' && (
-        <div className="space-y-4">
-          <div className="card space-y-3">
-            <h2 className="text-lg font-semibold text-stone-100">WhatsApp paiements</h2>
-            <p className="text-xs text-stone-500">Les clients cliquent pour vous écrire et payer (Wave / OM / MTN). Numéro par défaut : 05 02 01 20 11.</p>
-            <div className="flex flex-wrap gap-2 items-end">
-              <div className="flex-1 min-w-[200px]">
-                <label className="label">Numéro WhatsApp (ex: 22507xxxxxxxx)</label>
-                <input className="input-field" value={waPhone} onChange={(e) => setWaPhone(e.target.value)} placeholder="22507xxxxxxxx" />
-              </div>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  setPaymentWhatsApp(waPhone);
-                  flash('Numéro WhatsApp enregistré sur cet appareil admin');
-                }}
-              >
-                Enregistrer
-              </button>
-            </div>
-            <a className="text-sm text-emerald-400" href={paymentWhatsAppLink('Test Stock Manager')} target="_blank" rel="noreferrer">
-              Tester le lien WhatsApp
-            </a>
-          </div>
 
-          <div className="card space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold text-stone-100">Gestion des abonnements</h2>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-stone-400">Durée à activer</label>
-                <select className="input-field w-auto" value={subMonths} onChange={(e) => setSubMonths(Number(e.target.value))}>
-                  {SUB_PERIODS.map((p) => (
-                    <option key={p.months} value={p.months}>
-                      {p.label} — {priceForMonths(p.months).toLocaleString('fr-FR')} F
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <p className="text-xs text-stone-500">
-              Offre : essai {PLAN.trialDays} j puis {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois. Prolongation = à partir de la date de fin actuelle si encore active.
-            </p>
-            {establishments.length === 0 ? (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100 space-y-2">
-                <p className="font-medium">Aucun établissement affiché</p>
-                <p className="text-amber-100/80 text-xs">
-                  Soit aucun établissement n&apos;existe encore, soit le compte connecté n&apos;a pas le rôle
-                  <strong> super_admin / admin</strong> actif, soit les droits de lecture (RLS) bloquent la liste.
-                </p>
-                <p className="text-xs text-stone-400">
-                  Vérifie l&apos;onglet Établissements. Crée un établissement ou reconnecte-toi avec le compte admin.
-                </p>
-                <button type="button" className="btn-secondary text-sm" onClick={() => loadData()}>
-                  Recharger la liste
-                </button>
-              </div>
-            ) : null}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
-                <thead>
-                  <tr className="text-left text-stone-500 border-b border-stone-800">
-                    <th className="py-2">Établissement</th>
-                    <th className="py-2">Statut</th>
-                    <th className="py-2">Essai fin</th>
-                    <th className="py-2">Abo fin</th>
-                    <th className="py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {establishments.map((est) => {
-                    const st = getSubscriptionState(est);
-                    return (
-                      <tr key={est.id} className="border-b border-stone-800/60">
-                        <td className="py-2 text-stone-200">{est.name}</td>
-                        <td className="py-2">
-                          <span className={st.blocked ? 'text-red-400' : st.status === 'active' ? 'text-emerald-400' : 'text-amber-300'}>
-                            {st.label}
-                          </span>
-                        </td>
-                        <td className="py-2 text-stone-400 text-xs">
-                          {est.trial_ends_at ? new Date(est.trial_ends_at).toLocaleDateString('fr-FR') : '—'}
-                        </td>
-                        <td className="py-2 text-stone-400 text-xs">
-                          {est.subscription_ends_at ? new Date(est.subscription_ends_at).toLocaleDateString('fr-FR') : '—'}
-                        </td>
-                        <td className="py-2">
-                          <div className="flex flex-col gap-2 min-w-[220px]">
-                            <div className="flex flex-wrap gap-1">
-                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-emerald-600/30 text-emerald-200" onClick={() => activateSubscription(est.id, subMonths)}>
-                                Activer / prolonger +{subMonths} mois
-                              </button>
-                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/30 text-sky-200" onClick={() => setTrialDays(est.id, 30)}>
-                                Essai 30 j
-                              </button>
-                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-sky-600/20 text-sky-300" onClick={() => setTrialDays(est.id, 7)}>
-                                Essai 7 j
-                              </button>
-                              <button type="button" className="text-[11px] px-2 py-1 rounded bg-red-600/30 text-red-200" onClick={() => suspendSubscription(est.id)}>
-                                Suspendre
-                              </button>
-                              <button
-                                type="button"
-                                className="text-[11px] px-2 py-1 rounded bg-amber-600/30 text-amber-200"
-                                onClick={() => activateSubscription(est.id, 1)}
-                              >
-                                Réactiver 1 mois
-                              </button>
-                            </div>
-                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
-                              Date de fin d&apos;abonnement
-                              <input
-                                type="date"
-                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
-                                defaultValue={est.subscription_ends_at ? new Date(est.subscription_ends_at).toISOString().slice(0, 10) : ''}
-                                onBlur={(e) => {
-                                  if (e.target.value) setExactEndDate(est.id, e.target.value);
-                                }}
-                              />
-                            </label>
-                            <label className="text-[10px] text-stone-500 flex flex-col gap-0.5">
-                              Date de fin d&apos;essai
-                              <input
-                                type="date"
-                                className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200"
-                                defaultValue={est.trial_ends_at ? new Date(est.trial_ends_at).toISOString().slice(0, 10) : ''}
-                                onBlur={(e) => {
-                                  if (!e.target.value) return;
-                                  const end = new Date(e.target.value);
-                                  end.setHours(23, 59, 59, 999);
-                                  supabase.from('establishments').update({
-                                    subscription_status: 'trial',
-                                    trial_ends_at: end.toISOString(),
-                                  }).eq('id', est.id).then(({ error: err }) => {
-                                    if (err) setError(err.message);
-                                    else { flash('Date d\'essai mise à jour'); loadData(); }
-                                  });
-                                }}
-                              />
-                            </label>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
 
     </div>
