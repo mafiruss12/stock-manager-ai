@@ -364,7 +364,7 @@ export default function Inventaire() {
         await cacheSet(`products:${estId}`, products.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
       }
     } else {
-      await queueAdd('products', 'update', { stock: next }, { id: p.id });
+      await queueAdd('products', 'update', { stock: next, _prev_stock: Number(p.stock) || 0 }, { id: p.id });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
     }
   }
@@ -438,7 +438,7 @@ export default function Inventaire() {
       await loadProducts();
       await loadAudit();
     } else {
-      await queueAdd('products', 'update', { stock: next }, { id: p.id });
+      await queueAdd('products', 'update', { stock: next, _prev_stock: Number(p.stock) || 0 }, { id: p.id });
       setProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, stock: next } : x)));
     }
     setArrivageForm({ productId: '', qty: '', note: '' });

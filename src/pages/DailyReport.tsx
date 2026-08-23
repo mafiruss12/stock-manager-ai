@@ -263,7 +263,7 @@ export default function DailyReportPage() {
       if (!prod) continue;
       const next = Math.max(0, Math.floor(Number(prod.stock) || 0) - line.qty);
       if (!isOnline()) {
-        await queueAdd('products', 'update', { stock: next }, { id: line.product_id });
+        await queueAdd('products', 'update', { stock: next, _prev_stock: Math.floor(Number(prod.stock) || 0) }, { id: line.product_id });
       } else {
         const { error } = await supabase.from('products').update({ stock: next }).eq('id', line.product_id);
         if (error) {

@@ -9,6 +9,8 @@ import DailyReportGate from '@/components/DailyReportGate';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
+import { startPrefetchInterval } from '@/lib/offline';
+import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
@@ -94,6 +96,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         await signOut();
+
+  useEffect(() => {
+    return startPrefetchInterval(
+      () => activeEstablishment?.id || member?.establishment_id,
+      supabase,
+      3 * 60 * 1000
+    );
+  }, [activeEstablishment?.id, member?.establishment_id]);
       } finally {
         window.location.assign('/');
       }

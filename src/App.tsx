@@ -23,6 +23,7 @@ import Statistics from '@/pages/Statistics';
 import Reports from '@/pages/Reports';
 import Notifications from '@/pages/Notifications';
 import SettingsPage from '@/pages/Settings';
+import SyncPending from '@/pages/SyncPending';
 import AIAssistant from '@/pages/AIAssistant';
 import CalendarPage from '@/pages/CalendarPage';
 import ChatPage from '@/pages/Chat';
@@ -151,6 +152,7 @@ function ProtectedRoutes() {
         <Route path="/suivi" element={<SuiviGerant />} />
         <Route path="/suivi-gerant" element={<SuiviGerant />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/sync-pending" element={<SyncPending />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/team" element={<TeamPage />} />
         <Route path="/admin" element={<SuperAdmin />} />

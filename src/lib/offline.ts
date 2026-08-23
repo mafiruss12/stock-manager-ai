@@ -1,7 +1,8 @@
 /**
  * Couche hors-ligne : cache local + file d'attente de sync
- * Les données restent disponibles sans internet.
- * Au retour du réseau, la file est poussée vers Supabase.
+ * - Prefetch auto périodique
+ * - File robuste avec retry
+ * - Conflits stock : dernière écriture + application du delta si le serveur a changé
  */
 
 const DB_NAME = 'maquis-offline';
@@ -16,9 +17,10 @@ export interface QueueItem {
   table: string;
   action: QueueAction;
   payload: Record<string, unknown>;
-  match?: Record<string, unknown>; // pour update/delete
+  match?: Record<string, unknown>;
   createdAt: string;
   retries: number;
+  lastError?: string;
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -71,7 +73,7 @@ export async function queueAdd(
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     table,
     action,
-    payload,
+    payload: { ...payload, _queued_at: new Date().toISOString() },
     match,
     createdAt: new Date().toISOString(),
     retries: 0,
@@ -90,7 +92,12 @@ export async function queueList(): Promise<QueueItem[]> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_QUEUE, 'readonly');
     const req = tx.objectStore(STORE_QUEUE).getAll();
-    req.onsuccess = () => resolve((req.result as QueueItem[]) || []);
+    req.onsuccess = () => {
+      const list = ((req.result as QueueItem[]) || []).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      resolve(list);
+    };
     req.onerror = () => reject(req.error);
   });
 }
@@ -105,78 +112,179 @@ export async function queueRemove(id: string): Promise<void> {
   });
 }
 
+export async function queueUpdate(item: QueueItem): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_QUEUE, 'readwrite');
+    tx.objectStore(STORE_QUEUE).put(item);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function queueCount(): Promise<number> {
   const items = await queueList();
   return items.length;
 }
 
-/** Indique si le navigateur / appareil est en ligne */
 export function isOnline(): boolean {
   return typeof navigator !== 'undefined' ? navigator.onLine : true;
 }
 
-/** Version async (utilise Capacitor Network sur mobile natif) */
 export async function isOnlineAsync(): Promise<boolean> {
   try {
     const { getNativeOnlineStatus, isNative } = await import('./mobile');
     if (isNative) return getNativeOnlineStatus();
-  } catch { /* web */ }
+  } catch {
+    /* web */
+  }
   return isOnline();
 }
 
+function stripMeta(payload: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...payload };
+  delete out._queued_at;
+  delete out._prev_stock;
+  delete out._client_op_id;
+  delete out._local_id;
+  delete out._conflict;
+  return out;
+}
+
 /**
- * Synchronise la file d'attente vers Supabase.
- * Retourne le nombre d'opérations réussies.
+ * Conflit stock (products) :
+ * - Si le payload contient _prev_stock et stock,
+ *   et que le stock serveur ≠ _prev_stock → on applique le DELTA
+ *   (stock_serveur + (stock_local - prev)) au lieu d'écraser.
+ * - Sinon : dernière écriture gagne (valeur absolue du payload).
  */
+async function applyProductStockUpdate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  item: QueueItem
+): Promise<{ conflict: boolean }> {
+  const id = item.match?.id as string | undefined;
+  if (!id) {
+    let q = supabase.from('products').update(stripMeta(item.payload));
+    if (item.match) {
+      for (const [k, v] of Object.entries(item.match)) q = q.eq(k, v);
+    }
+    const { error } = await q;
+    if (error) throw error;
+    return { conflict: false };
+  }
+
+  const prev = item.payload._prev_stock;
+  const nextLocal = item.payload.stock;
+  const { data: serverRow } = await supabase
+    .from('products')
+    .select('id, stock, name')
+    .eq('id', id)
+    .maybeSingle();
+
+  let finalStock = nextLocal;
+  let conflict = false;
+
+  if (
+    serverRow &&
+    prev !== undefined &&
+    prev !== null &&
+    nextLocal !== undefined &&
+    Number(serverRow.stock) !== Number(prev)
+  ) {
+    const delta = Number(nextLocal) - Number(prev);
+    finalStock = Math.max(0, Number(serverRow.stock) + delta);
+    conflict = true;
+  } else if (nextLocal !== undefined) {
+    finalStock = Math.max(0, Number(nextLocal));
+  }
+
+  const payload = stripMeta(item.payload);
+  if (nextLocal !== undefined) payload.stock = finalStock;
+
+  const { error } = await supabase.from('products').update(payload).eq('id', id);
+  if (error) throw error;
+
+  if (conflict) {
+    try {
+      await supabase.from('operation_audit').insert({
+        establishment_id: serverRow?.establishment_id || item.payload.establishment_id,
+        action: 'stock.conflict_resolved',
+        entity_type: 'product',
+        entity_id: id,
+        entity_label: serverRow?.name || 'produit',
+        old_value: { server_stock: serverRow?.stock, prev_offline: prev },
+        new_value: { applied_stock: finalStock, delta: Number(nextLocal) - Number(prev) },
+        reason: 'Conflit offline résolu par application du delta',
+        client_op_id: item.payload._client_op_id || item.id,
+      });
+    } catch {
+      /* audit optionnel */
+    }
+  }
+  return { conflict };
+}
+
 export async function flushQueue(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
-): Promise<{ ok: number; fail: number }> {
-  if (!isOnline()) return { ok: 0, fail: 0 };
+): Promise<{ ok: number; fail: number; conflicts: number }> {
+  if (!isOnline()) return { ok: 0, fail: 0, conflicts: 0 };
   const items = await queueList();
   let ok = 0;
   let fail = 0;
+  let conflicts = 0;
 
   for (const item of items) {
     try {
       if (item.action === 'insert') {
-        const { error } = await supabase.from(item.table).insert(item.payload);
+        const payload = stripMeta(item.payload);
+        const { error } = await supabase.from(item.table).insert(payload);
         if (error) throw error;
       } else if (item.action === 'update') {
-        let q = supabase.from(item.table).update(item.payload);
-        if (item.match) {
-          for (const [k, v] of Object.entries(item.match)) {
-            q = q.eq(k, v);
+        if (item.table === 'products' && ('stock' in item.payload || item.payload._prev_stock !== undefined)) {
+          const r = await applyProductStockUpdate(supabase, item);
+          if (r.conflict) conflicts++;
+        } else {
+          let q = supabase.from(item.table).update(stripMeta(item.payload));
+          if (item.match) {
+            for (const [k, v] of Object.entries(item.match)) q = q.eq(k, v);
           }
+          const { error } = await q;
+          if (error) throw error;
         }
-        const { error } = await q;
-        if (error) throw error;
       } else if (item.action === 'delete') {
         let q = supabase.from(item.table).delete();
         if (item.match) {
-          for (const [k, v] of Object.entries(item.match)) {
-            q = q.eq(k, v);
-          }
+          for (const [k, v] of Object.entries(item.match)) q = q.eq(k, v);
         }
         const { error } = await q;
         if (error) throw error;
       }
       await queueRemove(item.id);
       ok++;
-    } catch {
+    } catch (e) {
       fail++;
+      const msg = e instanceof Error ? e.message : String(e);
+      item.retries = (item.retries || 0) + 1;
+      item.lastError = msg;
+      // Abandon après 8 échecs pour ne pas bloquer la file
+      if (item.retries >= 8) {
+        await queueRemove(item.id);
+      } else {
+        await queueUpdate(item);
+      }
     }
   }
-  return { ok, fail };
+  return { ok, fail, conflicts };
 }
 
-/** Helper : lecture avec fallback cache */
 export async function fetchWithCache<T>(
   key: string,
   fetcher: () => Promise<T>,
   options?: { forceRefresh?: boolean }
 ): Promise<{ data: T | null; fromCache: boolean }> {
-  if (isOnline() && !options?.forceRefresh) {
+  if (isOnline()) {
     try {
       const data = await fetcher();
       await cacheSet(key, data);
@@ -186,25 +294,10 @@ export async function fetchWithCache<T>(
       return { data: cached, fromCache: true };
     }
   }
-
-  if (isOnline() && options?.forceRefresh) {
-    try {
-      const data = await fetcher();
-      await cacheSet(key, data);
-      return { data, fromCache: false };
-    } catch {
-      const cached = await cacheGet<T>(key);
-      return { data: cached, fromCache: true };
-    }
-  }
-
-  // Hors ligne → cache uniquement
   const cached = await cacheGet<T>(key);
   return { data: cached, fromCache: true };
 }
 
-
-/** Profil auth mis en cache pour usage hors ligne */
 export async function cacheAuthProfile(profile: {
   userId: string;
   member: unknown;
@@ -224,7 +317,7 @@ export async function getCachedAuthProfile(userId?: string): Promise<{
   return cacheGet(`auth:profile:${uid}`);
 }
 
-/** Prefetch tables critiques après login (pour offline) */
+/** Prefetch tables critiques pour usage hors ligne */
 export async function prefetchForOffline(
   establishmentId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,10 +331,49 @@ export async function prefetchForOffline(
         .from(table)
         .select('*')
         .eq('establishment_id', establishmentId)
-        .limit(500);
+        .limit(800);
       if (data) await cacheSet(`${table}:${establishmentId}`, data);
     }
+    await cacheSet(`prefetch:at:${establishmentId}`, Date.now());
   } catch {
     /* ignore */
   }
+}
+
+/** Prefetch toutes les X ms tant que l'onglet est ouvert et en ligne */
+export function startPrefetchInterval(
+  getEstablishmentId: () => string | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  intervalMs = 3 * 60 * 1000
+): () => void {
+  const tick = () => {
+    if (!isOnline()) return;
+    const id = getEstablishmentId();
+    if (id) void prefetchForOffline(id, supabase);
+  };
+  tick();
+  const t = setInterval(tick, intervalMs);
+  const onVis = () => {
+    if (document.visibilityState === 'visible') tick();
+  };
+  document.addEventListener('visibilitychange', onVis);
+  window.addEventListener('online', tick);
+  return () => {
+    clearInterval(t);
+    document.removeEventListener('visibilitychange', onVis);
+    window.removeEventListener('online', tick);
+  };
+}
+
+export function labelQueueAction(item: QueueItem): string {
+  const t = item.table;
+  const a = item.action;
+  if (t === 'products' && a === 'update') return 'Mise à jour stock / produit';
+  if (t === 'products' && a === 'insert') return 'Nouveau produit';
+  if (t === 'products' && a === 'delete') return 'Suppression produit';
+  if (t === 'sales' && a === 'insert') return 'Vente caisse';
+  if (t === 'daily_reports') return 'Rapport du jour';
+  if (t === 'expenses') return 'Dépense';
+  return `${a} → ${t}`;
 }

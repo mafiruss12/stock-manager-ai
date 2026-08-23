@@ -109,7 +109,7 @@ export default function Caisse() {
         } else {
           // Hors ligne : file d'attente + mise à jour locale
           await queueAdd('sales', 'insert', salePayload);
-          await queueAdd('products', 'update', { stock: newStock }, { id: item.product.id });
+          await queueAdd('products', 'update', { stock: newStock, _prev_stock: Number(item.product.stock) || 0 }, { id: item.product.id });
         }
 
         const idx = updatedProducts.findIndex((p) => p.id === item.product.id);
