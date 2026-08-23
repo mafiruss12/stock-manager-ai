@@ -772,8 +772,7 @@ export default function Inventaire() {
       )}
 
       {tab === 'stock' && (
-        <div className={!canEditStock ? 'opacity-95' : ''}>
-        <>
+        <div className={!canEditStock ? 'opacity-95 space-y-4' : 'space-y-4'}>
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-stone-900 border border-stone-800 rounded-2xl p-4">
@@ -956,8 +955,7 @@ export default function Inventaire() {
       <p className="text-xs text-stone-500">
         Casiers = Qté ÷ 24 · Valeur stock = Qté × prix d&apos;achat · Statut IA : RUPTURE / À COMMANDER / SURVEILLER / OK selon stock min.
       </p>
-
-        </>
+        </div>
       )}
 
       {/* Modal add/edit */}
