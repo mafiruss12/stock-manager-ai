@@ -54,41 +54,10 @@ export async function getNativeOnlineStatus(): Promise<boolean> {
 }
 
 /**
- * Permissions natives Android (si plugins présents).
- * Complète le flux web (devicePermissions.ts).
+ * Permissions natives : via APIs web dans la WebView Capacitor
+ * (les prompts Android apparaissent quand le site demande géoloc / caméra / notifs).
+ * Les plugins optionnels ne sont pas importés ici pour ne pas casser le build web.
  */
 export async function requestNativePermissions(): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  if (!isNative) return out;
-
-  // Localisation
-  try {
-    const { Geolocation } = await import('@capacitor/geolocation');
-    const perm = await Geolocation.requestPermissions();
-    out.location = String(perm.location || perm.coarseLocation || 'prompt');
-  } catch {
-    out.location = 'plugin_absent';
-  }
-
-  // Caméra
-  try {
-    const { Camera } = await import('@capacitor/camera');
-    const perm = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
-    out.camera = String(perm.camera || 'prompt');
-    out.photos = String(perm.photos || 'prompt');
-  } catch {
-    out.camera = 'plugin_absent';
-    out.photos = 'plugin_absent';
-  }
-
-  // Notifications (Android 13+)
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications');
-    const perm = await LocalNotifications.requestPermissions();
-    out.notifications = String(perm.display || 'prompt');
-  } catch {
-    out.notifications = 'plugin_absent';
-  }
-
-  return out;
+  return { note: 'use_web_permissions_in_webview' };
 }
