@@ -60,11 +60,14 @@ export default function Inventaire() {
         .from('products')
         .select('*')
         .eq('establishment_id', estId)
-        .order('category')
-        .order('name');
+        .order('name', { ascending: true });
       return (res.data ?? []) as Product[];
     });
-    setProducts(data ?? []);
+    setProducts(
+      [...(data ?? [])].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+      )
+    );
     setLoading(false);
   }
 
@@ -113,12 +116,14 @@ export default function Inventaire() {
   }, [products]);
 
   const filtered = useMemo(() => {
-    return products.filter((p) => {
-      const q = search.toLowerCase();
-      const matchQ = !q || p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
-      const matchC = filterCat === 'Tous' || p.category === filterCat;
-      return matchQ && matchC;
-    });
+    return products
+      .filter((p) => {
+        const q = search.toLowerCase();
+        const matchQ = !q || p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
+        const matchC = filterCat === 'Tous' || p.category === filterCat;
+        return matchQ && matchC;
+      })
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' }));
   }, [products, search, filterCat]);
 
   const totals = useMemo(() => {
@@ -161,6 +166,11 @@ export default function Inventaire() {
   async function save() {
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     if (!estId || !form.name.trim()) return;
+    const isEdit = Boolean(editing);
+    const msg = isEdit
+      ? `Confirmer la modification de « ${form.name.trim()} » ?`
+      : `Confirmer l'ajout de « ${form.name.trim()} » au stock ?`;
+    if (!confirm(msg)) return;
     const payload = {
       establishment_id: estId,
       name: form.name.trim(),
@@ -226,7 +236,7 @@ export default function Inventaire() {
   }
 
   async function remove(p: Product) {
-    if (!confirm(`Supprimer « ${p.name} » ?`)) return;
+    if (!confirm(`Voulez-vous vraiment supprimer définitivement « ${p.name} » du stock ?`)) return;
     const opId = newClientOpId();
     if (isOnline()) {
       await supabase.from('products').delete().eq('id', p.id);
@@ -331,7 +341,10 @@ export default function Inventaire() {
   }
 
   async function quickStock(p: Product, delta: number) {
+    if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     const next = Math.max(0, (Number(p.stock) || 0) + delta);
+    const action = delta >= 0 ? `ajouter ${delta}` : `retirer ${Math.abs(delta)}`;
+    if (!confirm(`Confirmer : ${action} sur « ${p.name} » ?\nStock : ${p.stock} → ${next}`)) return;
     if (isOnline()) {
       await supabase.from('products').update({ stock: next }).eq('id', p.id);
       await logAudit({
@@ -373,6 +386,7 @@ export default function Inventaire() {
       alert('Produit introuvable');
       return;
     }
+    if (!confirm(`Confirmer l'arrivage de +${qty} « ${p.name} » ?`)) return;
     const next = (Number(p.stock) || 0) + qty;
     if (isOnline()) {
       const { error } = await supabase.from('products').update({ stock: next }).eq('id', p.id);
