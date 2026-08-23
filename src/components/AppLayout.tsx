@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
+import ReportDelayNotifier from '@/components/ReportDelayNotifier';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
@@ -455,6 +456,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 p-4 lg:p-8 pb-24"><SubscriptionGate />
           <DailyReportGate />
           <OwnerReportReminder />
+          <ReportDelayNotifier />
         {children}</main>
         <UpdateBanner />
       <footer className="px-4 py-3 text-center text-[11px] text-stone-500 border-t border-stone-800/80">

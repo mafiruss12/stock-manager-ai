@@ -7,7 +7,20 @@ import type { Notification } from '@/lib/types';
 import { formatDateTime } from '@/lib/format';
 import { EmptyState } from '@/components/ui';
 
+function notifAccent(type?: string | null): string {
+  if (type === 'report_delay' || type === 'report_delay_owner') return 'border-red-500/40 bg-red-500/10';
+  if (type === 'report_reminder' || type === 'owner_report_reminder') return 'border-amber-500/40 bg-amber-500/10';
+  return 'border-stone-800 bg-stone-900/60';
+}
+
+function notifBadge(type?: string | null): string | null {
+  if (type === 'report_delay' || type === 'report_delay_owner') return 'Retard';
+  if (type === 'report_reminder' || type === 'owner_report_reminder') return 'Rappel point';
+  return null;
+}
+
 export default function Notifications() {
+
   const { member } = useAuth();
   const navigate = useNavigate();
   const [notifs, setNotifs] = useState<Notification[]>([]);
@@ -83,7 +96,12 @@ export default function Notifications() {
   }
 
   function guessLink(n: Notification): string | null {
-    const t = `${n.title} ${n.message || ''} ${n.type || ''}`.toLowerCase();
+    const t = `${notifBadge(n.type) && (
+                        <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-red-600/30 text-red-200 mr-2">
+                          {notifBadge(n.type)}
+                        </span>
+                      )}
+                      {n.title} ${n.message || ''} ${n.type || ''}`.toLowerCase();
     if (t.includes('chat') || t.includes('message')) return '/chat';
     if (t.includes('stock') || t.includes('inventaire') || t.includes('rupture')) return '/inventory';
     if (t.includes('clôture') || t.includes('cloture') || t.includes('rapport')) return '/daily-report';
