@@ -28,10 +28,10 @@ export default function Inventaire() {
   const ui = getBusinessUI(bizType);
   const showCasiers = usesCasiers(bizType);
   const estId = activeEstablishment?.id || member?.establishment_id || null;
-  const canEditStock = ['super_admin', 'admin', 'owner', 'manager'].includes(
-    String(effectiveRole || member?.role || '')
-  );
-  const isStaffOnly = ['employee', 'cashier'].includes(String(effectiveRole || member?.role || ''));
+  const roleNow = String(effectiveRole || member?.role || '');
+  /** Seul le propriétaire (et admin plateforme) modifie le stock / arrivages */
+  const canEditStock = ['super_admin', 'admin', 'owner'].includes(roleNow);
+  const isStaffOnly = ['employee', 'cashier', 'manager'].includes(roleNow);
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -570,8 +570,8 @@ export default function Inventaire() {
     <>
     {!canEditStock && (
       <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-        <strong>Lecture seule.</strong> Vous ne pouvez pas modifier le stock (ajout, arrivage, suppression).
-        Votre obligation : le <strong>rapport du jour</strong> chaque jour, sans jour manqué.
+        <strong>Inventaire en lecture seule.</strong> Ajout, modification, suppression et arrivages sont réservés au <strong>propriétaire</strong>.
+        Les boutons d&apos;action sont masqués. Votre rôle : consulter le stock et faire le <strong>rapport du jour</strong>.
       </div>
     )}
     <div className="space-y-5">
@@ -595,7 +595,8 @@ export default function Inventaire() {
         </button>
       </div>
 
-      {/* 3 sections inventaire */}
+      {/* Sections inventaire — arrivage / options uniquement propriétaire */}
+      {canEditStock ? (
       <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-stone-900 border border-stone-800">
         <button
           type="button"
@@ -608,7 +609,7 @@ export default function Inventaire() {
         </button>
         <button
           type="button"
-          onClick={() => { if (!canEditStock) return; setTab('arrivage'); }}
+          onClick={() => setTab('arrivage')}
           className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
             tab === 'arrivage' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
           }`}
@@ -617,7 +618,7 @@ export default function Inventaire() {
         </button>
         <button
           type="button"
-          onClick={() => { if (!canEditStock) return; setTab('options'); }}
+          onClick={() => setTab('options')}
           className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
             tab === 'options' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
           }`}
@@ -625,6 +626,11 @@ export default function Inventaire() {
           <MoreHorizontal size={16} className="inline mr-1" /> Plus d&apos;options
         </button>
       </div>
+      ) : (
+      <div className="rounded-2xl bg-stone-900 border border-stone-800 px-3 py-2.5 text-sm text-stone-400">
+          <Package size={16} className="inline mr-1 text-amber-400" /> Consultation du stock uniquement (aucune modification possible)
+      </div>
+      )}
 
       {tab === 'arrivage' && canEditStock && (
         <div className="card space-y-4">
@@ -766,6 +772,7 @@ export default function Inventaire() {
       )}
 
       {tab === 'stock' && (
+        <div className={!canEditStock ? 'opacity-95' : ''}>
         <>
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
