@@ -45,6 +45,7 @@ export interface Product {
   min_stock: number;
   unit: string;
   created_at: string;
+  image_url?: string | null;
 }
 
 export interface Sale {

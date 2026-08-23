@@ -56,7 +56,7 @@ export default function Inventaire() {
   const [arrivageForm, setArrivageForm] = useState({ productId: '', qty: '', note: '' });
 
   const [form, setForm] = useState({
-    name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité',
+    name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '',
   });
 
   async function loadProducts() {
@@ -156,7 +156,7 @@ export default function Inventaire() {
   function openAdd() {
     if (!canEditStock) return;
     setEditing(null);
-    setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité' });
+    setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '' });
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     setModalOpen(true);
   }
@@ -170,6 +170,7 @@ export default function Inventaire() {
       cost: String(p.cost ?? ''),
       stock: String(p.stock ?? ''),
       min_stock: String(p.min_stock ?? 12),
+      image_url: (p as Product).image_url || '',
       unit: p.unit || 'unité',
     });
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
@@ -188,6 +189,7 @@ export default function Inventaire() {
       establishment_id: estId,
       name: form.name.trim(),
       category: form.category || 'Autre',
+      image_url: form.image_url.trim() || null,
       price: Number(form.price) || 0,
       cost: Number(form.cost) || 0,
       stock: Number(form.stock) || 0,
@@ -1269,6 +1271,59 @@ export default function Inventaire() {
           <div>
             <label className="label">Nom / Marque</label>
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder={`ex: ${ui.productSingular || "article"}`} />
+          </div>
+          <div>
+            <label className="label">Image de la boisson (paramètres)</label>
+            <div className="flex items-start gap-3">
+              <ProductThumb name={form.name} category={form.category} imageUrl={form.image_url || null} size={56} />
+              <div className="flex-1 space-y-2">
+                <input
+                  value={form.image_url}
+                  onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+                  className="input-field text-sm"
+                  placeholder="https://… lien de l'image (optionnel)"
+                />
+                <label className="btn-secondary text-xs inline-flex items-center gap-1 cursor-pointer">
+                  Choisir une photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 1.5 * 1024 * 1024) {
+                        alert('Image trop lourde (max 1,5 Mo). Compressez-la ou utilisez un lien.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const data = String(reader.result || '');
+                        if (data.length > 1_200_000) {
+                          alert('Image trop grande après lecture. Utilisez un lien URL plus léger.');
+                          return;
+                        }
+                        setForm((prev) => ({ ...prev, image_url: data }));
+                      };
+                      reader.readAsDataURL(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                {form.image_url && (
+                  <button
+                    type="button"
+                    className="text-xs text-red-300 hover:underline"
+                    onClick={() => setForm({ ...form, image_url: '' })}
+                  >
+                    Supprimer l&apos;image personnalisée
+                  </button>
+                )}
+                <p className="text-[11px] text-stone-500">
+                  Sans image perso, l&apos;app propose une photo selon le nom (Coca, Heineken…).
+                </p>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
