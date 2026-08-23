@@ -22,18 +22,24 @@ export async function initNativeApp(): Promise<void> {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: '#0c0a09' });
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
   try {
     const { SplashScreen } = await import('@capacitor/splash-screen');
     await SplashScreen.hide();
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
   try {
     const { App } = await import('@capacitor/app');
     App.addListener('backButton', ({ canGoBack }) => {
       if (canGoBack) window.history.back();
       else App.exitApp();
     });
-  } catch { /* */ }
+  } catch {
+    /* */
+  }
 }
 
 export async function getNativeOnlineStatus(): Promise<boolean> {
@@ -45,4 +51,44 @@ export async function getNativeOnlineStatus(): Promise<boolean> {
   } catch {
     return navigator.onLine;
   }
+}
+
+/**
+ * Permissions natives Android (si plugins présents).
+ * Complète le flux web (devicePermissions.ts).
+ */
+export async function requestNativePermissions(): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (!isNative) return out;
+
+  // Localisation
+  try {
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const perm = await Geolocation.requestPermissions();
+    out.location = String(perm.location || perm.coarseLocation || 'prompt');
+  } catch {
+    out.location = 'plugin_absent';
+  }
+
+  // Caméra
+  try {
+    const { Camera } = await import('@capacitor/camera');
+    const perm = await Camera.requestPermissions({ permissions: ['camera', 'photos'] });
+    out.camera = String(perm.camera || 'prompt');
+    out.photos = String(perm.photos || 'prompt');
+  } catch {
+    out.camera = 'plugin_absent';
+    out.photos = 'plugin_absent';
+  }
+
+  // Notifications (Android 13+)
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const perm = await LocalNotifications.requestPermissions();
+    out.notifications = String(perm.display || 'prompt');
+  } catch {
+    out.notifications = 'plugin_absent';
+  }
+
+  return out;
 }

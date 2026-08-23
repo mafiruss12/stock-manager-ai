@@ -121,6 +121,36 @@ export async function requestAllDevicePermissions(): Promise<PermissionResult[]>
   results.push(await requestLocation());
   results.push(await requestCamera());
   results.push(await requestStorage());
+  // Sur APK Capacitor : demander aussi les permissions natives
+  try {
+    const { isNative, requestNativePermissions } = await import('./mobile');
+    if (isNative) {
+      const native = await requestNativePermissions();
+      if (native.location && native.location !== 'plugin_absent') {
+        results.push({
+          id: 'location',
+          ok: native.location === 'granted',
+          detail: 'Natif: ' + native.location,
+        });
+      }
+      if (native.camera && native.camera !== 'plugin_absent') {
+        results.push({
+          id: 'camera',
+          ok: native.camera === 'granted',
+          detail: 'Natif: ' + native.camera + (native.photos ? ' / photos ' + native.photos : ''),
+        });
+      }
+      if (native.notifications && native.notifications !== 'plugin_absent') {
+        results.push({
+          id: 'notifications',
+          ok: native.notifications === 'granted',
+          detail: 'Natif: ' + native.notifications,
+        });
+      }
+    }
+  } catch {
+    /* web only */
+  }
   return results;
 }
 
