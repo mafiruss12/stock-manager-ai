@@ -326,57 +326,116 @@ export default function Inventaire() {
   }
 
 
-  function downloadBlob(filename: string, blob: Blob) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function downloadBlob(filename: string, blob: Blob): Promise<void> {
+    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+    // 1) Partage natif mobile (Android / iOS) — le plus fiable sur téléphone
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: filename,
+          text: 'Catalogue Stock Manager AI',
+        });
+        return;
+      }
+    } catch {
+      /* utilisateur a annulé ou non supporté → suite */
+    }
+    // 2) Téléchargement classique (navigateur bureau)
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.rel = 'noopener';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 1500);
+      return;
+    } catch {
+      /* suite */
+    }
+    // 3) Fallback : ouvrir le contenu (copie possible)
+    try {
+      const text = await blob.text();
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write('<pre style="white-space:pre-wrap;word-break:break-all;font-family:monospace;padding:12px;">' +
+          text.replace(/</g, '&lt;') + '</pre>');
+        w.document.title = filename;
+      } else {
+        await navigator.clipboard?.writeText(text);
+        alert('Contenu copié dans le presse-papiers (téléchargement bloqué par le téléphone).');
+      }
+    } catch (e) {
+      alert('Export impossible : ' + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   /** Export catalogue JSON réimportable dans l'app */
-  function exportCatalogJson() {
-    const payload = {
-      version: 1,
-      type: 'stock-manager-catalog',
-      business_type: bizType,
-      establishment_id: estId,
-      exported_at: new Date().toISOString(),
-      products: products.map((p) => ({
-        name: p.name,
-        category: p.category || 'Autre',
-        unit: p.unit || 'unité',
-        price: Number(p.price) || 0,
-        cost: Number(p.cost) || 0,
-        min_stock: Number(p.min_stock) || 0,
-        stock: Number(p.stock) || 0,
-      })),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const date = new Date().toISOString().slice(0, 10);
-    downloadBlob(`catalogue-${bizType}-${date}.json`, blob);
+  async function exportCatalogJson() {
+    try {
+      if (!products.length) {
+        alert('Aucun produit à exporter. Ajoutez d\'abord des produits au stock.');
+        return;
+      }
+      const payload = {
+        version: 1,
+        type: 'stock-manager-catalog',
+        business_type: bizType,
+        establishment_id: estId,
+        exported_at: new Date().toISOString(),
+        products: products.map((p) => ({
+          name: p.name,
+          category: p.category || 'Autre',
+          unit: p.unit || 'unité',
+          price: Number(p.price) || 0,
+          cost: Number(p.cost) || 0,
+          min_stock: Number(p.min_stock) || 0,
+          stock: Number(p.stock) || 0,
+        })),
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const date = new Date().toISOString().slice(0, 10);
+      await downloadBlob(`catalogue-${bizType}-${date}.json`, blob);
+      alert(`Export JSON : ${products.length} produit(s). Utilisez Partager / Enregistrer sur le téléphone.`);
+    } catch (e) {
+      alert('Erreur export JSON : ' + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   /** Export CSV (Excel) */
-  function exportCatalogCsv() {
-    const header = ['name', 'category', 'unit', 'price', 'cost', 'min_stock', 'stock'];
-    const lines = [header.join(';')];
-    for (const p of products) {
-      const row = [
-        p.name,
-        p.category || '',
-        p.unit || '',
-        String(Number(p.price) || 0),
-        String(Number(p.cost) || 0),
-        String(Number(p.min_stock) || 0),
-        String(Number(p.stock) || 0),
-      ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
-      lines.push(row.join(';'));
+  async function exportCatalogCsv() {
+    try {
+      if (!products.length) {
+        alert('Aucun produit à exporter.');
+        return;
+      }
+      const header = ['name', 'category', 'unit', 'price', 'cost', 'min_stock', 'stock'];
+      const lines = [header.join(';')];
+      for (const p of products) {
+        const row = [
+          p.name,
+          p.category || '',
+          p.unit || '',
+          String(Number(p.price) || 0),
+          String(Number(p.cost) || 0),
+          String(Number(p.min_stock) || 0),
+          String(Number(p.stock) || 0),
+        ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
+        lines.push(row.join(';'));
+      }
+      const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+      const date = new Date().toISOString().slice(0, 10);
+      await downloadBlob(`catalogue-${bizType}-${date}.csv`, blob);
+      alert(`Export CSV : ${products.length} produit(s).`);
+    } catch (e) {
+      alert('Erreur export CSV : ' + (e instanceof Error ? e.message : String(e)));
     }
-    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const date = new Date().toISOString().slice(0, 10);
-    downloadBlob(`catalogue-${bizType}-${date}.csv`, blob);
   }
 
   /** Import fichier JSON ou CSV généré par l'app */
@@ -385,7 +444,11 @@ export default function Inventaire() {
       alert('Import réservé au propriétaire ou membre autorisé.');
       return;
     }
-    if (!estId) return;
+    if (!estId) {
+      alert('Aucun établissement actif.');
+      return;
+    }
+    alert('Lecture du fichier « ' + file.name + ' »…');
     const text = await file.text();
     type Row = {
       name: string;
@@ -866,25 +929,35 @@ export default function Inventaire() {
               <button type="button" onClick={sendCatalogToTeam} className="btn-secondary flex items-center gap-2 justify-center text-amber-200">
                 Envoyer catalogue équipe
               </button>
-              <button type="button" onClick={exportCatalogJson} className="btn-secondary flex items-center gap-2 justify-center">
+              <button type="button" onClick={() => void exportCatalogJson()} className="btn-secondary flex items-center gap-2 justify-center">
                 <Download size={16} /> Exporter catalogue (JSON)
               </button>
-              <button type="button" onClick={exportCatalogCsv} className="btn-secondary flex items-center gap-2 justify-center">
+              <button type="button" onClick={() => void exportCatalogCsv()} className="btn-secondary flex items-center gap-2 justify-center">
                 <Download size={16} /> Exporter catalogue (CSV)
               </button>
-              <label className="btn-secondary flex items-center gap-2 justify-center cursor-pointer">
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center"
+                onClick={() => {
+                  const el = document.getElementById('catalog-file-input') as HTMLInputElement | null;
+                  if (el) el.click();
+                  else alert('Sélecteur de fichier indisponible');
+                }}
+              >
                 <Upload size={16} /> Importer fichier catalogue
-                <input
-                  type="file"
-                  accept=".json,.csv,application/json,text/csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) void importCatalogFile(f);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
+              </button>
+              <input
+                id="catalog-file-input"
+                type="file"
+                accept=".json,.csv,text/csv,application/json,*/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void importCatalogFile(f);
+                  else alert('Aucun fichier sélectionné');
+                  e.target.value = '';
+                }}
+              />
               <button type="button" onClick={seedCatalog} disabled={seeding} className="btn-secondary flex items-center gap-2 justify-center">
                 <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
               </button>
