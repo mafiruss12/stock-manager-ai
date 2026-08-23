@@ -1,54 +1,59 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { AlertTriangle, ClipboardCheck, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   buildReminderMessage,
+  formatDateFr,
   freeMailto,
   freeWhatsAppLink,
-  hasDailyReportToday,
+  getMissingReportDates,
   isReportRequiredRole,
   todayISO,
 } from '@/lib/dailyReportGate';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Obligation rapport journalier + rappels gratuits (in-app, mailto, wa.me).
- * Pas d'API payante : SMS auto payant non inclus.
+ * Obligation rapport journalier + liste des jours manqués.
+ * Employé / caissier / gérant : ne peuvent pas ignorer le jour en cours.
  */
 export default function DailyReportGate() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
   const location = useLocation();
-  const [missing, setMissing] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const navigate = useNavigate();
+  const [missingDates, setMissingDates] = useState<string[]>([]);
   const [checking, setChecking] = useState(true);
+  const [dismissedPast, setDismissedPast] = useState(false);
 
   const role = String(effectiveRole || member?.role || '');
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const required = isReportRequiredRole(role);
+  const today = todayISO();
+  const todayMissing = missingDates.includes(today);
+  const pastMissing = missingDates.filter((d) => d !== today);
 
   useEffect(() => {
     let cancelled = false;
     async function run() {
       if (!required || !estId) {
-        setMissing(false);
+        setMissingDates([]);
         setChecking(false);
         return;
       }
       setChecking(true);
-      const ok = await hasDailyReportToday(estId);
+      const missing = await getMissingReportDates(estId, 14);
       if (!cancelled) {
-        setMissing(!ok);
+        setMissingDates(missing);
         setChecking(false);
-        // Notification in-app (1× / jour / user) — gratuit
-        if (!ok && member?.user_id) {
-          const key = `mm_report_nudge_${estId}_${todayISO()}`;
+        if (missing.length && member?.user_id) {
+          const key = `mm_report_nudge_${estId}_${today}`;
           if (!sessionStorage.getItem(key)) {
             sessionStorage.setItem(key, '1');
             const msg = buildReminderMessage({
               establishmentName: activeEstablishment?.name || 'Établissement',
               staffName: member.full_name || 'Équipe',
-              date: todayISO(),
+              date: today,
+              missingDates: missing,
             });
             await supabase.from('notifications').insert({
               user_id: member.user_id,
@@ -64,76 +69,99 @@ export default function DailyReportGate() {
         }
       }
     }
-    run();
+    void run();
     return () => {
       cancelled = true;
     };
-  }, [required, estId, member?.user_id, activeEstablishment?.name, location.pathname]);
+  }, [required, estId, member?.user_id, activeEstablishment?.name, location.pathname, today]);
 
-  if (checking || !required || !missing || dismissed) return null;
+  // Si aujourd'hui manque, forcer le rapport (sauf déjà sur la page rapport)
+  useEffect(() => {
+    if (checking || !required || !todayMissing) return;
+    if (location.pathname.startsWith('/daily-report')) return;
+    // laisser un court délai pour éviter boucle au boot
+    const t = setTimeout(() => {
+      navigate('/daily-report', { replace: false });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [checking, required, todayMissing, location.pathname, navigate]);
+
+  if (checking || !required || missingDates.length === 0) return null;
   if (location.pathname.startsWith('/daily-report')) return null;
+  // Peut masquer uniquement les jours passés si aujourd'hui est fait
+  if (!todayMissing && dismissedPast) return null;
 
   const msg = buildReminderMessage({
     establishmentName: activeEstablishment?.name || 'Établissement',
     staffName: member?.full_name || 'Équipe',
-    date: todayISO(),
+    date: today,
+    missingDates,
   });
 
-  const phone = (activeEstablishment as { phone?: string } | null)?.phone || (member as { phone?: string } | null)?.phone;
-  const email = member?.email;
+  const ownerPhone =
+    (activeEstablishment as { phone?: string } | null)?.phone ||
+    member?.phone ||
+    '';
 
   return (
-    <div className="mx-3 mt-3 sm:mx-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3 sm:p-4">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={22} />
+    <div className="mx-3 mt-2 sm:mx-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm text-amber-50 space-y-2">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-amber-100 text-sm sm:text-base">
-            Rapport journalier obligatoire
+          <p className="font-semibold text-amber-100 flex items-center gap-2">
+            <ClipboardList size={16} /> Rapport journalier obligatoire
           </p>
-          <p className="text-stone-300 text-xs sm:text-sm mt-1">
-            Aucune clôture enregistrée aujourd&apos;hui ({todayISO()}). Le propriétaire attend ce rapport.
-            Complétez-le avant la fin du service.
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <Link
-              to="/daily-report"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-stone-950 text-sm font-medium"
-            >
-              <ClipboardCheck size={16} /> Faire le rapport
-            </Link>
-            {phone && (
-              <a
-                href={freeWhatsAppLink(String(phone), msg.waText)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center px-3 py-2 rounded-xl border border-emerald-500/40 text-emerald-200 text-sm"
-              >
-                WhatsApp rappel
-              </a>
-            )}
-            {email && (
-              <a
-                href={freeMailto(email, msg.mailSubject, msg.mailBody)}
-                className="inline-flex items-center px-3 py-2 rounded-xl border border-stone-600 text-stone-200 text-sm"
-              >
-                E-mail rappel
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => setDismissed(true)}
-              className="inline-flex items-center px-3 py-2 rounded-xl text-stone-400 text-sm hover:text-stone-200"
-            >
-              Plus tard
-            </button>
-          </div>
-          <p className="text-[11px] text-stone-500 mt-2">
-            Canaux gratuits : notification app + WhatsApp (wa.me) + e-mail (mailto). SMS auto payant non inclus.
-          </p>
+          {todayMissing ? (
+            <p className="text-amber-100/90 mt-1">
+              Le point d&apos;aujourd&apos;hui ({formatDateFr(today)}) n&apos;est pas fait. Vous devez le compléter — aucun jour ne doit être raté.
+            </p>
+          ) : (
+            <p className="text-amber-100/90 mt-1">
+              Des jours précédents n&apos;ont pas de rapport. Merci de régulariser si possible.
+            </p>
+          )}
+          {pastMissing.length > 0 && (
+            <p className="text-xs text-amber-200/80 mt-1">
+              Jours manquants : {pastMissing.map(formatDateFr).join(' · ')}
+              {todayMissing ? ` · + aujourd'hui` : ''}
+            </p>
+          )}
         </div>
-        <button type="button" className="text-stone-500 hover:text-stone-300" onClick={() => setDismissed(true)} aria-label="Fermer">
-          <X size={18} />
-        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to="/daily-report"
+          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-stone-900 text-xs font-semibold"
+        >
+          Faire le rapport
+        </Link>
+        {ownerPhone && (
+          <a
+            href={freeWhatsAppLink(ownerPhone, msg.waText)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex px-3 py-1.5 rounded-lg border border-amber-500/40 text-xs text-amber-100"
+          >
+            WhatsApp
+          </a>
+        )}
+        {member?.email && (
+          <a
+            href={freeMailto(member.email, msg.mailSubject, msg.mailBody)}
+            className="inline-flex px-3 py-1.5 rounded-lg border border-amber-500/40 text-xs text-amber-100"
+          >
+            E-mail
+          </a>
+        )}
+        {!todayMissing && (
+          <button
+            type="button"
+            className="text-xs text-amber-200/70 underline ml-auto"
+            onClick={() => setDismissedPast(true)}
+          >
+            Masquer
+          </button>
+        )}
       </div>
     </div>
   );

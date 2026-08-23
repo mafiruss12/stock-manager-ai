@@ -41,6 +41,10 @@ export default function Inventaire() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [tab, setTab] = useState<'stock' | 'arrivage' | 'options'>('stock');
+  useEffect(() => {
+    if (!canEditStock && tab !== 'stock') setTab('stock');
+  }, [canEditStock, tab]);
+
   const [auditRows, setAuditRows] = useState<any[]>([]);
   const [liveNote, setLiveNote] = useState('');
   const [arrivageForm, setArrivageForm] = useState({ productId: '', qty: '', note: '' });
@@ -146,6 +150,7 @@ export default function Inventaire() {
   function openAdd() {
     setEditing(null);
     setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité' });
+    if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     setModalOpen(true);
   }
 
@@ -160,6 +165,7 @@ export default function Inventaire() {
       min_stock: String(p.min_stock ?? 12),
       unit: p.unit || 'unité',
     });
+    if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     setModalOpen(true);
   }
 
@@ -236,6 +242,7 @@ export default function Inventaire() {
   }
 
   async function remove(p: Product) {
+    if (!canEditStock) { alert('Suppression réservée au propriétaire / gérant.'); return; }
     if (!confirm(`Voulez-vous vraiment supprimer définitivement « ${p.name} » du stock ?`)) return;
     const opId = newClientOpId();
     if (isOnline()) {
@@ -560,10 +567,10 @@ export default function Inventaire() {
 
   return (
     <>
-    {isStaffOnly && !canEditStock && (
-      <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-        Accès inventaire en lecture seule. Les modifications (arrivages, corrections) sont réservées au propriétaire.
-        Votre rôle : faire le <strong>rapport du jour</strong>.
+    {!canEditStock && (
+      <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <strong>Lecture seule.</strong> Vous ne pouvez pas modifier le stock (ajout, arrivage, suppression).
+        Votre obligation : le <strong>rapport du jour</strong> chaque jour, sans jour manqué.
       </div>
     )}
     <div className="space-y-5">
@@ -600,7 +607,7 @@ export default function Inventaire() {
         </button>
         <button
           type="button"
-          onClick={() => setTab('arrivage')}
+          onClick={() => { if (!canEditStock) return; setTab('arrivage'); }}
           className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
             tab === 'arrivage' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
           }`}
@@ -609,7 +616,7 @@ export default function Inventaire() {
         </button>
         <button
           type="button"
-          onClick={() => setTab('options')}
+          onClick={() => { if (!canEditStock) return; setTab('options'); }}
           className={`rounded-xl px-2 py-2.5 text-xs sm:text-sm font-medium transition ${
             tab === 'options' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
           }`}
@@ -618,7 +625,7 @@ export default function Inventaire() {
         </button>
       </div>
 
-      {tab === 'arrivage' && (
+      {tab === 'arrivage' && canEditStock && (
         <div className="card space-y-4">
           <h2 className="font-semibold text-stone-100 flex items-center gap-2">
             <Truck className="text-amber-400" size={18} /> Enregistrer un arrivage
@@ -674,7 +681,7 @@ export default function Inventaire() {
         </div>
       )}
 
-      {tab === 'options' && (
+      {tab === 'options' && canEditStock && (
         <div className="space-y-4">
           <div className="card">
             <h2 className="font-semibold text-stone-100 mb-3 flex items-center gap-2">
@@ -877,7 +884,7 @@ export default function Inventaire() {
                       <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => quickStock(p, -1)}
+                          onClick={() => { if (!canEditStock) return; quickStock(p, -1); }}
                           className="w-7 h-7 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700"
                         >
                           −
@@ -887,7 +894,7 @@ export default function Inventaire() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => quickStock(p, 1)}
+                          onClick={() => { if (!canEditStock) return; quickStock(p, 1); }}
                           className="w-7 h-7 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700"
                         >
                           +
@@ -903,10 +910,10 @@ export default function Inventaire() {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-400 hover:text-stone-200">
+                        <button onClick={() => { if (!canEditStock) return; openEdit(p); }} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-400 hover:text-stone-200">
                           <Pencil size={16} />
                         </button>
-                        <button onClick={() => remove(p)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-stone-400 hover:text-red-400">
+                        <button onClick={() => { if (!canEditStock) return; remove(p); }} className="p-1.5 rounded-lg hover:bg-red-500/10 text-stone-400 hover:text-red-400">
                           <Trash2 size={16} />
                         </button>
                       </div>
