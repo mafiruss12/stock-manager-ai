@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AlertTriangle, ClipboardList } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
@@ -20,7 +20,7 @@ import { supabase } from '@/lib/supabase';
 export default function DailyReportGate() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = ();
   const [missingDates, setMissingDates] = useState<string[]>([]);
   const [checking, setChecking] = useState(true);
   const [dismissedPast, setDismissedPast] = useState(false);
@@ -75,16 +75,6 @@ export default function DailyReportGate() {
     };
   }, [required, estId, member?.user_id, activeEstablishment?.name, location.pathname, today]);
 
-  // Si aujourd'hui manque, forcer le rapport (sauf déjà sur la page rapport)
-  useEffect(() => {
-    if (checking || !required || !todayMissing) return;
-    if (location.pathname.startsWith('/daily-report')) return;
-    // laisser un court délai pour éviter boucle au boot
-    const t = setTimeout(() => {
-      navigate('/daily-report', { replace: false });
-    }, 600);
-    return () => clearTimeout(t);
-  }, [checking, required, todayMissing, location.pathname, navigate]);
 
   if (checking || !required || missingDates.length === 0) return null;
   if (location.pathname.startsWith('/daily-report')) return null;
@@ -113,7 +103,7 @@ export default function DailyReportGate() {
           </p>
           {todayMissing ? (
             <p className="text-amber-100/90 mt-1">
-              Le point d&apos;aujourd&apos;hui ({formatDateFr(today)}) n&apos;est pas fait. Vous devez le compléter — aucun jour ne doit être raté.
+              Le point d&apos;aujourd&apos;hui ({formatDateFr(today)}) n&apos;est pas encore fait. Pensez à le faire vous-même chaque jour — c&apos;est obligatoire pour le suivi.
             </p>
           ) : (
             <p className="text-amber-100/90 mt-1">
