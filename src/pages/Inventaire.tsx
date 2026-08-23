@@ -40,6 +40,9 @@ export default function Inventaire() {
   const [filterCat, setFilterCat] = useState('Tous');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [importText, setImportText] = useState('');
+  const [shareBusy, setShareBusy] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [tab, setTab] = useState<'stock' | 'arrivage' | 'options'>('stock');
@@ -326,120 +329,108 @@ export default function Inventaire() {
   }
 
 
-  async function downloadBlob(filename: string, blob: Blob): Promise<void> {
-    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-    // 1) Partage natif mobile (Android / iOS) — le plus fiable sur téléphone
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: filename,
-          text: 'Catalogue Stock Manager AI',
-        });
-        return;
-      }
-    } catch {
-      /* utilisateur a annulé ou non supporté → suite */
-    }
-    // 2) Téléchargement classique (navigateur bureau)
-    try {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.rel = 'noopener';
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 1500);
+
+  function buildCatalogPayload() {
+    return {
+      version: 1,
+      type: 'stock-manager-catalog',
+      business_type: bizType,
+      establishment_id: estId,
+      exported_at: new Date().toISOString(),
+      products: products.map((p) => ({
+        name: p.name,
+        category: p.category || 'Autre',
+        unit: p.unit || 'unité',
+        price: Number(p.price) || 0,
+        cost: Number(p.cost) || 0,
+        min_stock: Number(p.min_stock) || 0,
+        stock: Number(p.stock) || 0,
+      })),
+    };
+  }
+
+  function catalogJsonText(): string {
+    return JSON.stringify(buildCatalogPayload(), null, 2);
+  }
+
+  function catalogSummaryText(): string {
+    const lines = products.slice(0, 40).map(
+      (p) => `• ${p.name} — stock ${p.stock} — vente ${p.price} F`
+    );
+    const more = products.length > 40 ? `\n… +${products.length - 40} autres` : '';
+    return (
+      `*Stock Manager AI — Catalogue*\n` +
+      `${products.length} produit(s)\n\n` +
+      lines.join('\n') +
+      more +
+      `\n\n_Pour importer dans l'app : Inventaire → Plus d'options → Coller le catalogue_`
+    );
+  }
+
+  /** Ouvre le panneau Partager le stock */
+  function openShareStock() {
+    if (!products.length) {
+      alert('Aucun produit dans le stock à partager.');
       return;
+    }
+    setShareModalOpen(true);
+  }
+
+  async function shareStockNative() {
+    setShareBusy(true);
+    try {
+      const text = catalogJsonText();
+      const summary = catalogSummaryText();
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'Catalogue stock', text: text.length < 50000 ? text : summary });
+          alert('Partage lancé.');
+          return;
+        } catch {
+          /* annulé */
+        }
+      }
+      await navigator.clipboard.writeText(text);
+      alert('Catalogue copié. Collez-le dans WhatsApp ou Notes, puis sur l\'autre téléphone utilisez « Coller le catalogue ».');
+    } catch (e) {
+      alert('Erreur partage : ' + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function copyCatalog() {
+    try {
+      const text = catalogJsonText();
+      await navigator.clipboard.writeText(text);
+      alert('Catalogue copié (' + products.length + ' produits). Sur l\'autre appareil : Coller le catalogue.');
     } catch {
-      /* suite */
-    }
-    // 3) Fallback : ouvrir le contenu (copie possible)
-    try {
-      const text = await blob.text();
-      const w = window.open('', '_blank');
-      if (w) {
-        w.document.write('<pre style="white-space:pre-wrap;word-break:break-all;font-family:monospace;padding:12px;">' +
-          text.replace(/</g, '&lt;') + '</pre>');
-        w.document.title = filename;
-      } else {
-        await navigator.clipboard?.writeText(text);
-        alert('Contenu copié dans le presse-papiers (téléchargement bloqué par le téléphone).');
-      }
-    } catch (e) {
-      alert('Export impossible : ' + (e instanceof Error ? e.message : String(e)));
+      // fallback textarea
+      setImportText(catalogJsonText());
+      setShareModalOpen(true);
+      alert('Copie automatique bloquée. Le texte est affiché : sélectionnez-le et copiez.');
     }
   }
 
-  /** Export catalogue JSON réimportable dans l'app */
+  function shareStockWhatsApp() {
+    const summary = catalogSummaryText();
+    // WhatsApp limite la taille : résumé + invitation
+    const url = 'https://wa.me/?text=' + encodeURIComponent(summary);
+    window.open(url, '_blank', 'noopener');
+  }
+
   async function exportCatalogJson() {
-    try {
-      if (!products.length) {
-        alert('Aucun produit à exporter. Ajoutez d\'abord des produits au stock.');
-        return;
-      }
-      const payload = {
-        version: 1,
-        type: 'stock-manager-catalog',
-        business_type: bizType,
-        establishment_id: estId,
-        exported_at: new Date().toISOString(),
-        products: products.map((p) => ({
-          name: p.name,
-          category: p.category || 'Autre',
-          unit: p.unit || 'unité',
-          price: Number(p.price) || 0,
-          cost: Number(p.cost) || 0,
-          min_stock: Number(p.min_stock) || 0,
-          stock: Number(p.stock) || 0,
-        })),
-      };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-      const date = new Date().toISOString().slice(0, 10);
-      await downloadBlob(`catalogue-${bizType}-${date}.json`, blob);
-      alert(`Export JSON : ${products.length} produit(s). Utilisez Partager / Enregistrer sur le téléphone.`);
-    } catch (e) {
-      alert('Erreur export JSON : ' + (e instanceof Error ? e.message : String(e)));
-    }
+    openShareStock();
+    await shareStockNative();
   }
 
-  /** Export CSV (Excel) */
   async function exportCatalogCsv() {
-    try {
-      if (!products.length) {
-        alert('Aucun produit à exporter.');
-        return;
-      }
-      const header = ['name', 'category', 'unit', 'price', 'cost', 'min_stock', 'stock'];
-      const lines = [header.join(';')];
-      for (const p of products) {
-        const row = [
-          p.name,
-          p.category || '',
-          p.unit || '',
-          String(Number(p.price) || 0),
-          String(Number(p.cost) || 0),
-          String(Number(p.min_stock) || 0),
-          String(Number(p.stock) || 0),
-        ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
-        lines.push(row.join(';'));
-      }
-      const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-      const date = new Date().toISOString().slice(0, 10);
-      await downloadBlob(`catalogue-${bizType}-${date}.csv`, blob);
-      alert(`Export CSV : ${products.length} produit(s).`);
-    } catch (e) {
-      alert('Erreur export CSV : ' + (e instanceof Error ? e.message : String(e)));
-    }
+    openShareStock();
+    await copyCatalog();
   }
 
   /** Import fichier JSON ou CSV généré par l'app */
-  async function importCatalogFile(file: File) {
+  async function importCatalogFromText(raw: string) {
     if (!canEditStock) {
       alert('Import réservé au propriétaire ou membre autorisé.');
       return;
@@ -448,8 +439,90 @@ export default function Inventaire() {
       alert('Aucun établissement actif.');
       return;
     }
-    alert('Lecture du fichier « ' + file.name + ' »…');
+    const text = (raw || '').trim();
+    if (!text) {
+      alert('Collez d\'abord le contenu du catalogue (JSON).');
+      return;
+    }
+    type Row = {
+      name: string;
+      category?: string;
+      unit?: string;
+      price?: number;
+      cost?: number;
+      min_stock?: number;
+      stock?: number;
+    };
+    let rows: Row[] = [];
+    try {
+      const data = JSON.parse(text);
+      const list = Array.isArray(data) ? data : data.products || data.items || [];
+      rows = list.map((x: any) => ({
+        name: String(x.name || x.nom || '').trim(),
+        category: String(x.category || x.categorie || 'Autre'),
+        unit: String(x.unit || x.unite || 'unité'),
+        price: Number(x.price ?? x.prix_vente ?? 0) || 0,
+        cost: Number(x.cost ?? x.prix_achat ?? 0) || 0,
+        min_stock: Number(x.min_stock ?? x.stock_min ?? 0) || 0,
+        stock: Number(x.stock ?? 0) || 0,
+      }));
+    } catch {
+      alert('Texte invalide. Collez un catalogue JSON exporté depuis Stock Manager.');
+      return;
+    }
+    rows = rows.filter((r) => r.name);
+    if (!rows.length) {
+      alert('Aucun produit dans le catalogue collé.');
+      return;
+    }
+    if (!confirm('Importer ' + rows.length + ' produit(s) ? Les noms déjà présents ne seront pas dupliqués.')) return;
+    const existing = new Set(products.map((p) => p.name.toLowerCase().trim()));
+    let added = 0;
+    for (const r of rows) {
+      if (existing.has(r.name.toLowerCase().trim())) continue;
+      const payload = {
+        establishment_id: estId,
+        name: r.name,
+        category: r.category || 'Autre',
+        unit: r.unit || 'unité',
+        price: r.price || 0,
+        cost: r.cost || 0,
+        min_stock: r.min_stock || 0,
+        stock: r.stock || 0,
+      };
+      if (isOnline()) {
+        const { error } = await supabase.from('products').insert(payload);
+        if (!error) {
+          added++;
+          existing.add(r.name.toLowerCase().trim());
+        }
+      } else {
+        await queueAdd('products', 'insert', { ...payload, _client_op_id: newClientOpId() });
+        added++;
+        existing.add(r.name.toLowerCase().trim());
+      }
+    }
+    await loadProducts();
+    setShareModalOpen(false);
+    setImportText('');
+    alert(added + ' produit(s) importé(s). ' + (rows.length - added) + ' ignoré(s).');
+  }
+
+  async function importCatalogFile(file: File) {
+
+    if (!canEditStock) {
+      alert('Import réservé au propriétaire ou membre autorisé.');
+      return;
+    }
+    if (!estId) {
+      alert('Aucun établissement actif.');
+      return;
+    }
     const text = await file.text();
+    if (file.name.toLowerCase().endsWith('.json') || text.trim().startsWith('{')) {
+      await importCatalogFromText(text);
+      return;
+    }
     type Row = {
       name: string;
       category?: string;
@@ -929,35 +1002,12 @@ export default function Inventaire() {
               <button type="button" onClick={sendCatalogToTeam} className="btn-secondary flex items-center gap-2 justify-center text-amber-200">
                 Envoyer catalogue équipe
               </button>
-              <button type="button" onClick={() => void exportCatalogJson()} className="btn-secondary flex items-center gap-2 justify-center">
-                <Download size={16} /> Exporter catalogue (JSON)
+              <button type="button" onClick={openShareStock} className="btn-primary flex items-center gap-2 justify-center sm:col-span-2">
+                <Upload size={16} /> Partager le stock
               </button>
-              <button type="button" onClick={() => void exportCatalogCsv()} className="btn-secondary flex items-center gap-2 justify-center">
-                <Download size={16} /> Exporter catalogue (CSV)
+              <button type="button" onClick={() => { setImportText(''); setShareModalOpen(true); }} className="btn-secondary flex items-center gap-2 justify-center sm:col-span-2">
+                <Download size={16} /> Recevoir / coller un catalogue
               </button>
-              <button
-                type="button"
-                className="btn-secondary flex items-center gap-2 justify-center"
-                onClick={() => {
-                  const el = document.getElementById('catalog-file-input') as HTMLInputElement | null;
-                  if (el) el.click();
-                  else alert('Sélecteur de fichier indisponible');
-                }}
-              >
-                <Upload size={16} /> Importer fichier catalogue
-              </button>
-              <input
-                id="catalog-file-input"
-                type="file"
-                accept=".json,.csv,text/csv,application/json,*/*"
-                className="sr-only"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void importCatalogFile(f);
-                  else alert('Aucun fichier sélectionné');
-                  e.target.value = '';
-                }}
-              />
               <button type="button" onClick={seedCatalog} disabled={seeding} className="btn-secondary flex items-center gap-2 justify-center">
                 <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
               </button>
@@ -1262,6 +1312,46 @@ export default function Inventaire() {
           <button onClick={save} className="btn-primary w-full">{editing ? 'Enregistrer' : 'Ajouter au stock'}</button>
         </div>
       </Modal>
+
+      <Modal open={shareModalOpen} onClose={() => setShareModalOpen(false)} title="Partager / importer le stock">
+        <div className="space-y-3">
+          <p className="text-sm text-stone-400">
+            Sur téléphone, utilisez <strong className="text-stone-200">Partager</strong> ou <strong className="text-stone-200">Copier</strong>,
+            puis sur l&apos;autre appareil <strong className="text-stone-200">Collez</strong> le catalogue ci-dessous.
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            <button type="button" disabled={shareBusy || !products.length} onClick={() => void shareStockNative()} className="btn-primary">
+              {shareBusy ? 'Patientez…' : 'Partager maintenant'}
+            </button>
+            <button type="button" disabled={!products.length} onClick={() => void copyCatalog()} className="btn-secondary">
+              Copier le catalogue
+            </button>
+            <button type="button" disabled={!products.length} onClick={shareStockWhatsApp} className="btn-secondary">
+              Envoyer résumé WhatsApp
+            </button>
+            <button type="button" disabled={!products.length} onClick={() => setImportText(catalogJsonText())} className="btn-secondary">
+              Afficher le texte à copier
+            </button>
+          </div>
+          <div>
+            <label className="label">Coller un catalogue reçu (JSON)</label>
+            <textarea
+              className="input-field min-h-[140px] font-mono text-xs"
+              placeholder='Collez ici le texte {"version":1,"type":"stock-manager-catalog",...}'
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+            />
+          </div>
+          <button
+            type="button"
+            className="btn-primary w-full"
+            onClick={() => void importCatalogFromText(importText)}
+          >
+            Importer le texte collé
+          </button>
+        </div>
+      </Modal>
+
     </div>
     </>
   );
