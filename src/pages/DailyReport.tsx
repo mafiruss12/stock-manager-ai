@@ -64,6 +64,7 @@ export default function DailyReportPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [reportId, setReportId] = useState<string | null>(null);
+  const [pdfPreviewHtml, setPdfPreviewHtml] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [stockDeducted, setStockDeducted] = useState(false);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
@@ -370,21 +371,23 @@ export default function DailyReportPage() {
 
   function openPrintPdf() {
     const html = buildReportHtml();
-    const w = window.open('', '_blank', 'noopener,noreferrer');
-    if (!w) {
-      alert('Autorisez les pop-ups pour le PDF.');
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => {
-      try {
-        w.print();
-      } catch {
-        /* */
+    // Affichage IN-APP (fiable sur mobile / APK — évite page blanche window.open)
+    setPdfPreviewHtml(html);
+  }
+
+  function printPreviewNow() {
+    try {
+      const iframe = document.getElementById('report-pdf-frame') as HTMLIFrameElement | null;
+      const win = iframe?.contentWindow;
+      if (win) {
+        win.focus();
+        win.print();
+        return;
       }
-    }, 400);
+    } catch {
+      /* */
+    }
+    window.print();
   }
 
   function downloadReportFile() {
@@ -394,8 +397,17 @@ export default function DailyReportPage() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `rapport-${date}-${(activeEstablishment?.name || 'maquis').replace(/\s+/g, '-')}.html`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      try {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        /* */
+      }
+    }, 1000);
   }
 
   function escapeHtml(s: string) {
@@ -468,17 +480,27 @@ export default function DailyReportPage() {
     setSaving(false);
     await loadHistory();
 
-    // 4) Fichier rapport + PDF
-    downloadReportFile();
+    // 4) Afficher le rapport (facture du jour) IN-APP — pas de page blanche
     openPrintPdf();
+    try {
+      downloadReportFile();
+    } catch {
+      /* */
+    }
 
-    // 5) WhatsApp
+    // 5) WhatsApp après un court délai pour laisser voir le PDF
     const msg =
       reportText() +
-      '\n\n📎 Un fichier rapport a été téléchargé sur cet appareil — joignez-le dans WhatsApp (PDF via Imprimer → Enregistrer en PDF).';
+      '\n\n📎 Rapport du jour généré dans Stock Manager — Imprimer → Enregistrer en PDF pour joindre.';
     const link = buildWhatsAppLink(ownerPhone, msg);
     if (link) {
-      window.open(link, '_blank', 'noopener,noreferrer');
+      setTimeout(() => {
+        try {
+          window.open(link, '_blank', 'noopener,noreferrer');
+        } catch {
+          /* */
+        }
+      }, 1200);
     } else {
       try {
         await navigator.clipboard.writeText(msg);
@@ -622,12 +644,15 @@ export default function DailyReportPage() {
       </div>
 
       {sent && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300 space-y-1">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300 space-y-2">
           <p>Rapport envoyé pour le {date}.</p>
           <p className="text-xs text-emerald-400/80">
             {stockDeducted ? 'Stock déduit de l’inventaire. ' : ''}
             Le propriétaire peut rouvrir ce rapport via Historique ou la notification.
           </p>
+          <button type="button" className="btn-primary text-sm" onClick={openPrintPdf}>
+            Voir la facture / rapport PDF
+          </button>
         </div>
       )}
 
@@ -880,6 +905,32 @@ export default function DailyReportPage() {
       >
         <RefreshCw size={12} /> Recharger
       </button>
+
+
+      {pdfPreviewHtml && (
+        <div className="fixed inset-0 z-[100] bg-stone-950 flex flex-col">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-stone-800 bg-stone-900 shrink-0">
+            <p className="text-sm font-medium text-stone-100 flex-1">Rapport du jour — facture</p>
+            <button type="button" className="btn-secondary text-xs px-2 py-1" onClick={printPreviewNow}>
+              Imprimer / PDF
+            </button>
+            <button
+              type="button"
+              className="btn-primary text-xs px-2 py-1"
+              onClick={() => setPdfPreviewHtml(null)}
+            >
+              Fermer
+            </button>
+          </div>
+          <iframe
+            id="report-pdf-frame"
+            title="Rapport PDF"
+            className="flex-1 w-full bg-white"
+            srcDoc={pdfPreviewHtml}
+          />
+        </div>
+      )}
+
     </div>
   );
 }
