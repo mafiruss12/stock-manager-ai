@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Package, Plus, Pencil, Trash2, Search, AlertTriangle,
-  Sparkles, Download, Calculator, Camera, Printer,
+  Sparkles, Download, Upload, Calculator, Camera, Printer,
   Truck, MoreHorizontal, History, RefreshCw,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -323,6 +323,163 @@ export default function Inventaire() {
     }
     await loadProducts();
     alert(`Stock remis à zéro (${(data as any)?.products_updated ?? '?'} produits).`);
+  }
+
+
+  function downloadBlob(filename: string, blob: Blob) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Export catalogue JSON réimportable dans l'app */
+  function exportCatalogJson() {
+    const payload = {
+      version: 1,
+      type: 'stock-manager-catalog',
+      business_type: bizType,
+      establishment_id: estId,
+      exported_at: new Date().toISOString(),
+      products: products.map((p) => ({
+        name: p.name,
+        category: p.category || 'Autre',
+        unit: p.unit || 'unité',
+        price: Number(p.price) || 0,
+        cost: Number(p.cost) || 0,
+        min_stock: Number(p.min_stock) || 0,
+        stock: Number(p.stock) || 0,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadBlob(`catalogue-${bizType}-${date}.json`, blob);
+  }
+
+  /** Export CSV (Excel) */
+  function exportCatalogCsv() {
+    const header = ['name', 'category', 'unit', 'price', 'cost', 'min_stock', 'stock'];
+    const lines = [header.join(';')];
+    for (const p of products) {
+      const row = [
+        p.name,
+        p.category || '',
+        p.unit || '',
+        String(Number(p.price) || 0),
+        String(Number(p.cost) || 0),
+        String(Number(p.min_stock) || 0),
+        String(Number(p.stock) || 0),
+      ].map((v) => `"${String(v).replace(/"/g, '""')}"`);
+      lines.push(row.join(';'));
+    }
+    const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadBlob(`catalogue-${bizType}-${date}.csv`, blob);
+  }
+
+  /** Import fichier JSON ou CSV généré par l'app */
+  async function importCatalogFile(file: File) {
+    if (!canEditStock) {
+      alert('Import réservé au propriétaire ou membre autorisé.');
+      return;
+    }
+    if (!estId) return;
+    const text = await file.text();
+    type Row = {
+      name: string;
+      category?: string;
+      unit?: string;
+      price?: number;
+      cost?: number;
+      min_stock?: number;
+      stock?: number;
+    };
+    let rows: Row[] = [];
+    try {
+      if (file.name.toLowerCase().endsWith('.json') || text.trim().startsWith('{')) {
+        const data = JSON.parse(text);
+        if (data?.type && data.type !== 'stock-manager-catalog') {
+          if (!confirm('Ce fichier ne semble pas être un catalogue Stock Manager. Continuer ?')) return;
+        }
+        const list = Array.isArray(data) ? data : data.products || data.items || [];
+        rows = list.map((x: any) => ({
+          name: String(x.name || x.nom || '').trim(),
+          category: String(x.category || x.categorie || 'Autre'),
+          unit: String(x.unit || x.unite || 'unité'),
+          price: Number(x.price ?? x.prix_vente ?? 0) || 0,
+          cost: Number(x.cost ?? x.prix_achat ?? 0) || 0,
+          min_stock: Number(x.min_stock ?? x.stock_min ?? 0) || 0,
+          stock: Number(x.stock ?? 0) || 0,
+        }));
+      } else {
+        // CSV ; or ,
+        const lines = text.replace(/^\ufeff/, '').split(/\r?\n/).filter((l) => l.trim());
+        if (lines.length < 2) {
+          alert('Fichier CSV vide');
+          return;
+        }
+        const sep = lines[0].includes(';') ? ';' : ',';
+        const headers = lines[0].split(sep).map((h) => h.replace(/^"|"$/g, '').trim().toLowerCase());
+        for (let i = 1; i < lines.length; i++) {
+          const cols = lines[i].split(sep).map((v) => v.replace(/^"|"$/g, '').trim());
+          const obj: Record<string, string> = {};
+          headers.forEach((h, idx) => {
+            obj[h] = cols[idx] || '';
+          });
+          const name = obj.name || obj.nom || obj.produit || '';
+          if (!name) continue;
+          rows.push({
+            name,
+            category: obj.category || obj.categorie || 'Autre',
+            unit: obj.unit || obj.unite || 'unité',
+            price: Number(obj.price || obj.prix_vente || 0) || 0,
+            cost: Number(obj.cost || obj.prix_achat || 0) || 0,
+            min_stock: Number(obj.min_stock || obj.stock_min || 0) || 0,
+            stock: Number(obj.stock || 0) || 0,
+          });
+        }
+      }
+    } catch (e) {
+      alert('Fichier illisible : ' + (e instanceof Error ? e.message : String(e)));
+      return;
+    }
+    rows = rows.filter((r) => r.name);
+    if (!rows.length) {
+      alert('Aucun produit trouvé dans le fichier.');
+      return;
+    }
+    if (!confirm(`Importer ${rows.length} produit(s) depuis « ${file.name} » ?\nLes noms déjà présents ne seront pas dupliqués.`)) return;
+
+    const existing = new Set(products.map((p) => p.name.toLowerCase().trim()));
+    let added = 0;
+    for (const r of rows) {
+      if (existing.has(r.name.toLowerCase().trim())) continue;
+      const payload = {
+        establishment_id: estId,
+        name: r.name,
+        category: r.category || 'Autre',
+        unit: r.unit || 'unité',
+        price: r.price || 0,
+        cost: r.cost || 0,
+        min_stock: r.min_stock || 0,
+        stock: r.stock || 0,
+      };
+      if (isOnline()) {
+        const { error } = await supabase.from('products').insert(payload);
+        if (!error) {
+          added++;
+          existing.add(r.name.toLowerCase().trim());
+        }
+      } else {
+        await queueAdd('products', 'insert', { ...payload, _client_op_id: newClientOpId() });
+        added++;
+        existing.add(r.name.toLowerCase().trim());
+      }
+    }
+    await loadProducts();
+    alert(`${added} produit(s) importé(s). ${rows.length - added} ignoré(s) (déjà présents ou erreur).`);
   }
 
   async function seedCatalog() {
@@ -709,6 +866,25 @@ export default function Inventaire() {
               <button type="button" onClick={sendCatalogToTeam} className="btn-secondary flex items-center gap-2 justify-center text-amber-200">
                 Envoyer catalogue équipe
               </button>
+              <button type="button" onClick={exportCatalogJson} className="btn-secondary flex items-center gap-2 justify-center">
+                <Download size={16} /> Exporter catalogue (JSON)
+              </button>
+              <button type="button" onClick={exportCatalogCsv} className="btn-secondary flex items-center gap-2 justify-center">
+                <Download size={16} /> Exporter catalogue (CSV)
+              </button>
+              <label className="btn-secondary flex items-center gap-2 justify-center cursor-pointer">
+                <Upload size={16} /> Importer fichier catalogue
+                <input
+                  type="file"
+                  accept=".json,.csv,application/json,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void importCatalogFile(f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
               <button type="button" onClick={seedCatalog} disabled={seeding} className="btn-secondary flex items-center gap-2 justify-center">
                 <Download size={16} /> {seeding ? 'Import…' : catalogLabel(bizType)}
               </button>
