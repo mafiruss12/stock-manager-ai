@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   TrendingUp, DollarSign, Package, Users, AlertTriangle, Receipt, ShoppingCart,
   UtensilsCrossed, LayoutDashboard, Truck, ArrowRight,
@@ -24,6 +24,18 @@ import {
   type BeveragePeriodReport,
 } from '@/lib/beverageProfit';
 import OwnerReportCalendar from '@/components/OwnerReportCalendar';
+
+function DashLink({ to, children, className = '' }: { to: string; children: ReactNode; className?: string }) {
+  return (
+    <Link
+      to={to}
+      className={`block rounded-2xl transition-all hover:ring-2 hover:ring-amber-500/40 hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-amber-400/50 ${className}`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 
 interface DashboardData {
   todaySales: number;
@@ -311,40 +323,40 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <h2 className="text-lg font-semibold text-stone-100">Comptabilité</h2>
-            <p className="text-xs text-stone-500">Chiffres de gestion (indicatifs, pas une comptabilité certifiée)</p>
+            <p className="text-xs text-stone-500">Chiffres de gestion — appuyez sur une carte pour ouvrir</p>
           </div>
           <Link to="/accounting" className="text-sm text-amber-400 hover:underline">
             Voir détail →
           </Link>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard title="CA du jour" value={formatFCFA(data.todaySales)} icon={<DollarSign size={20} />} />
-          <StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} />
-          <StatCard title="Résultat du jour" value={formatFCFA(data.todayProfit)} icon={<TrendingUp size={20} />} />
-          <StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} />
-          <StatCard title="CA du mois" value={formatFCFA(data.monthSales ?? 0)} icon={<TrendingUp size={20} />} />
-          <StatCard title="Dépenses du mois" value={formatFCFA(data.monthExpenses ?? 0)} icon={<DollarSign size={20} />} />
-          <StatCard title="Achats stock (mois)" value={formatFCFA(data.monthPurchases ?? 0)} icon={<Package size={20} />} />
+          <DashLink to="/pos"><StatCard title="CA du jour" value={formatFCFA(data.todaySales)} icon={<DollarSign size={20} />} /></DashLink>
+          <DashLink to="/expenses"><StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} /></DashLink>
+          <DashLink to="/accounting"><StatCard title="Résultat du jour" value={formatFCFA(data.todayProfit)} icon={<TrendingUp size={20} />} /></DashLink>
+          <DashLink to="/statistics"><StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} /></DashLink>
+          <DashLink to="/accounting"><StatCard title="CA du mois" value={formatFCFA(data.monthSales ?? 0)} icon={<TrendingUp size={20} />} /></DashLink>
+          <DashLink to="/expenses"><StatCard title="Dépenses du mois" value={formatFCFA(data.monthExpenses ?? 0)} icon={<DollarSign size={20} />} /></DashLink>
+          <DashLink to="/inventory"><StatCard title="Achats stock (mois)" value={formatFCFA(data.monthPurchases ?? 0)} icon={<Package size={20} />} /></DashLink>
         </div>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-            <p className="text-emerald-200/80 text-xs uppercase tracking-wide">Bénéfice net — semaine (7 j)</p>
+          <DashLink to="/accounting" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+            <p className="text-emerald-200/80 text-xs uppercase tracking-wide">Bénéfice net — semaine (7 j) →</p>
             <p className={`text-2xl font-bold mt-1 ${(data.weekProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {formatFCFA(data.weekProfit ?? 0)}
             </p>
             <p className="text-[11px] text-stone-500 mt-1">
               CA {formatFCFA(data.weekSalesTotal)} − dépenses {formatFCFA(data.weekExpenses ?? 0)} − achats {formatFCFA(data.weekPurchases ?? 0)}
             </p>
-          </div>
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <p className="text-amber-200/80 text-xs uppercase tracking-wide">Bénéfice net — mois</p>
+          </DashLink>
+          <DashLink to="/accounting" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <p className="text-amber-200/80 text-xs uppercase tracking-wide">Bénéfice net — mois →</p>
             <p className={`text-2xl font-bold mt-1 ${(data.monthProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {formatFCFA(data.monthProfit ?? 0)}
             </p>
             <p className="text-[11px] text-stone-500 mt-1">
               CA {formatFCFA(data.monthSales ?? 0)} − dépenses {formatFCFA(data.monthExpenses ?? 0)} − achats {formatFCFA(data.monthPurchases ?? 0)}
             </p>
-          </div>
+          </DashLink>
         </div>
       </div>
 
@@ -432,8 +444,8 @@ export default function Dashboard() {
         {canSeeFinance ? (
           <>
         <StatCard title="Ventes du jour" value={formatFCFA(data.todaySales)} icon={<DollarSign size={20} />} />
-        <StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} />
-        <StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} />
+        <DashLink to="/statistics"><StatCard title="CA 7 jours" value={formatFCFA(data.weekSalesTotal)} icon={<TrendingUp size={20} />} /></DashLink>
+        <DashLink to="/expenses"><StatCard title="Dépenses du jour" value={formatFCFA(data.todayExpenses)} icon={<DollarSign size={20} />} /></DashLink>
         <StatCard title="Bénéfice jour" value={formatFCFA(data.todayProfit)} icon={<TrendingUp size={20} />} />
           </>
         ) : (
@@ -473,13 +485,17 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className={`card bg-gradient-to-br ${theme.gradient}`}>
-          <h2 className="font-semibold text-stone-100 mb-1">Évolution des ventes (7 j)</h2>
+        <DashLink to="/statistics" className="block">
+        <div className={`card bg-gradient-to-br ${theme.gradient} h-full`}>
+          <h2 className="font-semibold text-stone-100 mb-1">Évolution des ventes (7 j) →</h2>
           <p className="text-xs text-stone-500 mb-3">Graphique {BUSINESS_LABELS[bizType]}</p>
           <BarChart data={data.weeklyData} color={theme.primary} height={140} />
+          <p className="text-xs text-stone-400 mt-2">Appuyer pour statistiques détaillées</p>
         </div>
-        <div className="card">
-          <h2 className="font-semibold text-stone-100 mb-3">{bizType === 'restaurant' ? 'Commandes en cours' : 'Top produits (7 j)'}</h2>
+        </DashLink>
+        <DashLink to="/inventory" className="block">
+        <div className="card h-full">
+          <h2 className="font-semibold text-stone-100 mb-3">{bizType === 'restaurant' ? 'Commandes en cours' : 'Top produits (7 j)'} →</h2>
           {bizType === 'restaurant' && data.activeOrdersList.length > 0 ? (
             <ul className="space-y-2">
               {data.activeOrdersList.slice(0, 5).map((o) => (
@@ -502,28 +518,33 @@ export default function Dashboard() {
             <p className="text-sm text-stone-500">Pas encore assez de données.</p>
           )}
         </div>
+        </DashLink>
       </div>
 
       
       {data.aiAlerts.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-          <p className="text-sm font-semibold text-amber-200">Alertes IA — Stock Manager</p>
+        <DashLink to="/inventory" className="mb-6">
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+          <p className="text-sm font-semibold text-amber-200">Alertes IA — Stock Manager →</p>
           <ul className="space-y-1">
             {data.aiAlerts.map((a, i) => (
               <li key={i} className="text-sm text-amber-100/90">⚠️ {a}</li>
             ))}
           </ul>
         </div>
+        </DashLink>
       )}
 
       {data.lowStockCount > 0 && (
+        <DashLink to="/inventory">
         <div className="card border border-warning-500/30 bg-warning-500/5 flex items-start gap-3">
           <AlertTriangle className="text-warning-400 shrink-0" size={20} />
           <div>
             <p className="font-medium text-stone-100">{data.lowStockCount} produit(s) sous le seuil</p>
-            <Link to="/inventory" className="text-sm text-primary-400 hover:underline">Voir l&apos;inventaire →</Link>
+            <span className="text-sm text-primary-400">Voir l&apos;inventaire →</span>
           </div>
         </div>
+        </DashLink>
       )}
     </div>
   );

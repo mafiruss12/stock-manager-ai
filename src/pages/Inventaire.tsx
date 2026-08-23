@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
+import ProductThumb from '@/components/ProductThumb';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 
 function aiStatus(stock: number, min: number): { label: string; color: 'error' | 'warning' | 'success' | 'primary' } {
@@ -1184,9 +1185,12 @@ export default function Inventaire() {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-medium text-stone-100">
-                      <span className="inline-flex items-center gap-1.5">
-                        {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
-                        {p.name}
+                      <span className="inline-flex items-center gap-2 min-w-0">
+                        <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={44} />
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                          <span className="truncate">{p.name}</span>
+                        </span>
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-stone-400">{p.unit}</td>
