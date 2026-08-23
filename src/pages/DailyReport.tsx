@@ -327,45 +327,301 @@ export default function DailyReportPage() {
   function buildReportHtml(): string {
     const est = activeEstablishment?.name || 'Maquis';
     const rows = soldLines
-      .map(
-        (l, i) =>
-          `<tr><td>${i + 1}</td><td>${escapeHtml(l.name)}</td><td class="n">${l.qty}</td><td class="n">${l.price.toLocaleString('fr-FR')}</td><td class="n">${(l.qty * l.price).toLocaleString('fr-FR')}</td></tr>`
-      )
+      .map((l, i) => {
+        const icons = ['🍺', '🍻', '🥂', '🥤', '🍹'];
+        const icon = icons[i % icons.length];
+        return `<tr>
+          <td class="num">${i + 1}</td>
+          <td class="prod"><span class="ico">${icon}</span> ${escapeHtml(l.name)}</td>
+          <td class="n">${l.qty}</td>
+          <td class="n">${l.price.toLocaleString('fr-FR')}</td>
+          <td class="n total-cell">${(l.qty * l.price).toLocaleString('fr-FR')}</td>
+        </tr>`;
+      })
       .join('');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Rapport ${date}</title>
+    const genAt = new Date().toLocaleString('fr-FR');
+    return `<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Facture rapport ${date}</title>
 <style>
-  body{font-family:system-ui,sans-serif;padding:24px;color:#111;max-width:720px;margin:0 auto}
-  h1{font-size:22px;margin:0 0 4px}
-  .muted{color:#666;font-size:13px}
-  table{width:100%;border-collapse:collapse;margin:16px 0}
-  th,td{border:1px solid #ddd;padding:8px;text-align:left;font-size:13px}
-  th{background:#f5f5f5}
-  .n{text-align:right}
-  .box{border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:12px}
-  .ok{color:#059669;font-weight:600}.bad{color:#dc2626;font-weight:600}
-  .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#fef3c7;font-size:12px}
-  @media print{button,.no-print{display:none}}
-</style></head><body>
-<h1>Rapport du jour — ${escapeHtml(est)}</h1>
-<p class="muted">Date du point : <strong>${date}</strong> · Généré le ${new Date().toLocaleString('fr-FR')}</p>
-<p class="badge">${bizType}</p>
-<table><thead><tr><th>#</th><th>Boisson</th><th class="n">Qté</th><th class="n">Prix unit.</th><th class="n">Total</th></tr></thead>
-<tbody>${rows || '<tr><td colspan="5">Aucune vente saisie</td></tr>'}</tbody>
-<tfoot><tr><td colspan="4"><strong>Total théorique</strong></td><td class="n"><strong>${theoretical.toLocaleString('fr-FR')} FCFA</strong></td></tr></tfoot>
-</table>
-<div class="box">
-  <p><strong>Espèces comptées :</strong> ${cash.toLocaleString('fr-FR')} FCFA</p>
-  <p><strong>Mobile Money reçu :</strong> ${mobile.toLocaleString('fr-FR')} FCFA</p>
-  <p><strong>Total reçu :</strong> ${received.toLocaleString('fr-FR')} FCFA</p>
-  <p>Contrôle caisse :
-    <span class="${match ? 'ok' : 'bad'}">${match ? 'OK — coïncide' : 'Écart ' + diff.toLocaleString('fr-FR') + ' FCFA'}</span>
-  </p>
-  ${stockDeducted ? '<p>📦 Stock inventaire mis à jour</p>' : ''}
-  ${comment ? `<p><strong>Commentaire :</strong> ${escapeHtml(comment)}</p>` : ''}
-  ${signature ? `<p><strong>Signature :</strong> ${escapeHtml(signature)}</p>` : ''}
-</div>
-<p class="muted">Trace app : Outils → Rapport du jour → date ${date}</p>
-<button class="no-print" onclick="window.print()">Enregistrer en PDF / Imprimer</button>
+  * { box-sizing: border-box; }
+  @page { margin: 12mm; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #1c1917;
+    background: linear-gradient(165deg, #fff7ed 0%, #fef3c7 35%, #ecfdf5 100%);
+    min-height: 100vh;
+    padding: 20px 16px 40px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .sheet {
+    max-width: 720px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(180, 83, 9, 0.15);
+    border: 2px solid #fbbf24;
+    position: relative;
+  }
+  .bubbles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .bubbles span {
+    position: absolute;
+    font-size: 28px;
+    opacity: 0.2;
+    animation: float 4s ease-in-out infinite;
+  }
+  .bubbles span:nth-child(1) { left: 6%; top: 12%; animation-delay: 0s; }
+  .bubbles span:nth-child(2) { left: 88%; top: 18%; animation-delay: 0.7s; }
+  .bubbles span:nth-child(3) { left: 12%; top: 70%; animation-delay: 1.2s; }
+  .bubbles span:nth-child(4) { left: 80%; top: 75%; animation-delay: 0.4s; }
+  .bubbles span:nth-child(5) { left: 45%; top: 8%; animation-delay: 1.5s; }
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(8deg); }
+  }
+  .hero {
+    background: linear-gradient(120deg, #f59e0b 0%, #ea580c 45%, #16a34a 100%);
+    color: #fff;
+    padding: 28px 24px 22px;
+    position: relative;
+    z-index: 1;
+  }
+  .hero h1 {
+    margin: 0 0 6px;
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .hero .sub { opacity: 0.95; font-size: 14px; margin: 0; }
+  .hero .brand {
+    display: inline-block;
+    margin-top: 12px;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.35);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .beer-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 26px;
+    animation: bounce 2s ease-in-out infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .body { padding: 20px 22px 28px; position: relative; z-index: 1; }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .pill-amber { background: #fef3c7; color: #92400e; }
+  .pill-green { background: #dcfce7; color: #166534; }
+  .pill-sky { background: #e0f2fe; color: #075985; }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 12px 0 18px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #fed7aa;
+  }
+  th {
+    background: linear-gradient(90deg, #f59e0b, #ea580c);
+    color: #fff;
+    padding: 10px 8px;
+    font-size: 12px;
+    text-align: left;
+  }
+  td {
+    padding: 10px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #ffedd5;
+    background: #fffbeb;
+  }
+  tr:nth-child(even) td { background: #fff7ed; }
+  tr:last-child td { border-bottom: none; }
+  .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .num { width: 36px; color: #a16207; font-weight: 700; }
+  .prod { font-weight: 600; color: #292524; }
+  .ico { margin-right: 4px; }
+  .total-cell { color: #c2410c; font-weight: 700; }
+  tfoot td {
+    background: linear-gradient(90deg, #fef3c7, #ffedd5) !important;
+    font-weight: 700;
+    border-top: 2px solid #f59e0b;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .card {
+    border-radius: 14px;
+    padding: 12px 14px;
+    border: 1px solid #fed7aa;
+    background: linear-gradient(145deg, #fff7ed, #ffedd5);
+  }
+  .card.mm { background: linear-gradient(145deg, #ecfdf5, #d1fae5); border-color: #6ee7b7; }
+  .card .label { font-size: 11px; color: #78716c; text-transform: uppercase; letter-spacing: 0.04em; }
+  .card .val { font-size: 18px; font-weight: 800; color: #9a3412; margin-top: 4px; }
+  .card.mm .val { color: #047857; }
+  .status {
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .status.ok {
+    background: linear-gradient(90deg, #d1fae5, #a7f3d0);
+    color: #065f46;
+    border: 1px solid #34d399;
+  }
+  .status.bad {
+    background: linear-gradient(90deg, #fee2e2, #fecaca);
+    color: #991b1b;
+    border: 1px solid #f87171;
+  }
+  .notes {
+    background: #fafaf9;
+    border: 1px dashed #d6d3d1;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 13px;
+    color: #44403c;
+  }
+  .footer {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 11px;
+    color: #a8a29e;
+  }
+  .footer strong { color: #ea580c; }
+  .bar {
+    height: 6px;
+    background: linear-gradient(90deg, #f59e0b, #22c55e, #0ea5e9, #f59e0b);
+    background-size: 200% 100%;
+    animation: shine 3s linear infinite;
+  }
+  @keyframes shine {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+  .actions {
+    text-align: center;
+    padding: 16px;
+    background: #fff7ed;
+    border-top: 1px solid #fed7aa;
+  }
+  .actions button {
+    background: linear-gradient(90deg, #f59e0b, #ea580c);
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+  }
+  @media print {
+    body { background: #fff !important; padding: 0; }
+    .sheet { box-shadow: none; border: 1px solid #f59e0b; }
+    .actions, .no-print { display: none !important; }
+    .bubbles span { opacity: 0.15; animation: none; }
+    .beer-row { animation: none; }
+    .bar { animation: none; background: linear-gradient(90deg, #f59e0b, #22c55e, #0ea5e9); }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="bubbles" aria-hidden="true">
+      <span>🍺</span><span>🍻</span><span>🥂</span><span>🥤</span><span>🍹</span>
+    </div>
+    <div class="bar"></div>
+    <div class="hero">
+      <h1>🍺 Facture — Rapport du jour</h1>
+      <p class="sub">${escapeHtml(est)}</p>
+      <div class="beer-row" aria-hidden="true">🍺 🍻 🥂 🥤 🍹</div>
+      <span class="brand">Stock Manager AI</span>
+    </div>
+    <div class="body">
+      <div class="meta">
+        <span class="pill pill-amber">📅 ${escapeHtml(date)}</span>
+        <span class="pill pill-sky">🏷️ ${escapeHtml(String(bizType))}</span>
+        <span class="pill pill-green">🕒 ${escapeHtml(genAt)}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Boisson</th>
+            <th class="n">Qté</th>
+            <th class="n">P. unit.</th>
+            <th class="n">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows || '<tr><td colspan="5">Aucune vente saisie</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4">Total théorique</td>
+            <td class="n">${theoretical.toLocaleString('fr-FR')} FCFA</td>
+          </tr>
+        </tfoot>
+      </table>
+      <div class="cards">
+        <div class="card">
+          <div class="label">💵 Espèces</div>
+          <div class="val">${cash.toLocaleString('fr-FR')} F</div>
+        </div>
+        <div class="card mm">
+          <div class="label">📱 Mobile Money</div>
+          <div class="val">${mobile.toLocaleString('fr-FR')} F</div>
+        </div>
+      </div>
+      <div class="status ${match ? 'ok' : 'bad'}">
+        ${match
+          ? '✅ Caisse OK — total reçu = théorique (' + received.toLocaleString('fr-FR') + ' FCFA)'
+          : '⚠️ Écart caisse : ' + diff.toLocaleString('fr-FR') + ' FCFA (reçu ' + received.toLocaleString('fr-FR') + ')'}
+      </div>
+      <div class="notes">
+        ${stockDeducted ? '<p>📦 Stock inventaire mis à jour</p>' : ''}
+        ${comment ? '<p><strong>Commentaire :</strong> ' + escapeHtml(comment) + '</p>' : ''}
+        ${signature ? '<p><strong>Signature :</strong> ' + escapeHtml(signature) + '</p>' : '<p><strong>Signature :</strong> —</p>'}
+      </div>
+      <p class="footer">Document généré par <strong>Stock Manager AI</strong> · Conservez ce rapport comme facture du jour</p>
+    </div>
+    <div class="actions no-print">
+      <button type="button" onclick="window.print()">📄 Enregistrer en PDF / Imprimer</button>
+    </div>
+  </div>
 </body></html>`;
   }
 
@@ -376,18 +632,53 @@ export default function DailyReportPage() {
   }
 
   function printPreviewNow() {
+    const html = pdfPreviewHtml || buildReportHtml();
+    // 1) Essayer l'iframe (bureau)
     try {
       const iframe = document.getElementById('report-pdf-frame') as HTMLIFrameElement | null;
       const win = iframe?.contentWindow;
       if (win) {
         win.focus();
         win.print();
+      }
+    } catch {
+      /* */
+    }
+    // 2) Nouvel onglet depuis le geste utilisateur (mobile / APK)
+    try {
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) {
+        const t = window.setTimeout(() => {
+          try {
+            w.focus();
+            w.print();
+          } catch {
+            /* */
+          }
+        }, 600);
+        w.addEventListener('load', () => {
+          window.clearTimeout(t);
+          try {
+            w.focus();
+            w.print();
+          } catch {
+            /* */
+          }
+        });
         return;
       }
     } catch {
       /* */
     }
-    window.print();
+    // 3) Fallback téléchargement HTML
+    try {
+      downloadReportFile();
+      alert('Impression bloquée. Fichier rapport téléchargé — ouvrez-le puis Imprimer → Enregistrer en PDF.');
+    } catch {
+      alert('Impossible d\'imprimer depuis cet appareil. Réessayez sur Chrome.');
+    }
   }
 
   function downloadReportFile() {
