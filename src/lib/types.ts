@@ -30,6 +30,8 @@ export interface Member {
   establishment_id: string | null;
   status: MemberStatus;
   created_at: string;
+  /** Autorisé par le propriétaire à modifier le stock */
+  can_edit_stock?: boolean | null;
 }
 
 export interface Product {

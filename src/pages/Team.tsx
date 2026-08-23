@@ -60,6 +60,27 @@ export default function TeamPage() {
     await load();
   }
 
+  async function toggleEditStock(m: Member) {
+    if (!['super_admin', 'admin', 'owner'].includes(member?.role || '')) {
+      setError('Seul le propriétaire / admin peut autoriser la modification du stock.');
+      return;
+    }
+    const next = !Boolean(m.can_edit_stock);
+    const { error: err } = await supabase
+      .from('members')
+      .update({ can_edit_stock: next })
+      .eq('id', m.id);
+    if (err) {
+      setError(
+        err.message.includes('can_edit_stock')
+          ? 'Colonne manquante : exécutez la migration SQL can_edit_stock sur Supabase.'
+          : err.message
+      );
+      return;
+    }
+    setTeam((prev) => prev.map((x) => (x.id === m.id ? { ...x, can_edit_stock: next } : x)));
+  }
+
   async function changeRole(m: Member, role: Role) {
     if (!member) return;
     if (ROLE_RANK[role] <= ROLE_RANK[member.role]) {
@@ -128,6 +149,7 @@ export default function TeamPage() {
         <p className="font-medium text-stone-200">Hiérarchie des rôles</p>
         <p>1. Super Administrateur → 2. Administrateur → 3. Propriétaire → 4. Gérant → 5. Caissier → 6. Employé</p>
         <p>Vous ({ROLE_LABELS[member!.role]}) pouvez uniquement créer / modifier des rôles <strong className="text-stone-300">inférieurs</strong> au vôtre.</p>
+        <p className="mt-1">Cochez <strong className="text-stone-300">Modifier stock</strong> pour autoriser un employé / gérant / caissier à gérer l&apos;inventaire (sinon lecture seule).</p>
       </div>
 
       {team.length === 0 ? (
@@ -143,6 +165,17 @@ export default function TeamPage() {
                 </p>
               </div>
               <Badge color={m.status === 'active' ? 'success' : 'warning'}>{m.status}</Badge>
+              {['super_admin', 'admin', 'owner'].includes(member!.role) && (
+                <label className="flex items-center gap-2 text-xs text-stone-300 border border-stone-700 rounded-xl px-2 py-1.5 cursor-pointer hover:bg-stone-800/60">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(m.can_edit_stock)}
+                    onChange={() => void toggleEditStock(m)}
+                    className="rounded border-stone-600"
+                  />
+                  <span>Modifier stock</span>
+                </label>
+              )}
               {m.user_id !== member!.user_id && ROLE_RANK[m.role] > ROLE_RANK[member!.role] && (
                 <div className="flex items-center gap-2">
                   <select

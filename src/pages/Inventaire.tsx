@@ -29,9 +29,11 @@ export default function Inventaire() {
   const showCasiers = usesCasiers(bizType);
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const roleNow = String(effectiveRole || member?.role || '');
-  /** Seul le propriétaire (et admin plateforme) modifie le stock / arrivages */
-  const canEditStock = ['super_admin', 'admin', 'owner'].includes(roleNow);
-  const isStaffOnly = ['employee', 'cashier', 'manager'].includes(roleNow);
+  /** Propriétaire / admin, ou membre explicitement autorisé (can_edit_stock) */
+  const canEditStock =
+    ['super_admin', 'admin', 'owner'].includes(roleNow) ||
+    Boolean(member?.can_edit_stock);
+  const isStaffOnly = ['employee', 'cashier', 'manager'].includes(roleNow) && !canEditStock;
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');

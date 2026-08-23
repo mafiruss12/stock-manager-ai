@@ -184,6 +184,9 @@ export default function SettingsPage() {
 
     <div>
       <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Profil & Paramètres</h1>
+      <p className="text-sm text-stone-400 mt-2">
+        Pour autoriser un employé à modifier le stock : allez dans <a href="/team" className="text-amber-400 underline">Équipe</a> et cochez « Modifier stock ».
+      </p>
       <p className="text-stone-400 text-sm mb-6">Personnalisez votre compte et votre établissement</p>
 
       {error && (
