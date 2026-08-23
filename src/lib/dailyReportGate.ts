@@ -111,3 +111,83 @@ export function freeWhatsAppLink(phone: string, text: string): string {
 export function freeMailto(email: string, subject: string, body: string): string {
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+
+export type ReportStaff = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string;
+};
+
+/** Membres actifs qui doivent faire le point (employé, caissier, gérant) */
+export async function getReportStaff(establishmentId: string): Promise<ReportStaff[]> {
+  const { data, error } = await supabase
+    .from('members')
+    .select('user_id, full_name, email, role, status')
+    .eq('establishment_id', establishmentId)
+    .eq('status', 'active')
+    .in('role', ['manager', 'cashier', 'employee']);
+  if (error || !data) return [];
+  return data.map((m) => ({
+    user_id: m.user_id,
+    full_name: m.full_name,
+    email: m.email,
+    role: m.role,
+  }));
+}
+
+export function buildOwnerReminderMessage(opts: {
+  establishmentName: string;
+  missingDates: string[];
+  staff: ReportStaff[];
+  todayDone: boolean;
+}): { title: string; body: string } {
+  const staffLine =
+    opts.staff.length > 0
+      ? opts.staff.map((s) => s.full_name || s.email || s.role).join(', ')
+      : 'Aucun employé actif assigné';
+  const days =
+    opts.missingDates.length > 0
+      ? opts.missingDates.map(formatDateFr).join(', ')
+      : 'aucun';
+  const todayNote = opts.todayDone
+    ? "Le point d'aujourd'hui est fait."
+    : "Le point d'aujourd'hui n'est PAS encore fait.";
+  return {
+    title: `Suivi rapports — ${opts.establishmentName}`,
+    body:
+      todayNote +
+      '
+Équipe concernée : ' +
+      staffLine +
+      '.' +
+      (opts.missingDates.length ? '
+Jours sans point : ' + days + '.' : '
+Tous les jours récents ont un rapport.'),
+  };
+}
+): { title: string; body: string } {
+  const staffLine =
+    opts.staff.length > 0
+      ? opts.staff
+          .map((s) => s.full_name || s.email || s.role)
+          .join(', ')
+      : 'Aucun employé actif assigné';
+  const days =
+    opts.missingDates.length > 0
+      ? opts.missingDates.map(formatDateFr).join(', ')
+      : 'aucun';
+  const todayNote = opts.todayDone
+    ? "Le point d'aujourd'hui est fait."
+    : "Le point d'aujourd'hui n'est PAS encore fait.";
+  return {
+    title: `Suivi rapports — ${opts.establishmentName}`,
+    body:
+      `${todayNote}\n` +
+      `Équipe concernée : ${staffLine}.\n` +
+      (opts.missingDates.length
+        ? `Jours sans point : ${days}.`
+        : 'Tous les jours récents ont un rapport.'),
+  };
+}
