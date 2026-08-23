@@ -87,28 +87,28 @@ export const BUSINESS_THEMES: Record<
 
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
-    '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/expenses', '/employees', '/team',
-    '/suivi', '/calendar', '/daily-report', '/statistics', '/reports', '/ai', '/chat',
+    '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/expenses', '/mes-employes',
+    '/calendar', '/daily-report', '/statistics', '/reports', '/ai', '/chat',
     '/notifications', '/settings',
   ],
   magasin: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   boutique: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   superette: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   quincaillerie: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/employees', '/team', '/suivi', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
     '/ai', '/chat', '/notifications', '/settings',
   ],
   location_event: [

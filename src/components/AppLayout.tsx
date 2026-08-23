@@ -52,9 +52,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/inventory', label: 'Inventaire', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/tables', label: 'Tables', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
-      { to: '/employees', label: 'Employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
-      { to: '/team', label: 'Mon équipe (accès)', icon: <UserCog size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
-      { to: '/suivi', label: 'Suivi gérant', icon: <ClipboardList size={20} />, roles: ['super_admin', 'admin', 'owner'] },
+      { to: '/mes-employes', label: 'Mes employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/calendar', label: 'Planning', icon: <Calendar size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/customers', label: 'Clients', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
     ],
