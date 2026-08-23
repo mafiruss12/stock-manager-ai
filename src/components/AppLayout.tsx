@@ -13,7 +13,6 @@ import { startPrefetchInterval } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
-import { supabase } from '@/lib/supabase';
 import OfflineBanner from '@/components/OfflineBanner';
 import UpdateBanner from '@/components/UpdateBanner';
 import { displayLogin } from '@/lib/login';
