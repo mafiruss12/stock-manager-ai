@@ -20,7 +20,6 @@ import { supabase } from '@/lib/supabase';
 export default function DailyReportGate() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
   const location = useLocation();
-  const navigate = ();
   const [missingDates, setMissingDates] = useState<string[]>([]);
   const [checking, setChecking] = useState(true);
   const [dismissedPast, setDismissedPast] = useState(false);
