@@ -154,40 +154,15 @@ export function buildOwnerReminderMessage(opts: {
   const todayNote = opts.todayDone
     ? "Le point d'aujourd'hui est fait."
     : "Le point d'aujourd'hui n'est PAS encore fait.";
+  const lines = [
+    todayNote,
+    'Équipe concernée : ' + staffLine + '.',
+    opts.missingDates.length
+      ? 'Jours sans point : ' + days + '.'
+      : 'Tous les jours récents ont un rapport.',
+  ];
   return {
     title: `Suivi rapports — ${opts.establishmentName}`,
-    body:
-      todayNote +
-      '
-Équipe concernée : ' +
-      staffLine +
-      '.' +
-      (opts.missingDates.length ? '
-Jours sans point : ' + days + '.' : '
-Tous les jours récents ont un rapport.'),
-  };
-}
-): { title: string; body: string } {
-  const staffLine =
-    opts.staff.length > 0
-      ? opts.staff
-          .map((s) => s.full_name || s.email || s.role)
-          .join(', ')
-      : 'Aucun employé actif assigné';
-  const days =
-    opts.missingDates.length > 0
-      ? opts.missingDates.map(formatDateFr).join(', ')
-      : 'aucun';
-  const todayNote = opts.todayDone
-    ? "Le point d'aujourd'hui est fait."
-    : "Le point d'aujourd'hui n'est PAS encore fait.";
-  return {
-    title: `Suivi rapports — ${opts.establishmentName}`,
-    body:
-      `${todayNote}\n` +
-      `Équipe concernée : ${staffLine}.\n` +
-      (opts.missingDates.length
-        ? `Jours sans point : ${days}.`
-        : 'Tous les jours récents ont un rapport.'),
+    body: lines.join('\n'),
   };
 }
