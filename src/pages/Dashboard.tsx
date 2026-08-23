@@ -23,6 +23,7 @@ import {
   monthStartISO,
   type BeveragePeriodReport,
 } from '@/lib/beverageProfit';
+import OwnerReportCalendar from '@/components/OwnerReportCalendar';
 
 interface DashboardData {
   todaySales: number;
@@ -298,6 +299,10 @@ export default function Dashboard() {
           7 jours
         </div>
       </div>
+
+{canSeeFinance && (activeEstablishment?.id || member?.establishment_id) && (
+        <OwnerReportCalendar establishmentId={(activeEstablishment?.id || member?.establishment_id)!} />
+      )}
 
 {canSeeFinance && (
       <>
