@@ -88,6 +88,38 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+
+const SECTION_META: Record<string, { emoji: string; gradient: string; border: string; iconBg: string; text: string }> = {
+  Principal: {
+    emoji: '🏠',
+    gradient: 'linear-gradient(90deg, rgba(245,158,11,0.35), rgba(234,88,12,0.2), rgba(245,158,11,0.35))',
+    border: 'rgba(245,158,11,0.35)',
+    iconBg: 'bg-amber-500/20 text-amber-300',
+    text: 'text-amber-200',
+  },
+  Gestion: {
+    emoji: '📦',
+    gradient: 'linear-gradient(90deg, rgba(16,185,129,0.3), rgba(5,150,105,0.18), rgba(16,185,129,0.3))',
+    border: 'rgba(16,185,129,0.35)',
+    iconBg: 'bg-emerald-500/20 text-emerald-300',
+    text: 'text-emerald-200',
+  },
+  Finances: {
+    emoji: '💰',
+    gradient: 'linear-gradient(90deg, rgba(34,197,94,0.28), rgba(234,179,8,0.22), rgba(34,197,94,0.28))',
+    border: 'rgba(234,179,8,0.4)',
+    iconBg: 'bg-yellow-500/20 text-yellow-300',
+    text: 'text-yellow-200',
+  },
+  Outils: {
+    emoji: '🛠️',
+    gradient: 'linear-gradient(90deg, rgba(56,189,248,0.28), rgba(99,102,241,0.22), rgba(56,189,248,0.28))',
+    border: 'rgba(56,189,248,0.35)',
+    iconBg: 'bg-sky-500/20 text-sky-300',
+    text: 'text-sky-200',
+  },
+};
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
@@ -343,28 +375,51 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
-          {visibleSections.map((section) => (
-            <div key={section.label}>
-              <p className="px-3 text-xs font-semibold text-stone-600 uppercase tracking-wider mb-1">{section.label}</p>
-              <div className="space-y-0.5">
+        <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
+          {visibleSections.map((section, sIdx) => {
+            const meta = SECTION_META[section.label] || {
+              emoji: '✨',
+              gradient: 'linear-gradient(90deg, rgba(168,162,158,0.25), rgba(87,83,78,0.2))',
+              border: 'rgba(168,162,158,0.3)',
+              iconBg: 'bg-stone-600/40 text-stone-300',
+              text: 'text-stone-300',
+            };
+            return (
+            <div
+              key={section.label}
+              className="nav-section-card"
+              style={{ borderColor: meta.border, animationDelay: `${sIdx * 0.15}s` }}
+            >
+              <div
+                className={`nav-section-head ${meta.text}`}
+                style={{ backgroundImage: meta.gradient, border: `1px solid ${meta.border}` }}
+              >
+                <span className="nav-section-emoji" style={{ animationDelay: `${sIdx * 0.3}s` }}>
+                  {meta.emoji}
+                </span>
+                <span>{section.label}</span>
+                <span className="ml-auto opacity-70 text-[10px]">{section.items.length}</span>
+              </div>
+              <div className="space-y-0.5 px-0.5 pb-0.5">
                 {section.items.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      `nav-item-link flex items-center gap-2.5 px-2 py-2 rounded-xl text-sm font-medium transition-all ${
                         isActive
-                          ? 'bg-primary-500/15 text-primary-300'
-                          : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/60'
+                          ? 'active bg-stone-800/90 text-stone-50 shadow-inner ring-1 ring-white/10'
+                          : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
                       }`
                     }
                   >
-                    {item.icon}
-                    <span className="flex-1">{menuLabelFor(item.to, bizType) || item.label}</span>
+                    <span className={`nav-item-icon ${meta.iconBg}`}>
+                      {item.icon}
+                    </span>
+                    <span className="flex-1 truncate">{menuLabelFor(item.to, bizType) || item.label}</span>
                     {item.to === '/notifications' && unreadNotifs > 0 && (
-                      <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-error-500 text-white">
+                      <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-error-500 text-white animate-pulse">
                         {unreadNotifs}
                       </span>
                     )}
@@ -372,7 +427,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Sélecteur d'activité : uniquement propriétaire/admin avec plusieurs établissements */}
@@ -380,7 +436,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           ['super_admin', 'admin', 'owner'].includes(member.role) &&
           myEstablishments.length > 1 && (
           <div className="px-3 pb-2">
-            <label className="text-[10px] uppercase tracking-wide text-stone-500 px-1">Activité</label>
+            <label className="text-[10px] uppercase tracking-wide text-violet-300/90 px-1 flex items-center gap-1">
+              <span className="nav-section-emoji text-sm">🎯</span> Activité
+            </label>
             <select
               className="input-field text-sm py-2 mt-1"
               value={member?.establishment_id ?? ''}
@@ -401,7 +459,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           ['super_admin', 'admin', 'owner'].includes(member.role) &&
           myEstablishments.length === 1 && (
           <div className="px-3 pb-2">
-            <p className="text-[10px] uppercase tracking-wide text-stone-500 px-1">Activité</p>
+            <p className="text-[10px] uppercase tracking-wide text-violet-300/90 px-1 flex items-center gap-1">
+              <span className="nav-section-emoji text-sm">🎯</span> Activité
+            </p>
             <p className="text-xs text-stone-400 px-1 mt-1 truncate">
               {myEstablishments[0].name} ({BUSINESS_LABELS[normalizeBusinessType(myEstablishments[0].type)]})
             </p>

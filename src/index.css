@@ -71,3 +71,65 @@ body {
     @apply block text-sm font-medium text-stone-300 mb-1.5;
   }
 }
+
+
+/* Menu latéral — sections animées */
+@keyframes nav-section-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes nav-icon-wiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-8deg) scale(1.08); }
+  75% { transform: rotate(8deg) scale(1.08); }
+}
+@keyframes nav-shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+@keyframes nav-pulse-soft {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+.nav-section-card {
+  border-radius: 1rem;
+  padding: 0.35rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid transparent;
+  background: linear-gradient(145deg, rgba(28,25,23,0.9), rgba(41,37,36,0.6));
+}
+.nav-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+  background-size: 200% 100%;
+  animation: nav-shimmer 6s linear infinite, nav-pulse-soft 3s ease-in-out infinite;
+}
+.nav-section-emoji {
+  font-size: 1.05rem;
+  line-height: 1;
+  animation: nav-section-float 2.8s ease-in-out infinite;
+  display: inline-block;
+}
+.nav-item-link .nav-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.nav-item-link:hover .nav-item-icon {
+  animation: nav-icon-wiggle 0.6s ease;
+}
+.nav-item-link.active .nav-item-icon {
+  animation: nav-icon-wiggle 1.2s ease-in-out infinite;
+}
