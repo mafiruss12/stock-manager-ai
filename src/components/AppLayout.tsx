@@ -8,6 +8,7 @@ import {
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
 import ReportDelayNotifier from '@/components/ReportDelayNotifier';
+import PermissionsOnboarding from '@/components/PermissionsOnboarding';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
@@ -457,6 +458,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <DailyReportGate />
           <OwnerReportReminder />
           <ReportDelayNotifier />
+          <PermissionsOnboarding />
         {children}</main>
         <UpdateBanner />
       <footer className="px-4 py-3 text-center text-[11px] text-stone-500 border-t border-stone-800/80">
