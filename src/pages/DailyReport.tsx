@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import {
   ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save,
   Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw,
@@ -48,6 +49,8 @@ export default function DailyReportPage() {
   const { member, activeEstablishment } = useAuth();
   const estId = useEstId();
   const bizType = normalizeBusinessType(activeEstablishment?.type);
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [date, setDate] = useState(() => {
     try {
       const q = new URLSearchParams(window.location.search).get('date');
@@ -173,6 +176,20 @@ export default function DailyReportPage() {
     await loadHistory();
     setLoading(false);
   }
+
+  // Navigation calendrier : ?date=YYYY-MM-DD (évite conflit avec date locale)
+  useEffect(() => {
+    const q = searchParams.get('date') || new URLSearchParams(location.search).get('date');
+    if (!q) return;
+    const normalized = q.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return;
+    if (normalized !== date) {
+      setDate(normalized);
+      setStep(1);
+      setSent(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, location.search]);
 
   useEffect(() => {
     void load();
@@ -865,7 +882,15 @@ export default function DailyReportPage() {
             type="date"
             className="input-field py-2"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDate(v);
+              try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('date', v);
+                window.history.replaceState({}, '', url.pathname + url.search);
+              } catch { /* */ }
+            }}
           />
         </div>
       </div>

@@ -37,6 +37,8 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [staff, setStaff] = useState<ReportStaff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [clickFlash, setClickFlash] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,9 +68,17 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
 
   const byDate = useMemo(() => {
     const map = new Map<string, ReportRow>();
+    const score = (r: ReportRow) => {
+      // Priorité : envoyé > brouillon, puis plus récent
+      const sent = r.sent_at ? 2 : 0;
+      const t = new Date(r.sent_at || r.created_at || 0).getTime();
+      return sent * 1e15 + t;
+    };
     for (const r of reports) {
       const d = String(r.date).slice(0, 10);
-      map.set(d, r);
+      if (!/\d{4}-\d{2}-\d{2}/.test(d)) continue;
+      const prev = map.get(d);
+      if (!prev || score(r) >= score(prev)) map.set(d, r);
     }
     return map;
   }, [reports]);
@@ -164,6 +174,8 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                 }
                 if (isToday) bg += ' ring-2 ring-amber-400/60';
                 const rep = byDate.get(iso);
+                const isSelected = selectedDay === iso;
+                const isFlash = clickFlash === iso;
                 return (
                   <button
                     type="button"
@@ -171,7 +183,12 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                     disabled={isFuture}
                     onClick={() => {
                       if (isFuture) return;
-                      navigate(`/daily-report?date=${iso}`);
+                      setSelectedDay(iso);
+                      setClickFlash(iso);
+                      window.setTimeout(() => setClickFlash(null), 450);
+                      navigate(`/daily-report?date=${encodeURIComponent(iso)}`, {
+                        state: { fromCalendar: true, reportId: rep?.id || null },
+                      });
                     }}
                     title={
                       isFuture
@@ -180,15 +197,25 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                           ? `Voir le rapport du ${iso}${rep?.signature ? ' — ' + rep.signature : ''}`
                           : `Aucun point le ${iso} — ouvrir le rapport`
                     }
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all ${bg} ${
+                    className={`relative aspect-square rounded-lg flex flex-col items-center justify-center transition-all duration-150 ${bg} ${
                       isFuture
                         ? 'cursor-not-allowed opacity-50'
-                        : 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-amber-400/50 active:scale-95'
+                        : 'cursor-pointer hover:scale-110 hover:z-10 hover:ring-2 hover:ring-amber-400/70 active:scale-90'
+                    } ${isSelected ? 'ring-2 ring-amber-300 shadow-lg shadow-amber-500/30 scale-105 z-10' : ''} ${
+                      isFlash ? 'ring-4 ring-white/80 scale-110' : ''
                     }`}
                   >
-                    <span className="font-semibold">{day}</span>
+                    {!isFuture && !isSelected && (
+                      <span className="pointer-events-none absolute inset-0 rounded-lg opacity-0 hover:opacity-100 bg-white/10 transition-opacity" />
+                    )}
+                    <span className="font-semibold leading-none">{day}</span>
                     {!isFuture && (
-                      <span className="text-[9px] opacity-80">{has ? 'OK' : '—'}</span>
+                      <span className="text-[9px] opacity-90 mt-0.5">
+                        {has ? (rep?.sent_at ? '✓' : '•') : '—'}
+                      </span>
+                    )}
+                    {isSelected && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border border-stone-900" />
                     )}
                   </button>
                 );
