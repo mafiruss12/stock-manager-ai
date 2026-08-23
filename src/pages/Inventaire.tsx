@@ -148,6 +148,7 @@ export default function Inventaire() {
   }, [products]);
 
   function openAdd() {
+    if (!canEditStock) return;
     setEditing(null);
     setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité' });
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
@@ -805,9 +806,11 @@ export default function Inventaire() {
             className="input-field pl-10"
           />
         </div>
+        {canEditStock && (
         <button type="button" onClick={openAdd} className="btn-primary flex items-center gap-2 shrink-0">
           <Plus size={18} /> Ajouter
         </button>
+        )}
         <div className="flex gap-2 flex-wrap">
           {categories.map((c) => (
             <button
@@ -850,7 +853,7 @@ export default function Inventaire() {
                 <th className="px-3 py-3 font-medium text-right">Vente</th>
                 <th className="px-3 py-3 font-medium text-right">Valeur stock</th>
                 <th className="px-3 py-3 font-medium text-center">Statut IA</th>
-                <th className="px-3 py-3 font-medium text-center">Actions</th>
+                {canEditStock && <th className="px-3 py-3 font-medium text-center">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -881,10 +884,11 @@ export default function Inventaire() {
                     </td>
                     <td className="px-3 py-2.5 text-stone-400">{p.unit}</td>
                     <td className="px-3 py-2.5 text-right">
+                      {canEditStock ? (
                       <div className="inline-flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => { if (!canEditStock) return; quickStock(p, -1); }}
+                          onClick={() => quickStock(p, -1)}
                           className="w-7 h-7 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700"
                         >
                           −
@@ -894,12 +898,15 @@ export default function Inventaire() {
                         </span>
                         <button
                           type="button"
-                          onClick={() => { if (!canEditStock) return; quickStock(p, 1); }}
+                          onClick={() => quickStock(p, 1)}
                           className="w-7 h-7 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700"
                         >
                           +
                         </button>
                       </div>
+                      ) : (
+                        <span className={`font-semibold ${low ? 'text-amber-300' : 'text-stone-100'}`}>{stock}</span>
+                      )}
                     </td>
                     {showCasiers && <td className="px-3 py-2.5 text-right text-stone-400">{casiers}</td>}
                     <td className="px-3 py-2.5 text-right text-stone-400">{cost.toLocaleString('fr-FR')}</td>
@@ -908,16 +915,18 @@ export default function Inventaire() {
                     <td className="px-3 py-2.5 text-center">
                       <Badge color={status.color}>{status.label}</Badge>
                     </td>
+                    {canEditStock && (
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => { if (!canEditStock) return; openEdit(p); }} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-400 hover:text-stone-200">
+                        <button type="button" onClick={() => openEdit(p)} className="p-1.5 rounded-lg hover:bg-stone-700 text-stone-400 hover:text-stone-200">
                           <Pencil size={16} />
                         </button>
-                        <button onClick={() => { if (!canEditStock) return; remove(p); }} className="p-1.5 rounded-lg hover:bg-red-500/10 text-stone-400 hover:text-red-400">
+                        <button type="button" onClick={() => remove(p)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-stone-400 hover:text-red-400">
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
+                    )}
                   </tr>
                 );
               })}
