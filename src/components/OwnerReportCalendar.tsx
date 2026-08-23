@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getReportStaff, todayISO, type ReportStaff } from '@/lib/dailyReportGate';
@@ -29,6 +30,7 @@ function toISO(year: number, month: number, day: number): string {
 }
 
 export default function OwnerReportCalendar({ establishmentId }: { establishmentId: string }) {
+  const navigate = useNavigate();
   const today = todayISO();
   const now = new Date();
   const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
@@ -163,28 +165,42 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                 if (isToday) bg += ' ring-2 ring-amber-400/60';
                 const rep = byDate.get(iso);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={iso}
+                    disabled={isFuture}
+                    onClick={() => {
+                      if (isFuture) return;
+                      navigate(`/daily-report?date=${iso}`);
+                    }}
                     title={
                       isFuture
                         ? iso
                         : has
-                          ? `Point OK${rep?.signature ? ' — ' + rep.signature : ''}`
-                          : 'Point non effectué'
+                          ? `Voir le rapport du ${iso}${rep?.signature ? ' — ' + rep.signature : ''}`
+                          : `Aucun point le ${iso} — ouvrir le rapport`
                     }
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center ${bg}`}
+                    className={`aspect-square rounded-lg flex flex-col items-center justify-center transition-all ${bg} ${
+                      isFuture
+                        ? 'cursor-not-allowed opacity-50'
+                        : 'cursor-pointer hover:scale-105 hover:ring-2 hover:ring-amber-400/50 active:scale-95'
+                    }`}
                   >
                     <span className="font-semibold">{day}</span>
                     {!isFuture && (
                       <span className="text-[9px] opacity-80">{has ? 'OK' : '—'}</span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
 
           <div className="space-y-2">
+            <p className="text-xs text-stone-500 -mt-1 mb-2">
+              Cliquez sur un jour <span className="text-emerald-300">vert</span> pour ouvrir le rapport effectué,
+              ou un jour <span className="text-red-300">rouge</span> pour le compléter.
+            </p>
             <h3 className="text-sm font-medium text-stone-300">Historique par employé (mois affiché)</h3>
             {staff.length === 0 ? (
               <p className="text-xs text-stone-500">
