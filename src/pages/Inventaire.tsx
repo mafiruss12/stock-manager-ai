@@ -3,17 +3,14 @@ import { getSeedCatalog, catalogLabel, usesCasiers, casierSize } from '@/lib/cat
 import { logAudit, newClientOpId } from '@/lib/audit';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Package, Plus, Pencil, Trash2, Search, AlertTriangle,
-  Sparkles, Download, Upload, Calculator, Camera, Printer,
-  Truck, MoreHorizontal, History, RefreshCw,
-} from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, AlertTriangle, Sparkles, Download, Upload, Calculator, Camera, Printer, Truck, MoreHorizontal, History, RefreshCw, Volume2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
+import { speakFrench, playTone } from '@/lib/a11yVoice';
 
 function aiStatus(stock: number, min: number): { label: string; color: 'error' | 'warning' | 'success' | 'primary' } {
   if (stock <= 0) return { label: 'RUPTURE', color: 'error' };
@@ -850,6 +847,24 @@ export default function Inventaire() {
       .replace(/"/g, '&quot;');
   }
 
+
+  function listenStock() {
+    const n = products.length;
+    const units = products.reduce((s, p) => s + (Number(p.stock) || 0), 0);
+    const rupture = products.filter((p) => (Number(p.stock) || 0) <= 0).length;
+    const top = [...products]
+      .sort((a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0))
+      .slice(0, 5)
+      .map((p) => `${p.name}, ${Math.floor(Number(p.stock) || 0)}`)
+      .join('. ');
+    const text =
+      `Inventaire. ${n} produits. Total ${Math.floor(units)} unités. ` +
+      (rupture ? `Attention, ${rupture} en rupture. ` : 'Pas de rupture. ') +
+      (top ? `Principaux stocks : ${top}.` : '');
+    playTone(rupture ? 'warn' : 'ok');
+    speakFrench(text);
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-stone-400">Chargement inventaire…</div>;
   }
@@ -1105,7 +1120,15 @@ export default function Inventaire() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      
+          <button
+            type="button"
+            onClick={listenStock}
+            className="w-full min-h-[52px] rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 text-amber-100 font-semibold flex items-center justify-center gap-2 mb-3"
+          >
+            <Volume2 size={22} /> Écouter le stock
+          </button>
+<div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
           <input

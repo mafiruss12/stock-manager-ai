@@ -3,7 +3,7 @@ import { useSearchParams, useLocation } from 'react-router-dom';
 import {
   ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save,
   Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw,
-  History, PackageMinus,
+  History, PackageMinus, Volume2, VolumeX,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { isOnline, queueAdd, cacheSet, cacheGet } from '@/lib/offline';
@@ -94,7 +94,27 @@ export default function DailyReportPage() {
   const mobile = Number(mobileCounted) || 0;
   const received = cash + mobile;
   const diff = theoretical - received;
+
   const match = Math.abs(diff) < 1;
+
+  function listenReport() {
+    const text = buildReportSpeech({
+      establishmentName: activeEstablishment?.name,
+      date,
+      items: soldLines.map((l) => ({ name: l.name, qty: l.qty, total: l.qty * l.price })),
+      theoretical,
+      cash,
+      mobile,
+      match,
+      diff,
+    });
+    playTone(match ? 'ok' : 'warn');
+    const ok = speakFrench(text);
+    if (!ok) alert('La lecture vocale n\'est pas disponible sur cet appareil.');
+  }
+
+  // Son quand on arrive sur l'étape caisse avec un écart calculable
+
 
   async function loadHistory() {
     if (!estId) return;
@@ -108,7 +128,11 @@ export default function DailyReportPage() {
   }
 
   async function load() {
-    if (!estId) {
+    useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
+
+  if (!estId) {
       setLoading(false);
       return;
     }
@@ -785,6 +809,9 @@ export default function DailyReportPage() {
 
     setSent(true);
     setStockDeducted(deducted || stockDeducted);
+    playTone(match ? 'ok' : 'warn');
+    // Rappel oral court
+    speakFrench(match ? 'Rapport envoyé. Caisse correcte.' : `Rapport envoyé. Attention, écart de ${Math.round(Math.abs(diff))} francs.`);
     setSaving(false);
     await loadHistory();
 
@@ -998,7 +1025,7 @@ export default function DailyReportPage() {
                     type="number"
                     min={0}
                     inputMode="numeric"
-                    className="input-field w-24 text-center font-mono"
+                    className="input-field w-28 min-h-[48px] text-center font-mono text-lg"
                     placeholder="0"
                     value={qtyMap[p.id] ?? ''}
                     onChange={(e) => setQtyMap((m) => ({ ...m, [p.id]: e.target.value }))}
@@ -1102,11 +1129,19 @@ export default function DailyReportPage() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={listenReport}
+            className="w-full min-h-[56px] rounded-2xl border-2 border-amber-500/50 bg-amber-500/15 text-amber-100 font-semibold text-lg flex items-center justify-center gap-3 active:scale-[0.98]"
+          >
+            <Volume2 size={28} /> Écouter le point
+          </button>
+
           <div className="flex gap-2">
-            <button type="button" className="btn-secondary" onClick={() => setStep(1)}>
+            <button type="button" className="btn-secondary min-h-[48px]" onClick={() => setStep(1)}>
               ← Boissons
             </button>
-            <button type="button" className="btn-primary flex-1" onClick={() => setStep(3)}>
+            <button type="button" className="btn-primary flex-1 min-h-[48px] text-base" onClick={() => { playTone(match ? 'ok' : 'warn'); setStep(3); }}>
               Continuer → Envoi
             </button>
           </div>
@@ -1158,6 +1193,15 @@ export default function DailyReportPage() {
               placeholder="Nom du gérant"
             />
           </div>
+
+
+          <button
+            type="button"
+            onClick={listenReport}
+            className="w-full min-h-[56px] rounded-2xl border-2 border-amber-500/50 bg-amber-500/15 text-amber-100 font-semibold text-lg flex items-center justify-center gap-3 active:scale-[0.98]"
+          >
+            <Volume2 size={28} /> Écouter le point
+          </button>
 
           <div className="flex flex-col gap-2">
             <button
