@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail,
-  RefreshCw, Copy, CheckCircle2, Pencil,, Activity } from 'lucide-react';
+import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
@@ -10,8 +8,7 @@ import { Modal, Badge, EmptyState } from '@/components/ui';
 import { toAuthEmail, displayLogin, generatePassword, generateLogin } from '@/lib/login';
 import {
   PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
-  getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink,
-} from '@/lib/subscription';
+  getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink } from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 
 type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions' | 'activity';
@@ -43,20 +40,17 @@ export default function SuperAdmin() {
   });
   const [approveForm, setApproveForm] = useState<{ role: Role; establishmentId: string }>({
     role: 'employee',
-    establishmentId: '',
-  });
+    establishmentId: '' });
   const [memberEditForm, setMemberEditForm] = useState({
     full_name: '',
     role: 'employee' as Role,
     establishment_id: '',
-    status: 'active' as 'active' | 'suspended',
-  });
+    status: 'active' as 'active' | 'suspended' });
   const [estEditForm, setEstEditForm] = useState({
     name: '',
     type: 'maquis',
     address: '',
-    phone: '',
-  });
+    phone: '' });
 
   async function loadData() {
     setLoading(true);
@@ -108,8 +102,7 @@ export default function SuperAdmin() {
           full_name: req.full_name,
           role: approveForm.role,
           establishment_id: approveForm.establishmentId,
-          status: 'active',
-        },
+          status: 'active' },
         { onConflict: 'user_id' }
       );
       await supabase.from('access_requests').update({ status: 'approved' }).eq('id', req.id);
@@ -167,8 +160,7 @@ export default function SuperAdmin() {
         full_name: memberEditForm.full_name || null,
         role: memberEditForm.role,
         status: memberEditForm.status,
-        establishment_id: memberEditForm.establishment_id || null,
-      };
+        establishment_id: memberEditForm.establishment_id || null };
       // Ne pas rétrograder le super_admin courant
       if (editMember.role === 'super_admin') {
         payload.role = 'super_admin';
@@ -184,8 +176,7 @@ export default function SuperAdmin() {
             user_id: editMember.user_id,
             establishment_id: memberEditForm.establishment_id,
             role: memberEditForm.role,
-            status: 'active',
-          },
+            status: 'active' },
           { onConflict: 'user_id,establishment_id' }
         );
       }
@@ -213,8 +204,7 @@ export default function SuperAdmin() {
     }
     const { error: err } = await supabase.from('members').update({
       mfa_enabled: true,
-      mfa_secret: mfaSecret,
-    }).eq('user_id', member.user_id);
+      mfa_secret: mfaSecret }).eq('user_id', member.user_id);
     if (err) setError(err.message + ' (colonnes mfa_enabled / mfa_secret requises)');
     else {
       flash('2FA admin activée');
@@ -229,8 +219,7 @@ export default function SuperAdmin() {
     if (!confirm('Désactiver la double authentification ?')) return;
     const { error: err } = await supabase.from('members').update({
       mfa_enabled: false,
-      mfa_secret: null,
-    }).eq('user_id', member.user_id);
+      mfa_secret: null }).eq('user_id', member.user_id);
     if (err) setError(err.message);
     else flash('2FA désactivée');
   }
@@ -248,8 +237,7 @@ export default function SuperAdmin() {
     const { error: err } = await supabase.from('establishments').update({
       subscription_status: 'active',
       subscription_ends_at: endISO,
-      last_payment_at: new Date().toISOString(),
-    }).eq('id', estId);
+      last_payment_at: new Date().toISOString() }).eq('id', estId);
     if (err) setError(err.message);
     else {
       flash(`Abonnement +${months} mois activé (${total.toLocaleString('fr-FR')} F) jusqu'au ${new Date(endISO).toLocaleDateString('fr-FR')}`);
@@ -263,8 +251,7 @@ export default function SuperAdmin() {
     end.setHours(23, 59, 59, 999);
     const { error: err } = await supabase.from('establishments').update({
       subscription_status: 'trial',
-      trial_ends_at: end.toISOString(),
-    }).eq('id', estId);
+      trial_ends_at: end.toISOString() }).eq('id', estId);
     if (err) setError(err.message);
     else {
       flash(`Essai prolongé de ${days} jours`);
@@ -278,8 +265,7 @@ export default function SuperAdmin() {
     const { error: err } = await supabase.from('establishments').update({
       subscription_status: 'active',
       subscription_ends_at: end.toISOString(),
-      last_payment_at: new Date().toISOString(),
-    }).eq('id', estId);
+      last_payment_at: new Date().toISOString() }).eq('id', estId);
     if (err) setError(err.message);
     else {
       flash(`Fin d'abonnement fixée au ${end.toLocaleDateString('fr-FR')}`);
@@ -289,8 +275,7 @@ export default function SuperAdmin() {
 
   async function suspendSubscription(estId: string) {
     const { error: err } = await supabase.from('establishments').update({
-      subscription_status: 'suspended',
-    }).eq('id', estId);
+      subscription_status: 'suspended' }).eq('id', estId);
     if (err) setError(err.message);
     else {
       flash('Établissement suspendu');
@@ -309,8 +294,7 @@ export default function SuperAdmin() {
       phone: estForm.phone || null,
       created_by: member.user_id,
       subscription_status: 'trial',
-      trial_ends_at: trialEnd.toISOString(),
-    });
+      trial_ends_at: trialEnd.toISOString() });
     if (err) setError(err.message);
     else {
       setEstModal(false);
@@ -331,8 +315,7 @@ export default function SuperAdmin() {
           name: estEditForm.name,
           type: estEditForm.type,
           address: estEditForm.address || null,
-          phone: estEditForm.phone || null,
-        })
+          phone: estEditForm.phone || null })
         .eq('id', editEst.id);
       if (err) {
         setError(err.message);
@@ -385,8 +368,7 @@ export default function SuperAdmin() {
       full_name: m.full_name || '',
       role: m.role,
       establishment_id: m.establishment_id || '',
-      status: m.status === 'suspended' ? 'suspended' : 'active',
-    });
+      status: m.status === 'suspended' ? 'suspended' : 'active' });
   }
 
   function openEditEst(est: Establishment) {
@@ -396,8 +378,7 @@ export default function SuperAdmin() {
       name: est.name,
       type: est.type || 'maquis',
       address: est.address || '',
-      phone: est.phone || '',
-    });
+      phone: est.phone || '' });
   }
 
 
@@ -878,8 +859,7 @@ export default function SuperAdmin() {
                                   end.setHours(23, 59, 59, 999);
                                   supabase.from('establishments').update({
                                     subscription_status: 'trial',
-                                    trial_ends_at: end.toISOString(),
-                                  }).eq('id', est.id).then(({ error: err }) => {
+                                    trial_ends_at: end.toISOString() }).eq('id', est.id).then(({ error: err }) => {
                                     if (err) setError(err.message);
                                     else { flash('Date d\'essai mise à jour'); loadData(); }
                                   });
@@ -996,8 +976,7 @@ export default function SuperAdmin() {
                 onChange={(e) =>
                   setMemberEditForm({
                     ...memberEditForm,
-                    status: e.target.value as 'active' | 'suspended',
-                  })
+                    status: e.target.value as 'active' | 'suspended' })
                 }
                 className="input-field"
                 disabled={editMember.role === 'super_admin'}
@@ -1209,8 +1188,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: authEmail,
         password,
-        options: { data: { full_name: fullName, login: login.trim() } },
-      });
+        options: { data: { full_name: fullName, login: login.trim() } } });
 
       if (signUpError) {
         setError(
@@ -1220,16 +1198,14 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
         );
         await supabase.auth.setSession({
           access_token: adminSession.access_token,
-          refresh_token: adminSession.refresh_token,
-        });
+          refresh_token: adminSession.refresh_token });
         setLoading(false);
         return;
       }
 
       await supabase.auth.setSession({
         access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token,
-      });
+        refresh_token: adminSession.refresh_token });
 
       if (data.user) {
         const { data: existing } = await supabase
@@ -1243,8 +1219,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
           role,
           establishment_id: estId,
           status: 'active' as const,
-          email: authEmail,
-        };
+          email: authEmail };
 
         if (existing) {
           const { error: updateError } = await supabase.from('members').update(payload).eq('user_id', data.user.id);
@@ -1256,8 +1231,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
         } else {
           const { error: insertError } = await supabase.from('members').insert({
             user_id: data.user.id,
-            ...payload,
-          });
+            ...payload });
           if (insertError) {
             setError(insertError.message);
             setLoading(false);
@@ -1269,8 +1243,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
       // Restaurer encore la session admin (signUp peut la réécraser via onAuthStateChange)
       await supabase.auth.setSession({
         access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token,
-      });
+        refresh_token: adminSession.refresh_token });
 
       setCreated({ login: login.trim().includes('@') ? login.trim() : login.trim().toLowerCase(), password });
     } catch (e: any) {
