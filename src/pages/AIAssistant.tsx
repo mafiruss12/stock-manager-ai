@@ -8,6 +8,8 @@ import { useAuth } from '@/lib/auth';
 import type { Product, Sale } from '@/lib/types';
 import { formatFCFA, daysAgoISO } from '@/lib/format';
 import { EmptyState } from '@/components/ui';
+import { loadKnowledge, matchTrainedAnswer, getPersona, type AiKnowledge } from '@/lib/aiTrainer';
+
 
 interface AIInsight {
   type: 'prediction' | 'alert' | 'recommendation' | 'opportunity';
@@ -32,8 +34,15 @@ function buildReply(
     salesTotal: number;
     lowStock: Product[];
     topProduct?: { name: string; revenue: number };
-  }
+  },
+  knowledge: AiKnowledge[] = [],
 ): string {
+  // 1) Réponses entraînées par l'admin / propriétaire
+  const trained = matchTrainedAnswer(question, knowledge);
+  if (trained) {
+    return trained.answer;
+  }
+
   const q = question.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // Aide navigation / tâches
@@ -105,6 +114,8 @@ export default function AIAssistant() {
   ]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [knowledge, setKnowledge] = useState<AiKnowledge[]>([]);
+
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,6 +125,21 @@ export default function AIAssistant() {
         return;
       }
       const estId = member.establishment_id;
+      try {
+        const kn = await loadKnowledge(estId);
+        setKnowledge(kn);
+        const persona = getPersona(kn);
+        setTurns((prev) => {
+          if (prev.length === 1 && prev[0].id === 'welcome') {
+            return [{
+              id: 'welcome',
+              role: 'assistant',
+              text: persona.slice(0, 280) + (persona.length > 280 ? '…' : '') + '\n\nPosez votre question sur la caisse, le stock, le rapport du jour…',
+            }];
+          }
+          return prev;
+        });
+      } catch { /* */ }
       const start = daysAgoISO(30);
 
       const [salesRes, productsRes, expensesRes] = await Promise.all([
@@ -237,7 +263,7 @@ export default function AIAssistant() {
     setTurns((t) => [...t, { id: `u-${Date.now()}`, role: 'user', text: q }]);
     setThinking(true);
     await new Promise((r) => setTimeout(r, 350));
-    const reply = buildReply(q, ctx);
+    const reply = buildReply(q, ctx, knowledge);
     setTurns((t) => [...t, { id: `a-${Date.now()}`, role: 'assistant', text: reply }]);
     setThinking(false);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
@@ -276,7 +302,8 @@ export default function AIAssistant() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div className="flex items-center gap-2">
         <Sparkles className="text-primary-400" />
         <h1 className="text-2xl font-bold font-display text-stone-100">Stock AI Assistant</h1>
       </div>

@@ -1,6 +1,6 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown, Brain } from 'lucide-react';
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
 import ReportDelayNotifier from '@/components/ReportDelayNotifier';
@@ -64,6 +64,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Outils',
     items: [
       { to: '/ai', label: 'Assistant IA', icon: <Sparkles size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/ai-train', label: "Former l'IA", icon: <Brain size={20} />, roles: ['super_admin', 'admin', 'owner'] },
       { to: '/chat', label: 'Chat interne', icon: <MessageCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/settings', label: 'Profil & Paramètres', icon: <Settings size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },

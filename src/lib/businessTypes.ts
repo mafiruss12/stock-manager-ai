@@ -88,33 +88,33 @@ export const BUSINESS_THEMES: Record<
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
     '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/expenses', '/mes-employes',
-    '/calendar', '/daily-report', '/patron', '/statistics', '/reports', '/ai', '/chat',
+    '/calendar', '/daily-report', '/patron', '/statistics', '/reports', '/ai', '/ai-train', '/chat',
     '/notifications', '/settings',
   ],
   magasin: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
-    '/ai', '/chat', '/notifications', '/settings',
+    '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   boutique: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
-    '/ai', '/chat', '/notifications', '/settings',
+    '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   superette: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
-    '/ai', '/chat', '/notifications', '/settings',
+    '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   quincaillerie: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
-    '/ai', '/chat', '/notifications', '/settings',
+    '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   location_event: [
     '/dashboard', '/rent/equipment', '/rent/clients', '/rent/orders',
     '/rent/movements', '/rent/payments', '/rent/calendar', '/rent/packs',
-    '/rent/invoices', '/team', '/ai', '/chat', '/notifications', '/settings',
+    '/rent/invoices', '/team', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
 };
 
