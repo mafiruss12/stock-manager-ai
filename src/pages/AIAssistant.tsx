@@ -304,11 +304,13 @@ export default function AIAssistant() {
     <div>
       <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <div className="flex items-center gap-2">
-        <Sparkles className="text-primary-400" />
-        <h1 className="text-2xl font-bold font-display text-stone-100">Stock AI Assistant</h1>
+          <Sparkles className="text-primary-400" />
+          <h1 className="text-2xl font-bold font-display text-stone-100">Stock AI Assistant</h1>
+        </div>
+        <a href="/ai-train" className="text-sm text-primary-400 hover:underline">Former l&apos;IA</a>
       </div>
       <p className="text-stone-400 text-sm mb-6">
-        Analyses automatiques + aide pour toutes les tâches du personnel
+        Analyses automatiques + réponses que vous entraînez (Former l&apos;IA)
       </p>
 
       <div className="card mb-6 bg-gradient-to-br from-primary-500/10 to-secondary-500/5 border-primary-500/20">
