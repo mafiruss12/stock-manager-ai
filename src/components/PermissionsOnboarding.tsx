@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   Camera,
   MapPin,
   HardDrive,
   Image,
+  Mic,
   Shield,
   Loader2,
   CheckCircle2,
@@ -23,48 +24,74 @@ const ITEMS = [
     id: 'notifications',
     icon: Bell,
     title: 'Notifications',
-    desc: 'Rappels de point, retards, messages importants',
+    desc: 'Rappels de point, messages, alertes stock',
   },
   {
-    id: 'location',
-    icon: MapPin,
-    title: 'Localisation',
-    desc: 'Position pour clients, livraisons et suivi terrain',
+    id: 'microphone',
+    icon: Mic,
+    title: 'Microphone',
+    desc: 'Dictée des quantités, rapport vocal, mode patron',
   },
   {
     id: 'camera',
     icon: Camera,
     title: 'Appareil photo',
-    desc: 'Scanner stocks, photos de produits ou tickets',
+    desc: 'Photos produits, scan inventaire',
+  },
+  {
+    id: 'location',
+    icon: MapPin,
+    title: 'Localisation',
+    desc: 'Clients, livraisons et suivi terrain',
   },
   {
     id: 'gallery',
     icon: Image,
     title: 'Galerie',
-    desc: 'Importer des images depuis vos photos (demandé à l\'usage)',
+    desc: 'Importer des images (demandé à l’usage)',
   },
   {
     id: 'storage',
     icon: HardDrive,
     title: 'Stockage',
-    desc: 'Mode hors ligne plus fiable et sauvegarde locale',
+    desc: 'Mode hors ligne plus fiable',
   },
 ] as const;
 
 export default function PermissionsOnboarding() {
   const { member } = useAuth();
-  const [open, setOpen] = useState(() => {
-    if (!member) return false;
-    return !hasCompletedPermissionsOnboarding();
-  });
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<PermissionResult[] | null>(null);
+
+  // Important : ouvrir quand le membre est chargé (sinon l’écran ne s’affiche jamais)
+  useEffect(() => {
+    if (!member) {
+      setOpen(false);
+      return;
+    }
+    if (!hasCompletedPermissionsOnboarding()) {
+      setOpen(true);
+    }
+  }, [member]);
+
+  // Écoute depuis Paramètres : window event
+  useEffect(() => {
+    function onForce() {
+      setResults(null);
+      setOpen(true);
+    }
+    window.addEventListener('mm-request-permissions', onForce);
+    return () => window.removeEventListener('mm-request-permissions', onForce);
+  }, []);
 
   if (!member || !open) return null;
 
   async function allowAll() {
     setLoading(true);
+    setResults(null);
     try {
+      // Les appels getUserMedia / Notification déclenchent les boîtes système
       const res = await requestAllDevicePermissions();
       setResults(res);
       markPermissionsOnboardingDone();
@@ -85,17 +112,17 @@ export default function PermissionsOnboarding() {
 
   return (
     <div className="fixed inset-0 z-[90] bg-stone-950/90 flex items-end sm:items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-stone-700 bg-stone-900 shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md rounded-2xl border border-stone-700 bg-stone-900 shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         <div className="p-5 space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-2 rounded-xl bg-amber-500/15">
               <Shield className="text-amber-400" size={22} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-stone-100">Autorisations recommandées</h2>
+              <h2 className="text-lg font-semibold text-stone-100">Autoriser l’accès à l’appareil</h2>
               <p className="text-sm text-stone-400 mt-1">
-                Pour mieux travailler (rapports, offline, photos, rappels), Stock Manager a besoin de
-                certains accès sur votre téléphone.
+                Appuyez sur <strong className="text-stone-200">Autoriser</strong> : le téléphone affichera
+                une demande pour le micro, la caméra, la position et les notifications.
               </p>
             </div>
           </div>
@@ -103,7 +130,9 @@ export default function PermissionsOnboarding() {
           <ul className="space-y-2">
             {ITEMS.map((item) => {
               const Icon = item.icon;
-              const r = results?.find((x) => x.id === item.id || (item.id === 'gallery' && x.id === 'camera'));
+              const r = results?.find(
+                (x) => x.id === item.id || (item.id === 'gallery' && x.id === 'camera')
+              );
               return (
                 <li
                   key={item.id}
@@ -114,7 +143,11 @@ export default function PermissionsOnboarding() {
                     <p className="text-sm font-medium text-stone-200">{item.title}</p>
                     <p className="text-xs text-stone-500">{item.desc}</p>
                     {r && (
-                      <p className={`text-xs mt-1 flex items-center gap-1 ${r.ok ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      <p
+                        className={`text-xs mt-1 flex items-center gap-1 ${
+                          r.ok ? 'text-emerald-400' : 'text-amber-400'
+                        }`}
+                      >
                         {r.ok ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
                         {r.detail}
                       </p>
@@ -125,27 +158,28 @@ export default function PermissionsOnboarding() {
             })}
           </ul>
 
-          <p className="text-[11px] text-stone-500">
-            Galerie et fichiers : le téléphone demandera l&apos;accès au moment d&apos;importer une photo.
-            Vous pourrez modifier ces choix dans les réglages de l&apos;appareil.
-          </p>
-
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 pt-1">
             <button
               type="button"
+              className="btn-primary min-h-[48px] flex items-center justify-center gap-2"
               disabled={loading}
               onClick={() => void allowAll()}
-              className="btn-primary w-full flex items-center justify-center gap-2"
             >
-              {loading ? <Loader2 className="animate-spin" size={18} /> : <Shield size={18} />}
-              {results ? 'Redemander les accès' : 'Autoriser les accès'}
+              {loading ? (
+                <>
+                  <Loader2 className="animate-spin" size={18} /> Demandes en cours…
+                </>
+              ) : (
+                'Autoriser les accès'
+              )}
             </button>
-            {results ? (
-              <button type="button" onClick={close} className="btn-secondary w-full">
+            {results && (
+              <button type="button" className="btn-secondary min-h-[44px]" onClick={close}>
                 Continuer
               </button>
-            ) : (
-              <button type="button" onClick={skip} className="text-sm text-stone-500 hover:text-stone-300 py-2">
+            )}
+            {!results && (
+              <button type="button" className="btn-ghost text-stone-500 text-sm" onClick={skip}>
                 Plus tard
               </button>
             )}

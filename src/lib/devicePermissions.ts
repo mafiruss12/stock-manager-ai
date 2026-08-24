@@ -1,10 +1,16 @@
 /**
- * Demandes d'accès appareil (web + préparation native Capacitor)
+ * Demandes d'accès appareil (web / PWA / WebView APK)
+ * Déclenche les boîtes de dialogue système (micro, caméra, GPS, notifications).
  */
 
-const STORAGE_KEY = 'mm_permissions_onboarding_v1';
+const STORAGE_KEY = 'mm_permissions_onboarding_v2';
 
-export type PermissionId = 'notifications' | 'location' | 'camera' | 'storage';
+export type PermissionId =
+  | 'notifications'
+  | 'location'
+  | 'camera'
+  | 'microphone'
+  | 'storage';
 
 export type PermissionResult = {
   id: PermissionId;
@@ -28,7 +34,15 @@ export function markPermissionsOnboardingDone(): void {
   }
 }
 
-/** Notifications navigateur / PWA */
+/** Réafficher l’écran d’autorisations (réglages) */
+export function resetPermissionsOnboarding(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* */
+  }
+}
+
 export async function requestNotifications(): Promise<PermissionResult> {
   if (typeof Notification === 'undefined') {
     return { id: 'notifications', ok: false, detail: 'Non supporté sur cet appareil' };
@@ -38,7 +52,11 @@ export async function requestNotifications(): Promise<PermissionResult> {
       return { id: 'notifications', ok: true, detail: 'Déjà autorisé' };
     }
     if (Notification.permission === 'denied') {
-      return { id: 'notifications', ok: false, detail: 'Refusé — activez dans les réglages du téléphone' };
+      return {
+        id: 'notifications',
+        ok: false,
+        detail: 'Refusé — activez dans Réglages → Applications → Stock Manager',
+      };
     }
     const res = await Notification.requestPermission();
     return {
@@ -51,7 +69,6 @@ export async function requestNotifications(): Promise<PermissionResult> {
   }
 }
 
-/** Localisation GPS */
 export async function requestLocation(): Promise<PermissionResult> {
   if (!navigator.geolocation) {
     return { id: 'location', ok: false, detail: 'GPS non disponible' };
@@ -70,10 +87,9 @@ export async function requestLocation(): Promise<PermissionResult> {
   });
 }
 
-/** Caméra (déclenche le prompt navigateur / APK) */
 export async function requestCamera(): Promise<PermissionResult> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    return { id: 'camera', ok: false, detail: 'Caméra non disponible dans ce navigateur' };
+    return { id: 'camera', ok: false, detail: 'Caméra non disponible' };
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -84,14 +100,33 @@ export async function requestCamera(): Promise<PermissionResult> {
     return { id: 'camera', ok: true, detail: 'Caméra autorisée' };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { id: 'camera', ok: false, detail: msg.includes('denied') || msg.includes('NotAllowed') ? 'Refusé' : msg };
+    return {
+      id: 'camera',
+      ok: false,
+      detail: /denied|NotAllowed|Permission/i.test(msg) ? 'Refusé' : msg,
+    };
   }
 }
 
-/**
- * Stockage persistant (PWA) — limite l'éviction du cache offline.
- * Galerie / fichiers : le système demande l'accès au moment d'ouvrir un fichier photo.
- */
+/** Micro — dictée, rapport vocal, mode patron */
+export async function requestMicrophone(): Promise<PermissionResult> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return { id: 'microphone', ok: false, detail: 'Micro non disponible' };
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    stream.getTracks().forEach((t) => t.stop());
+    return { id: 'microphone', ok: true, detail: 'Micro autorisé' };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      id: 'microphone',
+      ok: false,
+      detail: /denied|NotAllowed|Permission/i.test(msg) ? 'Refusé' : msg,
+    };
+  }
+}
+
 export async function requestStorage(): Promise<PermissionResult> {
   try {
     if (navigator.storage?.persist) {
@@ -114,17 +149,17 @@ export async function requestStorage(): Promise<PermissionResult> {
   }
 }
 
-/** Enchaîne les demandes (ordre pensé pour l'UX mobile) */
+/** Enchaîne les prompts système (un après l’autre) */
 export async function requestAllDevicePermissions(): Promise<PermissionResult[]> {
   const results: PermissionResult[] = [];
   results.push(await requestNotifications());
-  results.push(await requestLocation());
+  results.push(await requestMicrophone());
   results.push(await requestCamera());
+  results.push(await requestLocation());
   results.push(await requestStorage());
   return results;
 }
 
-/** Notification locale de test si autorisé */
 export function sendTestNotification(title: string, body: string): void {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   try {

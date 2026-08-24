@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download } from 'lucide-react';
+import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
+import { resetPermissionsOnboarding } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
@@ -184,6 +185,25 @@ export default function SettingsPage() {
 
     <div>
       <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Profil & Paramètres</h1>
+
+      <div className="card mb-4 space-y-2 border-amber-500/20">
+        <p className="font-medium text-stone-100 flex items-center gap-2">
+          <Shield size={18} className="text-amber-400" /> Autorisations appareil
+        </p>
+        <p className="text-sm text-stone-400">
+          Micro, caméra, notifications, GPS — nécessaires pour la dictée, les photos et les rappels.
+        </p>
+        <button
+          type="button"
+          className="btn-secondary w-full min-h-[44px]"
+          onClick={() => {
+            resetPermissionsOnboarding();
+            window.dispatchEvent(new Event('mm-request-permissions'));
+          }}
+        >
+          Demander les autorisations
+        </button>
+      </div>
       <p className="text-sm text-stone-400 mt-2">
         Pour autoriser un employé à modifier le stock : allez dans <a href="/mes-employes" className="text-amber-400 underline">Équipe</a> et cochez « Modifier stock ».
       </p>
