@@ -168,3 +168,81 @@ export function sendTestNotification(title: string, body: string): void {
     /* */
   }
 }
+
+/**
+ * Ouvre les paramètres de l'app / du téléphone pour accorder micro, caméra, etc.
+ * - APK Capacitor / Android WebView : intent paramètres application
+ * - iOS (PWA / WebView) : app-settings:
+ * - Navigateur : guide + tentative best-effort
+ */
+export async function openAppSettings(): Promise<{ ok: boolean; detail: string }> {
+  // 1) Capacitor App (si plugin présent dans le build natif)
+  try {
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const { App } = await import('@capacitor/app');
+        // @capacitor/app n'ouvre pas toujours Settings ; on tente les intents ci-dessous
+        void App;
+      } catch {
+        /* */
+      }
+    }
+  } catch {
+    /* */
+  }
+
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+  const isAndroid = /Android/i.test(ua);
+  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+  // 2) Android — paramètres de l'application (package com.maquismanager.app)
+  if (isAndroid) {
+    const packageId = 'com.maquismanager.app';
+    const intents = [
+      // Paramètres de l'app (Autorisations)
+      `intent://#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package:${packageId};end`,
+      `intent:#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package:${packageId};end`,
+      // Fallback paramètres généraux
+      'intent:#Intent;action=android.settings.SETTINGS;end',
+    ];
+    for (const href of intents) {
+      try {
+        const a = document.createElement('a');
+        a.href = href;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return { ok: true, detail: 'Ouverture des paramètres Android…' };
+      } catch {
+        /* try next */
+      }
+    }
+    // window.location fallback
+    try {
+      window.location.href = `intent://#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;data=package:${packageId};end`;
+      return { ok: true, detail: 'Redirection paramètres…' };
+    } catch {
+      /* */
+    }
+  }
+
+  // 3) iOS
+  if (isIOS) {
+    try {
+      window.location.href = 'app-settings:';
+      return { ok: true, detail: 'Ouverture des réglages iOS…' };
+    } catch {
+      /* */
+    }
+  }
+
+  // 4) Navigateur desktop / autres
+  // Impossible d'ouvrir les réglages OS de force — on guide l'utilisateur
+  return {
+    ok: false,
+    detail:
+      'Ouvrez manuellement : Réglages → Applications → Stock Manager AI → Autorisations (micro, caméra, localisation, notifications).',
+  };
+}

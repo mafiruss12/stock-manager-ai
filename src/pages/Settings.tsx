@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
-import { resetPermissionsOnboarding } from '@/lib/devicePermissions';
+import { resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
@@ -195,13 +195,20 @@ export default function SettingsPage() {
         </p>
         <button
           type="button"
+          className="btn-primary w-full min-h-[48px]"
+          onClick={() => void openAppSettings()}
+        >
+          Ouvrir les paramètres du téléphone
+        </button>
+        <button
+          type="button"
           className="btn-secondary w-full min-h-[44px]"
           onClick={() => {
             resetPermissionsOnboarding();
             window.dispatchEvent(new Event('mm-request-permissions'));
           }}
         >
-          Demander les autorisations
+          Afficher l’écran d’autorisations
         </button>
       </div>
       <p className="text-sm text-stone-400 mt-2">
