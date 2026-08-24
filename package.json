@@ -13,11 +13,12 @@
     "cap:open": "npx cap open android",
     "android:build": "npm run cap:sync && cd android && ./gradlew assembleDebug",
     "cap:add": "npx cap add android",
-    "android:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug",
+    "android:apk": "bash scripts/build-apk.sh",
     "android:release": "npm run cap:sync && cd android && ./gradlew bundleRelease",
     "build:mobile": "VITE_BASE=./ vite build",
     "android:open": "npx cap open android",
-    "perms:note": "echo \"npm i @capacitor/geolocation @capacitor/camera @capacitor/local-notifications && npx cap sync android\""
+    "perms:note": "echo \"npm i @capacitor/geolocation @capacitor/camera @capacitor/local-notifications && npx cap sync android\"",
+    "android:perms": "bash scripts/inject-android-permissions.sh"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

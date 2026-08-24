@@ -1,32 +1,26 @@
-# Maquis Manager — Mobile (APK)
+# Stock Manager AI — APK Android
 
-## Domaine officiel (web + APK)
+## Domaine chargé par l’APK
+**https://stock-manager-ktp.vercel.app** (`capacitor.config.ts` → `server.url`)
 
-**https://maquis-mananger.vercel.app**
+## Permissions injectées (Manifest)
+- INTERNET, NETWORK
+- CAMERA, RECORD_AUDIO (micro)
+- ACCESS_FINE/COARSE_LOCATION
+- POST_NOTIFICATIONS
+- READ_MEDIA_IMAGES / stockage
+- VIBRATE
 
-L’APK Capacitor charge cette URL (`capacitor.config.ts` → `server.url`).
-
-## Build APK
-
+## Build local
 ```bash
-git clone https://github.com/mafiruss12/maquis-manager-ai-a-jour.git
-cd maquis-manager-ai-a-jour
 npm install --legacy-peer-deps
-npm run build:mobile
-npx cap add android   # une seule fois
-npx cap sync android
-npx cap open android  # puis Build → APK
+bash scripts/build-apk.sh
 ```
+APK : `android/app/build/outputs/apk/debug/app-debug.apk`
 
-Ou :
+## Build via GitHub Actions
+1. Repo GitHub → **Actions** → **Build Android APK** → **Run workflow**
+2. Télécharger l’artifact `stock-manager-ai-debug`
 
-```bash
-npm run android:apk
-```
-
-L’APK générée ouvre automatiquement **https://maquis-mananger.vercel.app**.
-
-## Mise à jour sans rebuilder
-
-Comme l’app charge le site live, **Mettre à jour** dans Paramètres suffit pour les nouvelles fonctions web.
-Pour une nouvelle APK native (icônes, plugins), republier une release GitHub.
+## Après install
+Au premier login : **Ouvrir les paramètres du téléphone** → activer Micro, Caméra, Localisation, Notifications.
