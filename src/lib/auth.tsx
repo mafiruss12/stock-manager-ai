@@ -800,7 +800,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  return (
+  
+  // Présence admin : dernière activité
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    async function beat() {
+      try {
+        await supabase
+          .from('members')
+          .update({ last_seen: new Date().toISOString() } as any)
+          .eq('user_id', user!.id);
+      } catch {
+        /* colonne absente = ignorer */
+      }
+    }
+    void beat();
+    const id = window.setInterval(() => {
+      if (!cancelled && document.visibilityState === 'visible') void beat();
+    }, 60_000);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void beat();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [user?.id]);
+
+return (
     <AuthContext.Provider
       value={{
         session,

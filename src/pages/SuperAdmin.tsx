@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail,
-  RefreshCw, Copy, CheckCircle2, Pencil,
-} from 'lucide-react';
+  RefreshCw, Copy, CheckCircle2, Pencil,, Activity } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
@@ -15,7 +14,7 @@ import {
 } from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 
-type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions';
+type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions' | 'activity';
 
 export default function SuperAdmin() {
   const { member } = useAuth();
@@ -77,6 +76,8 @@ export default function SuperAdmin() {
 
   useEffect(() => {
     loadData();
+    const id = window.setInterval(() => { void loadData(); }, 60_000);
+    return () => window.clearInterval(id);
   }, []);
 
   function flash(msg: string) {
@@ -399,6 +400,30 @@ export default function SuperAdmin() {
     });
   }
 
+
+  function minutesAgo(iso: string | null | undefined): number | null {
+    if (!iso) return null;
+    const ms = Date.now() - new Date(iso).getTime();
+    if (Number.isNaN(ms)) return null;
+    return Math.floor(ms / 60000);
+  }
+  function activityLabel(iso: string | null | undefined): { text: string; color: 'success' | 'warning' | 'error' | 'neutral' } {
+    const m = minutesAgo(iso);
+    if (m === null) return { text: 'Jamais vu', color: 'neutral' };
+    if (m < 5) return { text: 'En ligne', color: 'success' };
+    if (m < 60) return { text: `Il y a ${m} min`, color: 'success' };
+    if (m < 24 * 60) return { text: `Il y a ${Math.floor(m / 60)} h`, color: 'warning' };
+    return { text: `Il y a ${Math.floor(m / (24 * 60))} j`, color: 'neutral' };
+  }
+  const onlineMembers = members.filter((m) => {
+    const mins = minutesAgo((m as any).last_seen);
+    return mins !== null && mins < 15;
+  });
+  const active24h = members.filter((m) => {
+    const mins = minutesAgo((m as any).last_seen);
+    return mins !== null && mins < 24 * 60;
+  });
+
   if (member?.role !== 'super_admin') {
     return (
       <EmptyState
@@ -437,6 +462,7 @@ export default function SuperAdmin() {
             ['members', <Users size={16} key="u" />, 'Membres'],
             ['establishments', <Building2 size={16} key="b" />, 'Établissements'],
             ['subscriptions', <KeyRound size={16} key="s" />, 'Abonnements'],
+            ['activity', <Activity size={16} key="a" />, 'Activité'],
           ] as const
         ).map(([id, icon, label]) => (
           <button
@@ -635,6 +661,59 @@ export default function SuperAdmin() {
       </Modal>
 
       {/* Create establishment */}
+
+
+      {tab === 'activity' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="card">
+              <p className="text-xs text-stone-500">Comptes totaux</p>
+              <p className="text-2xl font-bold text-stone-100">{members.length}</p>
+            </div>
+            <div className="card">
+              <p className="text-xs text-stone-500">En ligne (&lt; 15 min)</p>
+              <p className="text-2xl font-bold text-emerald-400">{onlineMembers.length}</p>
+            </div>
+            <div className="card">
+              <p className="text-xs text-stone-500">Actifs 24 h</p>
+              <p className="text-2xl font-bold text-amber-300">{active24h.length}</p>
+            </div>
+            <div className="card">
+              <p className="text-xs text-stone-500">Établissements</p>
+              <p className="text-2xl font-bold text-stone-100">{establishments.length}</p>
+            </div>
+          </div>
+          <p className="text-sm text-stone-400">
+            Suivi basé sur la dernière activité dans l&apos;app (mise à jour ~1 min).
+          </p>
+          <div className="space-y-2">
+            {[...members]
+              .sort((a, b) => {
+                const ta = (a as any).last_seen ? new Date((a as any).last_seen).getTime() : 0;
+                const tb = (b as any).last_seen ? new Date((b as any).last_seen).getTime() : 0;
+                return tb - ta;
+              })
+              .map((m) => {
+                const est = establishments.find((e) => e.id === m.establishment_id);
+                const act = activityLabel((m as any).last_seen);
+                return (
+                  <div key={m.id} className="card flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-stone-100 truncate">{m.full_name || m.email}</p>
+                      <p className="text-xs text-stone-500 truncate">
+                        {ROLE_LABELS[m.role]} · {est?.name || 'Sans établissement'} · {displayLogin(m.email)}
+                      </p>
+                    </div>
+                    <Badge color={act.color}>{act.text}</Badge>
+                    <Badge color={m.status === 'active' ? 'success' : 'error'}>
+                      {m.status === 'active' ? 'Compte OK' : 'Suspendu'}
+                    </Badge>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {tab === 'subscriptions' && (
         <div className="space-y-4">
