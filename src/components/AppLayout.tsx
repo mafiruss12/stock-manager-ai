@@ -1,10 +1,6 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2,
-  Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle,
-  Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText,
-} from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown } from 'lucide-react';
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
 import ReportDelayNotifier from '@/components/ReportDelayNotifier';
@@ -28,8 +24,7 @@ import {
   BUSINESS_THEMES,
   canManageEstablishments,
   menuLabelFor,
-  getBusinessUI,
-} from '@/lib/businessTypes';
+  getBusinessUI } from '@/lib/businessTypes';
 
 interface NavSection {
   label: string;
@@ -41,12 +36,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'Principal',
     items: [
       { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/patron', label: 'Mode patron', icon: <Crown size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/pos', label: 'Caisse (POS)', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/documents', label: 'Devis & Factures', icon: <FileText size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/orders', label: 'Commandes', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/kitchen', label: 'Cuisine / Bar', icon: <UtensilsCrossed size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'employee'] },
-    ],
-  },
+    ] },
   {
     label: 'Gestion',
     items: [
@@ -55,8 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/mes-employes', label: 'Mes employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/calendar', label: 'Planning', icon: <Calendar size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/customers', label: 'Clients', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
-    ],
-  },
+    ] },
   {
     label: 'Finances',
     items: [
@@ -65,8 +59,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/purchases', label: 'Achats', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner'] },
       { to: '/accounting', label: 'Comptabilité', icon: <Calculator size={20} />, roles: ['super_admin', 'admin', 'owner'] },
       { to: '/statistics', label: 'Statistiques', icon: <BarChart3 size={20} />, roles: ['super_admin', 'admin', 'owner'] },
-    ],
-  },
+    ] },
   {
     label: 'Outils',
     items: [
@@ -84,8 +77,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/rent/packs', label: 'Packs événements', icon: <Sparkles size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/invoices', label: 'Factures location', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/admin', label: 'Administration', icon: <UserCog size={20} />, roles: ['super_admin'] },
-    ],
-  },
+    ] },
 ];
 
 
@@ -95,30 +87,25 @@ const SECTION_META: Record<string, { emoji: string; gradient: string; border: st
     gradient: 'linear-gradient(90deg, rgba(245,158,11,0.35), rgba(234,88,12,0.2), rgba(245,158,11,0.35))',
     border: 'rgba(245,158,11,0.35)',
     iconBg: 'bg-amber-500/20 text-amber-300',
-    text: 'text-amber-200',
-  },
+    text: 'text-amber-200' },
   Gestion: {
     emoji: '📦',
     gradient: 'linear-gradient(90deg, rgba(16,185,129,0.3), rgba(5,150,105,0.18), rgba(16,185,129,0.3))',
     border: 'rgba(16,185,129,0.35)',
     iconBg: 'bg-emerald-500/20 text-emerald-300',
-    text: 'text-emerald-200',
-  },
+    text: 'text-emerald-200' },
   Finances: {
     emoji: '💰',
     gradient: 'linear-gradient(90deg, rgba(34,197,94,0.28), rgba(234,179,8,0.22), rgba(34,197,94,0.28))',
     border: 'rgba(234,179,8,0.4)',
     iconBg: 'bg-yellow-500/20 text-yellow-300',
-    text: 'text-yellow-200',
-  },
+    text: 'text-yellow-200' },
   Outils: {
     emoji: '🛠️',
     gradient: 'linear-gradient(90deg, rgba(56,189,248,0.28), rgba(99,102,241,0.22), rgba(56,189,248,0.28))',
     border: 'rgba(56,189,248,0.35)',
     iconBg: 'bg-sky-500/20 text-sky-300',
-    text: 'text-sky-200',
-  },
-};
+    text: 'text-sky-200' } };
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
@@ -382,8 +369,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               gradient: 'linear-gradient(90deg, rgba(168,162,158,0.25), rgba(87,83,78,0.2))',
               border: 'rgba(168,162,158,0.3)',
               iconBg: 'bg-stone-600/40 text-stone-300',
-              text: 'text-stone-300',
-            };
+              text: 'text-stone-300' };
             return (
             <div
               key={section.label}

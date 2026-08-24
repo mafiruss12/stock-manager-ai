@@ -8,6 +8,7 @@ import Documents from '@/pages/Documents';
 import Caisse from '@/pages/Caisse';
 import Inventaire from '@/pages/Inventaire';
 import ScanInventaire from '@/pages/ScanInventaire';
+import PatronMode from '@/pages/PatronMode';
 import DailyReportPage from '@/pages/DailyReport';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Employees from '@/pages/Employees';
@@ -148,6 +149,7 @@ function ProtectedRoutes() {
         <Route path="/statistics" element={<Statistics />} />
         <Route path="/reports" element={<Navigate to="/daily-report" replace />} />
         <Route path="/daily-report" element={<DailyReportPage />} />
+        <Route path="/patron" element={<PatronMode />} />
         <Route path="/cloture" element={<Navigate to="/daily-report" replace />} />
         <Route path="/ai" element={<AIAssistant />} />
         <Route path="/chat" element={<ChatPage />} />

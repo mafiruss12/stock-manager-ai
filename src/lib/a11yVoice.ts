@@ -110,3 +110,175 @@ export function buildReportSpeech(opts: {
   }
   return parts.join(' ');
 }
+
+/** Reconnaissance vocale (Chrome / Android surtout) */
+export type DictationResult = { transcript: string; qty: number | null };
+
+const FR_NUM: Record<string, number> = {
+  zero: 0, zéro: 0,
+  un: 1, une: 1,
+  deux: 2, trois: 3, quatre: 4, cinq: 5,
+  six: 6, sept: 7, huit: 8, neuf: 9, dix: 10,
+  onze: 11, douze: 12, treize: 13, quatorze: 14, quinze: 15,
+  seize: 16, vingtsept: 17, dixhuit: 18, 'dix-sept': 17, 'dix-huit': 18, 'dix-neuf': 19,
+  vingt: 20, trente: 30, quarante: 40, cinquante: 50,
+  soixante: 60, cent: 100,
+};
+
+export function parseFrenchQuantity(transcript: string): number | null {
+  const t = transcript
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/,/g, '.')
+    .trim();
+  if (!t) return null;
+  // digits first
+  const m = t.match(/(\d+(?:\.\d+)?)/);
+  if (m) {
+    const n = Math.floor(Number(m[1]));
+    if (!Number.isNaN(n) && n >= 0) return n;
+  }
+  // words
+  const words = t.split(/[\s-]+/).filter(Boolean);
+  let total = 0;
+  let current = 0;
+  for (const w of words) {
+    if (w === 'et') continue;
+    if (FR_NUM[w] != null) {
+      const v = FR_NUM[w];
+      if (v === 100) {
+        current = (current || 1) * 100;
+      } else if (v >= 20) {
+        current += v;
+      } else {
+        current += v;
+      }
+    }
+  }
+  total = current;
+  return total > 0 ? total : null;
+}
+
+export function isSpeechRecognitionSupported(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+}
+
+export function startQuantityDictation(opts: {
+  onResult: (r: DictationResult) => void;
+  onError?: (msg: string) => void;
+  onEnd?: () => void;
+  lang?: string;
+}): { stop: () => void } | null {
+  const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  if (!SR) {
+    opts.onError?.('Dictée non disponible sur cet appareil. Utilisez Chrome sur Android.');
+    return null;
+  }
+  const rec = new SR();
+  rec.lang = opts.lang || 'fr-FR';
+  rec.interimResults = false;
+  rec.maxAlternatives = 3;
+  rec.continuous = false;
+
+  rec.onresult = (ev: any) => {
+    let best = '';
+    try {
+      best = ev.results[0][0].transcript as string;
+    } catch {
+      /* */
+    }
+    const qty = parseFrenchQuantity(best);
+    opts.onResult({ transcript: best, qty });
+  };
+  rec.onerror = (ev: any) => {
+    const err = String(ev?.error || 'erreur');
+    if (err === 'not-allowed') opts.onError?.('Micro refusé. Autorisez le micro dans le navigateur.');
+    else if (err === 'no-speech') opts.onError?.('Aucune voix détectée. Réessayez.');
+    else opts.onError?.(`Dictée: ${err}`);
+  };
+  rec.onend = () => opts.onEnd?.();
+  try {
+    rec.start();
+  } catch {
+    opts.onError?.('Impossible de démarrer le micro.');
+    return null;
+  }
+  return {
+    stop: () => {
+      try {
+        rec.stop();
+      } catch {
+        /* */
+      }
+    },
+  };
+}
+
+/** Enregistre un vocal (MediaRecorder) — pour joindre dans WhatsApp */
+export async function recordVoiceNote(
+  durationMs: number,
+  onTick?: (remainingSec: number) => void
+): Promise<Blob | null> {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : '';
+    const rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    const chunks: BlobPart[] = [];
+    rec.ondataavailable = (e) => {
+      if (e.data.size) chunks.push(e.data);
+    };
+    const done = new Promise<Blob | null>((resolve) => {
+      rec.onstop = () => {
+        stream.getTracks().forEach((tr) => tr.stop());
+        if (!chunks.length) resolve(null);
+        else resolve(new Blob(chunks, { type: rec.mimeType || 'audio/webm' }));
+      };
+    });
+    rec.start();
+    const end = Date.now() + durationMs;
+    const iv = window.setInterval(() => {
+      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
+      onTick?.(left);
+    }, 250);
+    await new Promise((r) => setTimeout(r, durationMs));
+    window.clearInterval(iv);
+    if (rec.state !== 'inactive') rec.stop();
+    return await done;
+  } catch {
+    return null;
+  }
+}
+
+export async function shareAudioToWhatsApp(blob: Blob, filename = 'rapport-vocal.webm'): Promise<boolean> {
+  const file = new File([blob], filename, { type: blob.type || 'audio/webm' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Rapport du jour',
+        text: 'Vocal rapport du jour — Stock Manager',
+      });
+      return true;
+    }
+  } catch {
+    /* user cancel or fail */
+  }
+  // fallback download
+  try {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    /* */
+  }
+  return false;
+}

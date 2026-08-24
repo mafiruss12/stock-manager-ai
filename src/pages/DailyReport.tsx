@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import {
-  ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save,
-  Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw,
-  History, PackageMinus, Volume2, VolumeX,
-} from 'lucide-react';
+import { ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save, Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw, History, PackageMinus, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { isOnline, queueAdd, cacheSet, cacheGet } from '@/lib/offline';
 import { useAuth } from '@/lib/auth';
@@ -15,6 +11,12 @@ import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
 import { notifyOwnerOnReport, getOwnerContacts, openOwnerChannelsAfterReport } from '@/lib/notifyOwner';
 import { ROLE_LABELS } from '@/lib/types';
+import {
+  speakFrench, stopSpeaking, playTone, buildReportSpeech,
+  startQuantityDictation, isSpeechRecognitionSupported,
+  recordVoiceNote, shareAudioToWhatsApp,
+} from '@/lib/a11yVoice';
+
 
 function todayISO() {
   return new Date().toISOString().split('T')[0];
@@ -74,6 +76,11 @@ export default function DailyReportPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [dictatingId, setDictatingId] = useState<string | null>(null);
+  const [dictationHint, setDictationHint] = useState('');
+  const [recordingVoice, setRecordingVoice] = useState(false);
+  const [recordLeft, setRecordLeft] = useState(0);
+
 
   const lines: Line[] = useMemo(() => {
     return products.map((p) => ({
@@ -96,6 +103,57 @@ export default function DailyReportPage() {
   const diff = theoretical - received;
 
   const match = Math.abs(diff) < 1;
+
+  function dictateQty(productId: string, productName: string) {
+    if (!isSpeechRecognitionSupported()) {
+      setDictationHint('Dictée : utilisez Chrome sur Android.');
+      speakFrench('Dictée non disponible. Utilisez Chrome.');
+      return;
+    }
+    setDictatingId(productId);
+    setDictationHint(`Dites la quantité pour ${productName}…`);
+    speakFrench(`Quantité pour ${productName} ?`);
+    playTone('tap');
+    startQuantityDictation({
+      onResult: ({ transcript, qty }) => {
+        if (qty != null) {
+          setQtyMap((m) => ({ ...m, [productId]: String(qty) }));
+          setDictationHint(`${productName} : ${qty} (\u00ab ${transcript} \u00bb)`);
+          playTone('ok');
+          speakFrench(`${productName}, ${qty}`);
+        } else {
+          setDictationHint(`Pas compris (\u00ab ${transcript} \u00bb). Réessayez.`);
+          playTone('warn');
+        }
+      },
+      onError: (msg) => setDictationHint(msg),
+      onEnd: () => setDictatingId(null),
+    });
+  }
+
+  async function whatsappVoice() {
+    setRecordingVoice(true);
+    setRecordLeft(12);
+    speakFrench('Enregistrement du vocal. Lisez le point ou laissez le silence après le résumé.');
+    // D'abord faire écouter le résumé
+    listenReport();
+    const blob = await recordVoiceNote(12000, (s) => setRecordLeft(s));
+    setRecordingVoice(false);
+    if (!blob) {
+      alert('Micro indisponible ou permission refusée.');
+      return;
+    }
+    const shared = await shareAudioToWhatsApp(blob, `rapport-${date}.webm`);
+    // Ouvrir WhatsApp texte aussi
+    const msg = reportText();
+    const link = buildWhatsAppLink(ownerPhone, msg);
+    if (link) window.open(link, '_blank', 'noopener,noreferrer');
+    if (shared) {
+      alert('Choisissez WhatsApp dans le partage pour envoyer le vocal.');
+    } else {
+      alert('Vocal téléchargé. Joignez-le dans WhatsApp au propriétaire.');
+    }
+  }
 
   function listenReport() {
     const text = buildReportSpeech({
@@ -1001,8 +1059,11 @@ export default function DailyReportPage() {
 
       {step === 1 && (
         <div className="space-y-3">
+          {dictationHint && (
+            <p className="text-sm text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">{dictationHint}</p>
+          )}
           <p className="text-sm text-stone-400">
-            Indiquez le <strong className="text-stone-200">nombre vendu</strong> pour chaque boisson.
+            Indiquez le <strong className="text-stone-200">nombre vendu</strong> ou appuyez sur le micro.
           </p>
           {products.length === 0 ? (
             <EmptyState
@@ -1025,11 +1086,21 @@ export default function DailyReportPage() {
                     type="number"
                     min={0}
                     inputMode="numeric"
-                    className="input-field w-28 min-h-[48px] text-center font-mono text-lg"
+                    className="input-field w-24 min-h-[48px] text-center font-mono text-lg"
                     placeholder="0"
                     value={qtyMap[p.id] ?? ''}
                     onChange={(e) => setQtyMap((m) => ({ ...m, [p.id]: e.target.value }))}
                   />
+                  <button
+                    type="button"
+                    title="Dicter la quantité"
+                    onClick={() => dictateQty(p.id, p.name)}
+                    className={`p-3 rounded-xl min-h-[48px] min-w-[48px] flex items-center justify-center ${
+                      dictatingId === p.id ? 'bg-red-500/30 text-red-300 animate-pulse' : 'bg-stone-800 text-amber-300'
+                    }`}
+                  >
+                    <Mic size={20} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -1245,6 +1316,14 @@ export default function DailyReportPage() {
                 <MessageCircle size={16} /> WhatsApp propriétaire
               </a>
             )}
+            <button
+              type="button"
+              disabled={recordingVoice}
+              onClick={() => void whatsappVoice()}
+              className="btn-secondary flex items-center justify-center gap-2 text-emerald-200 border-emerald-700/40 min-h-[48px]"
+            >
+              <Mic size={16} /> {recordingVoice ? `Vocal… ${recordLeft}s` : 'Vocal WhatsApp (12s)'}
+            </button>
             <button type="button" className="btn-ghost text-stone-500" onClick={() => setStep(2)}>
               ← Retour caisse
             </button>
