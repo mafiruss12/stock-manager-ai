@@ -38,6 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/patron', label: 'Mode patron', icon: <Crown size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/pos', label: 'Caisse (POS)', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/documents', label: 'Devis & Factures', icon: <FileText size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/orders', label: 'Commandes', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/kitchen', label: 'Cuisine / Bar', icon: <UtensilsCrossed size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'employee'] },
@@ -68,7 +69,6 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/chat', label: 'Chat interne', icon: <MessageCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/notifications', label: 'Notifications', icon: <Bell size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/settings', label: 'Profil & Paramètres', icon: <Settings size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
-      { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/rent/equipment', label: 'Matériel', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/clients', label: 'Clients location', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/rent/orders', label: 'Commandes location', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
@@ -214,7 +214,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (item.to === '/admin') return member.role === 'super_admin';
 
       // Filtre métier : uniquement les routes du type d'établissement
-      if (!allowedRoutes.has(item.to)) return false;
+      const alwaysOn = item.to === '/daily-report' || item.to === '/dashboard' || item.to === '/settings';
+      if (!alwaysOn && !allowedRoutes.has(item.to)) return false;
 
       // Modules location uniquement pour location_event (et dans Outils)
       if (RENT_ONLY.has(item.to) && !isLocation) return false;

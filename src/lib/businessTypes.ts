@@ -93,28 +93,28 @@ export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   ],
   magasin: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   boutique: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   superette: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   quincaillerie: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   location_event: [
     '/dashboard', '/rent/equipment', '/rent/clients', '/rent/orders',
     '/rent/movements', '/rent/payments', '/rent/calendar', '/rent/packs',
-    '/rent/invoices', '/team', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
+    '/rent/invoices', '/mes-employes', '/daily-report', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
 };
 
