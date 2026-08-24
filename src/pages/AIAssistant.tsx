@@ -307,7 +307,9 @@ export default function AIAssistant() {
           <Sparkles className="text-primary-400" />
           <h1 className="text-2xl font-bold font-display text-stone-100">Stock AI Assistant</h1>
         </div>
-        <a href="/ai-train" className="text-sm text-primary-400 hover:underline">Former l&apos;IA</a>
+        {(member?.role === 'super_admin') && (
+          <a href="/ai-train" className="text-sm text-primary-400 hover:underline">Former l&apos;IA</a>
+        )}
       </div>
       <p className="text-stone-400 text-sm mb-6">
         Analyses automatiques + réponses que vous entraînez (Former l&apos;IA)

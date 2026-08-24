@@ -16,7 +16,7 @@ import { EmptyState, Badge } from '@/components/ui';
 export default function AITrain() {
   const { member, effectiveRole } = useAuth();
   const role = (effectiveRole || member?.role || '') as string;
-  const canTrain = ['super_admin', 'admin', 'owner'].includes(role);
+  const canTrain = role === 'super_admin';
 
   const [rows, setRows] = useState<AiKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +67,7 @@ export default function AITrain() {
       title: form.title.trim() || form.keywords.split(',')[0] || 'Sans titre',
       answer: form.answer.trim(),
       active: true,
-      establishment_id: role === 'owner' ? member?.establishment_id : null,
+      establishment_id: null, // global — admin only
     });
     setForm({ keywords: '', title: '', answer: '' });
     setMsg('Exemple ajouté — l’assistant s’en servira.');
@@ -86,7 +86,7 @@ export default function AITrain() {
       <EmptyState
         icon={<Brain size={48} />}
         title="Formation IA"
-        message="Réservé au propriétaire et à l’administrateur."
+        message="Seul le super administrateur peut entraîner l’assistant IA."
       />
     );
   }
