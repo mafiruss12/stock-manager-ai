@@ -1095,13 +1095,15 @@ export default function DailyReportPage() {
             Indiquez le <strong className="text-stone-200">nombre vendu</strong> ou appuyez sur le micro.
           </p>
           {products.length === 0 ? (
-            <EmptyState
-              icon={<Beer size={40} />}
-              title="Aucune boisson"
-              message="Ajoutez des produits dans Inventaire, ou tirez pour actualiser. Vérifiez l’établissement actif."
-            />
-            <a href="/inventory" className="btn-secondary w-full text-center block">Ouvrir l’inventaire</a>
-            <button type="button" className="btn-ghost w-full" onClick={() => void load()}>Réessayer le chargement</button>
+            <div className="space-y-2">
+              <EmptyState
+                icon={<Beer size={40} />}
+                title="Aucune boisson"
+                message="Ajoutez des produits dans Inventaire, ou actualisez. Vérifiez l’établissement actif."
+              />
+              <a href="/inventory" className="btn-secondary w-full text-center block">Ouvrir l’inventaire</a>
+              <button type="button" className="btn-ghost w-full" onClick={() => void load()}>Réessayer le chargement</button>
+            </div>
           ) : (
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
               {products.map((p) => (
