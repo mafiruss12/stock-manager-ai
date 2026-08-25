@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { requestMicrophone, resetPermissionsOnboarding } from '@/lib/devicePermissions';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
 import { resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
@@ -499,6 +500,34 @@ export default function SettingsPage() {
           <p className="text-[11px] text-stone-600">
             Site : {WEB_APP_URL}
           </p>
+        </div>
+
+
+        <div className="card space-y-3">
+          <h2 className="text-lg font-semibold text-stone-100">Autorisations téléphone</h2>
+          <p className="text-sm text-stone-400">
+            Microphone, caméra, localisation, notifications — indispensables sur le terrain.
+          </p>
+          <button
+            type="button"
+            className="btn-primary w-full"
+            onClick={async () => {
+              const r = await requestMicrophone();
+              alert(r.ok ? 'Microphone autorisé ✓' : `Micro : ${r.detail}`);
+            }}
+          >
+            Autoriser le microphone
+          </button>
+          <button
+            type="button"
+            className="btn-secondary w-full"
+            onClick={() => {
+              resetPermissionsOnboarding();
+              window.dispatchEvent(new Event('mm-request-permissions'));
+            }}
+          >
+            Redemander toutes les autorisations
+          </button>
         </div>
 
         <div className="card space-y-3">

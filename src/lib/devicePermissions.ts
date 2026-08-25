@@ -3,7 +3,7 @@
  * Déclenche les boîtes de dialogue système (micro, caméra, GPS, notifications).
  */
 
-const STORAGE_KEY = 'mm_permissions_onboarding_v2';
+const STORAGE_KEY = 'mm_permissions_onboarding_v3';
 
 export type PermissionId =
   | 'notifications'
@@ -103,7 +103,9 @@ export async function requestCamera(): Promise<PermissionResult> {
     return {
       id: 'camera',
       ok: false,
-      detail: /denied|NotAllowed|Permission/i.test(msg) ? 'Refusé' : msg,
+      detail: /denied|NotAllowed|Permission/i.test(msg)
+        ? 'Refusé — activez Micro dans Réglages → Applications → Stock Manager AI'
+        : msg,
     };
   }
 }
@@ -122,7 +124,9 @@ export async function requestMicrophone(): Promise<PermissionResult> {
     return {
       id: 'microphone',
       ok: false,
-      detail: /denied|NotAllowed|Permission/i.test(msg) ? 'Refusé' : msg,
+      detail: /denied|NotAllowed|Permission/i.test(msg)
+        ? 'Refusé — activez Micro dans Réglages → Applications → Stock Manager AI'
+        : msg,
     };
   }
 }
