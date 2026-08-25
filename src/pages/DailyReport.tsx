@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useEstId } from '@/lib/useEstId';
 import type { Product } from '@/lib/types';
 import { EmptyState, Badge } from '@/components/ui';
+import ProductThumb from '@/components/ProductThumb';
 import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
 import { notifyOwnerOnReport, getOwnerContacts, openOwnerChannelsAfterReport } from '@/lib/notifyOwner';
@@ -186,78 +187,104 @@ export default function DailyReportPage() {
   }
 
   async function load() {
-    useEffect(() => {
-    return () => stopSpeaking();
-  }, []);
-
-  if (!estId) {
+    if (!estId) {
+      setProducts([]);
       setLoading(false);
       return;
     }
     setLoading(true);
-    const [{ data: prods }, { data: existing }] = await Promise.all([
-      supabase
-        .from('products')
-        .select('*')
-        .eq('establishment_id', estId)
-        .order('name'),
-      supabase
-        .from('daily_reports')
-        .select('*')
-        .eq('establishment_id', estId)
-        .eq('date', date)
-        .maybeSingle(),
-    ]);
-
-    const list = (prods ?? []) as Product[];
-    setProducts(list);
-
     try {
-      const owner = await getOwnerContacts(estId);
-      setOwnerPhone(owner?.owner_phone || null);
-    } catch {
-      setOwnerPhone(null);
-    }
+      const [{ data: prods, error: prodErr }, { data: existing }] = await Promise.all([
+        supabase
+          .from('products')
+          .select('*')
+          .eq('establishment_id', estId)
+          .order('name'),
+        supabase
+          .from('daily_reports')
+          .select('*')
+          .eq('establishment_id', estId)
+          .eq('date', date)
+          .maybeSingle(),
+      ]);
 
-    if (existing) {
-      setReportId(existing.id);
-      setSent(Boolean((existing as any).sent_at));
-      setSignature(existing.signature || member?.full_name || '');
-      try {
-        const raw = existing.notes || '';
-        if (raw.startsWith('{')) {
-          const parsed = JSON.parse(raw) as SavedPayload;
-          const map: Record<string, string> = {};
-          (parsed.items || []).forEach((it) => {
-            map[it.product_id] = String(it.qty);
-          });
-          setQtyMap(map);
-          setCashCounted(String(parsed.cash_counted ?? existing.cash ?? ''));
-          setMobileCounted(String(parsed.mobile_counted ?? (existing as any).mobile_money ?? ''));
-          setComment(parsed.comment || '');
-          setStockDeducted(Boolean(parsed.stock_deducted));
-          if ((parsed.items || []).some((i) => i.qty > 0)) setStep(2);
-        } else {
-          setComment(raw);
-          setCashCounted(String(existing.cash ?? ''));
-          setMobileCounted(String((existing as any).mobile_money ?? ''));
-        }
-      } catch {
-        setComment(existing.notes || '');
+      if (prodErr) {
+        console.error('products load', prodErr);
       }
-    } else {
-      setReportId(null);
-      setSent(false);
-      setStockDeducted(false);
-      setQtyMap({});
-      setCashCounted('');
-      setMobileCounted('');
-      setComment('');
-      setStep(1);
+
+      let list = (prods ?? []) as Product[];
+      // Fallback offline cache
+      if (!list.length) {
+        try {
+          const cached = await cacheGet<Product[]>(`products_${estId}`);
+          if (cached?.length) list = cached;
+        } catch {
+          /* */
+        }
+      } else {
+        try {
+          await cacheSet(`products_${estId}`, list);
+        } catch {
+          /* */
+        }
+      }
+      setProducts(list);
+
+      try {
+        const owner = await getOwnerContacts(estId);
+        setOwnerPhone(owner?.owner_phone || null);
+      } catch {
+        setOwnerPhone(null);
+      }
+
+      if (existing) {
+        setReportId(existing.id);
+        setSent(Boolean((existing as any).sent_at));
+        setSignature(existing.signature || member?.full_name || '');
+        try {
+          const raw = existing.notes || '';
+          if (raw.startsWith('{')) {
+            const parsed = JSON.parse(raw) as SavedPayload;
+            const map: Record<string, string> = {};
+            (parsed.items || []).forEach((it) => {
+              map[it.product_id] = String(it.qty);
+            });
+            setQtyMap(map);
+            setCashCounted(String(parsed.cash_counted ?? existing.cash ?? ''));
+            setMobileCounted(String(parsed.mobile_counted ?? (existing as any).mobile_money ?? ''));
+            setComment(parsed.comment || '');
+            setStockDeducted(Boolean(parsed.stock_deducted));
+            if ((parsed.items || []).some((i) => i.qty > 0)) setStep(2);
+          } else {
+            setComment(raw);
+            setCashCounted(String(existing.cash ?? ''));
+            setMobileCounted(String((existing as any).mobile_money ?? ''));
+          }
+        } catch {
+          setComment(existing.notes || '');
+        }
+      } else {
+        setReportId(null);
+        setSent(false);
+        setStockDeducted(false);
+        setQtyMap({});
+        setCashCounted('');
+        setMobileCounted('');
+        setComment('');
+        setStep(1);
+      }
+      await loadHistory();
+    } catch (e) {
+      console.error('load daily report', e);
+    } finally {
+      setLoading(false);
     }
-    await loadHistory();
-    setLoading(false);
   }
+
+  // stop speech on unmount
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
 
   // Navigation calendrier : ?date=YYYY-MM-DD (évite conflit avec date locale)
   useEffect(() => {
@@ -1071,12 +1098,15 @@ export default function DailyReportPage() {
             <EmptyState
               icon={<Beer size={40} />}
               title="Aucune boisson"
-              message="Ajoutez des produits dans Inventaire d’abord."
+              message="Ajoutez des produits dans Inventaire, ou tirez pour actualiser. Vérifiez l’établissement actif."
             />
+            <a href="/inventory" className="btn-secondary w-full text-center block">Ouvrir l’inventaire</a>
+            <button type="button" className="btn-ghost w-full" onClick={() => void load()}>Réessayer le chargement</button>
           ) : (
             <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
               {products.map((p) => (
                 <div key={p.id} className="card flex items-center gap-3 py-3">
+                  <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={44} />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-stone-100 truncate">{p.name}</p>
                     <p className="text-xs text-stone-500">
