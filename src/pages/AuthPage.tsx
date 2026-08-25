@@ -88,6 +88,35 @@ export default function AuthPage() {
     }
   }, [user, authLoading]);
 
+  // Retour Google OAuth : session puis dashboard
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const href = window.location.href;
+        const hasToken =
+          href.includes('access_token') ||
+          href.includes('refresh_token') ||
+          window.location.search.includes('code=') ||
+          window.location.hash.includes('access_token');
+        if (!hasToken) return;
+        await new Promise((r) => setTimeout(r, 250));
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        if (data.session?.user) {
+          setSuccess('Connexion Google réussie…');
+          window.history.replaceState({}, '', '/');
+          window.location.replace('/dashboard');
+        }
+      } catch (e) {
+        console.error('oauth return', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   
   useEffect(() => {
