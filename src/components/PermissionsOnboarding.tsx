@@ -18,6 +18,7 @@ import {
   hasCompletedPermissionsOnboarding,
   markPermissionsOnboardingDone,
   requestAllDevicePermissions,
+  requestMicrophone,
   openAppSettings,
   type PermissionResult,
 } from '@/lib/devicePermissions';
@@ -90,6 +91,18 @@ export default function PermissionsOnboarding() {
   }, []);
 
   if (!member || !open) return null;
+
+  async function allowMicOnly() {
+    setLoading(true);
+    setResults(null);
+    try {
+      const r = await requestMicrophone();
+      setResults([r]);
+      if (r.ok) markPermissionsOnboardingDone();
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function allowAll() {
     setLoading(true);
@@ -219,6 +232,14 @@ export default function PermissionsOnboarding() {
                 'Demander dans l’application'
               )}
             </button>
+              <button
+                type="button"
+                className="btn-secondary w-full mt-2"
+                disabled={loading}
+                onClick={() => void allowMicOnly()}
+              >
+                Autoriser le micro seulement
+              </button>
 
             {results && (
               <button type="button" className="btn-secondary min-h-[44px]" onClick={close}>

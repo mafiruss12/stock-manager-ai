@@ -160,6 +160,54 @@ export function parseFrenchQuantity(transcript: string): number | null {
   return total > 0 ? total : null;
 }
 
+
+/** Demande explicite du micro (déclenche la boîte système navigateur / APK) */
+export async function ensureMicrophone(): Promise<{ ok: boolean; detail: string }> {
+  if (typeof window === 'undefined') {
+    return { ok: false, detail: 'Environnement non supporté' };
+  }
+  if (!window.isSecureContext) {
+    return { ok: false, detail: 'HTTPS requis pour le micro' };
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, detail: 'Micro non disponible sur cet appareil' };
+  }
+  try {
+    // Permissions API (si dispo) — n'affiche pas la boîte seule, mais informe
+    try {
+      const st = await (navigator as any).permissions?.query?.({ name: 'microphone' as PermissionName });
+      if (st?.state === 'denied') {
+        return {
+          ok: false,
+          detail:
+            'Micro bloqué dans le navigateur. Menu ⋮ → Paramètres du site → Microphone → Autoriser, puis rechargez.',
+        };
+      }
+    } catch {
+      /* certains navigateurs n'exposent pas permissions.microphone */
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+      },
+      video: false,
+    });
+    stream.getTracks().forEach((t) => t.stop());
+    return { ok: true, detail: 'Micro autorisé' };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/denied|NotAllowed|Permission/i.test(msg)) {
+      return {
+        ok: false,
+        detail:
+          'Micro refusé. Autorisez le micro quand le navigateur le demande, ou dans Paramètres du site.',
+      };
+    }
+    return { ok: false, detail: msg };
+  }
+}
+
 export function isSpeechRecognitionSupported(): boolean {
   if (typeof window === 'undefined') return false;
   return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -194,7 +242,7 @@ export function startQuantityDictation(opts: {
   };
   rec.onerror = (ev: any) => {
     const err = String(ev?.error || 'erreur');
-    if (err === 'not-allowed') opts.onError?.('Micro refusé. Autorisez le micro dans le navigateur.');
+    if (err === 'not-allowed') opts.onError?.('Micro refusé. Ouvrez Paramètres du site → Microphone → Autoriser, puis réessayez.');
     else if (err === 'no-speech') opts.onError?.('Aucune voix détectée. Réessayez.');
     else opts.onError?.(`Dictée: ${err}`);
   };

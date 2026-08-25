@@ -3,7 +3,7 @@
  * Déclenche les boîtes de dialogue système (micro, caméra, GPS, notifications).
  */
 
-const STORAGE_KEY = 'mm_permissions_onboarding_v3';
+const STORAGE_KEY = 'mm_permissions_onboarding_v4';
 
 export type PermissionId =
   | 'notifications'
@@ -112,10 +112,25 @@ export async function requestCamera(): Promise<PermissionResult> {
 
 /** Micro — dictée, rapport vocal, mode patron */
 export async function requestMicrophone(): Promise<PermissionResult> {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return { id: 'microphone', ok: false, detail: 'HTTPS requis pour le micro' };
+  }
   if (!navigator.mediaDevices?.getUserMedia) {
-    return { id: 'microphone', ok: false, detail: 'Micro non disponible' };
+    return { id: 'microphone', ok: false, detail: 'Micro non disponible sur cet appareil' };
   }
   try {
+    try {
+      const st = await (navigator as any).permissions?.query?.({ name: 'microphone' as PermissionName });
+      if (st?.state === 'denied') {
+        return {
+          id: 'microphone',
+          ok: false,
+          detail: 'Micro bloqué — Paramètres du site (⋮) → Microphone → Autoriser',
+        };
+      }
+    } catch {
+      /* */
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     stream.getTracks().forEach((t) => t.stop());
     return { id: 'microphone', ok: true, detail: 'Micro autorisé' };
@@ -125,7 +140,7 @@ export async function requestMicrophone(): Promise<PermissionResult> {
       id: 'microphone',
       ok: false,
       detail: /denied|NotAllowed|Permission/i.test(msg)
-        ? 'Refusé — activez Micro dans Réglages → Applications → Stock Manager AI'
+        ? 'Refusé — cliquez à nouveau et acceptez « Autoriser », ou Paramètres du site → Micro'
         : msg,
     };
   }

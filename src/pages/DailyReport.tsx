@@ -15,7 +15,7 @@ import { ROLE_LABELS } from '@/lib/types';
 import {
   speakFrench, stopSpeaking, playTone, buildReportSpeech,
   startQuantityDictation, isSpeechRecognitionSupported,
-  recordVoiceNote, shareAudioToWhatsApp,
+  recordVoiceNote, shareAudioToWhatsApp, ensureMicrophone,
 } from '@/lib/a11yVoice';
 
 
@@ -105,13 +105,21 @@ export default function DailyReportPage() {
 
   const match = Math.abs(diff) < 1;
 
-  function dictateQty(productId: string, productName: string) {
+  async function dictateQty(productId: string, productName: string) {
     if (!isSpeechRecognitionSupported()) {
       setDictationHint('Dictée : utilisez Chrome sur Android.');
       speakFrench('Dictée non disponible. Utilisez Chrome.');
       return;
     }
     setDictatingId(productId);
+    setDictationHint('Autorisation du micro…');
+    const mic = await ensureMicrophone();
+    if (!mic.ok) {
+      setDictationHint(mic.detail);
+      speakFrench('Microphone non autorisé.');
+      setDictatingId(null);
+      return;
+    }
     setDictationHint(`Dites la quantité pour ${productName}…`);
     speakFrench(`Quantité pour ${productName} ?`);
     playTone('tap');
@@ -119,11 +127,11 @@ export default function DailyReportPage() {
       onResult: ({ transcript, qty }) => {
         if (qty != null) {
           setQtyMap((m) => ({ ...m, [productId]: String(qty) }));
-          setDictationHint(`${productName} : ${qty} (\u00ab ${transcript} \u00bb)`);
+          setDictationHint(`${productName} : ${qty} (« ${transcript} »)`);
           playTone('ok');
           speakFrench(`${productName}, ${qty}`);
         } else {
-          setDictationHint(`Pas compris (\u00ab ${transcript} \u00bb). Réessayez.`);
+          setDictationHint(`Pas compris (« ${transcript} »). Réessayez.`);
           playTone('warn');
         }
       },
@@ -135,6 +143,12 @@ export default function DailyReportPage() {
   async function whatsappVoice() {
     setRecordingVoice(true);
     setRecordLeft(12);
+    const mic = await ensureMicrophone();
+    if (!mic.ok) {
+      setRecordingVoice(false);
+      alert(mic.detail);
+      return;
+    }
     speakFrench('Enregistrement du vocal. Lisez le point ou laissez le silence après le résumé.');
     // D'abord faire écouter le résumé
     listenReport();
