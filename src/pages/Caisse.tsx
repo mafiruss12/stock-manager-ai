@@ -91,7 +91,13 @@ export default function Caisse() {
 
         if (online) {
           await supabase.from('sales').insert(salePayload);
-          await supabase.from('products').update({ stock: newStock }).eq('id', item.product.id);
+          const consigne = Number((item.product as Product).consigne_unit) || 0;
+          const prevEmpty = Number((item.product as Product).empty_bottles) || 0;
+          const productUpdate: Record<string, number> = { stock: newStock };
+          if (consigne > 0) {
+            productUpdate.empty_bottles = prevEmpty + item.qty;
+          }
+          await supabase.from('products').update(productUpdate).eq('id', item.product.id);
           try {
             await supabase.from('stock_movements').insert({
               establishment_id: member.establishment_id,
@@ -114,7 +120,13 @@ export default function Caisse() {
 
         const idx = updatedProducts.findIndex((p) => p.id === item.product.id);
         if (idx >= 0) {
-          updatedProducts[idx] = { ...updatedProducts[idx], stock: newStock };
+          const consigne = Number((item.product as Product).consigne_unit) || 0;
+          const prevEmpty = Number((item.product as Product).empty_bottles) || 0;
+          updatedProducts[idx] = {
+            ...updatedProducts[idx],
+            stock: newStock,
+            empty_bottles: consigne > 0 ? prevEmpty + item.qty : prevEmpty,
+          };
         }
       }
 
@@ -255,7 +267,7 @@ export default function Caisse() {
                       : 'border-stone-700 text-stone-400'
                   }`}
                 >
-                  {m === 'cash' || m === 'card' ? <CreditCard size={16} /> : <Smartphone size={16} />}
+                  {m === 'cash' || m === 'card' ? <CreditCard size={16} /> : m === 'ardoise' ? <span className="text-base">📒</span> : <Smartphone size={16} />}
                   {MOBILE_MONEY_LABELS[m]}
                 </button>
               ))}

@@ -5,7 +5,7 @@ import { toWhatsAppNumber } from '@/lib/login';
  * Pour une vraie API (Orange/MTN/Wave/WhatsApp Cloud), brancher les secrets côté serveur.
  */
 
-export type MobileMoneyProvider = 'orange_money' | 'mtn_money' | 'moov_money' | 'wave' | 'cash' | 'card';
+export type MobileMoneyProvider = 'orange_money' | 'mtn_money' | 'moov_money' | 'wave' | 'cash' | 'card' | 'ardoise';
 
 export const MOBILE_MONEY_LABELS: Record<MobileMoneyProvider, string> = {
   orange_money: 'Orange Money',
@@ -14,15 +14,17 @@ export const MOBILE_MONEY_LABELS: Record<MobileMoneyProvider, string> = {
   wave: 'Wave',
   cash: 'Espèces',
   card: 'Carte',
+  ardoise: 'Ardoise (crédit)',
 };
 
 export const MOBILE_MONEY_PROVIDERS: MobileMoneyProvider[] = [
   'cash',
+  'wave',
   'orange_money',
   'mtn_money',
   'moov_money',
-  'wave',
   'card',
+  'ardoise',
 ];
 
 /** Ouvre WhatsApp avec un message prérempli — format wa.me/225XXXXXXXXX */

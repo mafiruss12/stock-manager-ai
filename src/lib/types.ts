@@ -4,7 +4,7 @@ export type MemberStatus = 'active' | 'suspended';
 
 export type AccessRequestStatus = 'pending' | 'approved' | 'rejected';
 
-export type PaymentMethod = 'cash' | 'mobile_money' | 'orange_money' | 'mtn_money' | 'moov_money' | 'wave' | 'card' | 'other';
+export type PaymentMethod = 'cash' | 'mobile_money' | 'orange_money' | 'mtn_money' | 'moov_money' | 'wave' | 'card' | 'ardoise' | 'other';
 
 export interface Establishment {
   id: string;
@@ -47,6 +47,12 @@ export interface Product {
   unit: string;
   created_at: string;
   image_url?: string | null;
+  /** Unités par casier/pack (ex: 12 ou 24) */
+  units_per_package?: number | null;
+  /** Valeur caution bouteille (FCFA) */
+  consigne_unit?: number | null;
+  /** Bouteilles vides en réserve */
+  empty_bottles?: number | null;
 }
 
 export interface Sale {

@@ -53,7 +53,7 @@ export default function Inventaire() {
   const [arrivageForm, setArrivageForm] = useState({ productId: '', qty: '', note: '' });
 
   const [form, setForm] = useState({
-    name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '',
+    name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '', units_per_package: '12', consigne_unit: '', empty_bottles: '0',
   });
 
   async function loadProducts() {
@@ -153,7 +153,7 @@ export default function Inventaire() {
   function openAdd() {
     if (!canEditStock) return;
     setEditing(null);
-    setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '' });
+    setForm({ name: '', category: ui.categories[0] || 'Autre', price: '', cost: '', stock: '', min_stock: '12', unit: ui.unitDefault || 'unité', image_url: '', units_per_package: '12', consigne_unit: '', empty_bottles: '0' });
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
     setModalOpen(true);
   }
@@ -168,6 +168,9 @@ export default function Inventaire() {
       stock: String(p.stock ?? ''),
       min_stock: String(p.min_stock ?? 12),
       image_url: (p as Product).image_url || '',
+      units_per_package: String(p.units_per_package ?? 12),
+      consigne_unit: String(p.consigne_unit ?? ''),
+      empty_bottles: String(p.empty_bottles ?? 0),
       unit: p.unit || 'unité',
     });
     if (!canEditStock) { alert('Modification réservée au propriétaire / gérant.'); return; }
@@ -187,6 +190,9 @@ export default function Inventaire() {
       name: form.name.trim(),
       category: form.category || 'Autre',
       image_url: form.image_url.trim() || null,
+      units_per_package: Number(form.units_per_package) || 12,
+      consigne_unit: Number(form.consigne_unit) || 0,
+      empty_bottles: Number(form.empty_bottles) || 0,
       price: Number(form.price) || 0,
       cost: Number(form.cost) || 0,
       stock: Number(form.stock) || 0,
@@ -1195,7 +1201,8 @@ export default function Inventaire() {
                 const min = Number(p.min_stock) || 0;
                 const cost = Number(p.cost) || 0;
                 const price = Number(p.price) || 0;
-                const casiers = Math.floor(stock / CASIER);
+                const pack = Math.max(1, Number(p.units_per_package) || CASIER);
+                const casiers = Math.floor(stock / pack);
                 const valeur = stock * cost;
                 const status = aiStatus(stock, min);
                 const low = stock <= min;
@@ -1215,6 +1222,12 @@ export default function Inventaire() {
                         <span className="inline-flex items-center gap-1.5 min-w-0">
                           {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
                           <span className="truncate">{p.name}</span>
+                          {(Number(p.empty_bottles) > 0 || Number(p.consigne_unit) > 0) && (
+                            <span className="text-[10px] text-sky-400/90 block">
+                              {Number(p.consigne_unit) > 0 ? `Consigne ${p.consigne_unit}F` : ''}
+                              {Number(p.empty_bottles) > 0 ? ` · ${p.empty_bottles} vides` : ''}
+                            </span>
+                          )}
                         </span>
                       </span>
                     </td>
@@ -1283,7 +1296,7 @@ export default function Inventaire() {
       )}
 
       <p className="text-xs text-stone-500">
-        Casiers = Qté ÷ 24 · Valeur stock = Qté × prix d&apos;achat · Statut IA : RUPTURE / À COMMANDER / SURVEILLER / OK selon stock min.
+        Casiers = Qté ÷ unités/casier (12 ou 24) · Valeur stock = Qté × prix d&apos;achat · Statut IA : RUPTURE / À COMMANDER / SURVEILLER / OK selon stock min.
       </p>
         </div>
       )}
@@ -1360,6 +1373,20 @@ export default function Inventaire() {
             <div>
               <label className="label">Format / Unité</label>
               <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field" placeholder={ui.unitDefault || "unité"} />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="label">U / casier</label>
+              <input type="number" min={1} value={form.units_per_package} onChange={(e) => setForm({ ...form, units_per_package: e.target.value })} className="input-field" placeholder="12 ou 24" />
+            </div>
+            <div>
+              <label className="label">Consigne (F)</label>
+              <input type="number" min={0} value={form.consigne_unit} onChange={(e) => setForm({ ...form, consigne_unit: e.target.value })} className="input-field" placeholder="ex: 150" />
+            </div>
+            <div>
+              <label className="label">Vides</label>
+              <input type="number" min={0} value={form.empty_bottles} onChange={(e) => setForm({ ...form, empty_bottles: e.target.value })} className="input-field" placeholder="0" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
