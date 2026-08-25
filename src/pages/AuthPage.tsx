@@ -72,11 +72,20 @@ export default function AuthPage() {
       hash.get('error_description') ||
       hash.get('error');
     if (err) {
-      setError(
-        err.includes('access_denied')
-          ? 'Connexion Google annulée.'
-          : `Connexion Google impossible : ${decodeURIComponent(err.replace(/\+/g, ' '))}`
-      );
+      const decoded = decodeURIComponent(err.replace(/\+/g, ' '));
+      let msg = `Connexion Google impossible : ${decoded}`;
+      if (err.includes('access_denied')) {
+        msg = 'Connexion Google annulée.';
+      } else if (/unable to exchange external code/i.test(decoded)) {
+        msg =
+          'Google refuse l’échange du code (secret OAuth incorrect ou URI de redirection). ' +
+          'Dans Google Cloud → Identifiants OAuth (type Application Web), vérifiez le secret ' +
+          'et l’URI : https://ycoaxbgxstxondxxnhhf.supabase.co/auth/v1/callback — ' +
+          'puis collez le même Client ID + secret dans Supabase → Authentication → Providers → Google.';
+      } else if (/redirect/i.test(decoded)) {
+        msg = 'URL de retour non autorisée. Vérifiez les Redirect URLs dans Supabase et Google Cloud.';
+      }
+      setError(msg);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
