@@ -155,7 +155,7 @@ export default function PermissionsOnboarding() {
             <div>
               <h2 className="text-lg font-semibold text-stone-100">Autoriser l’accès à l’appareil</h2>
               <p className="text-sm text-stone-400 mt-1">
-                Autorisez ici, ou ouvrez directement les <strong className="text-stone-200">paramètres</strong> de
+                Sur téléphone (APK Stock AI), activez Micro / Caméra / Position dans Réglages → Applications. Sur Chrome, autorisez ici, ou ouvrez les <strong className="text-stone-200">paramètres</strong> de
                 votre téléphone. Le micro est demandé en premier pour la dictée et le mode vocal.
               </p>
             </div>

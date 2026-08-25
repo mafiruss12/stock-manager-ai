@@ -54,10 +54,86 @@ export async function getNativeOnlineStatus(): Promise<boolean> {
 }
 
 /**
- * Permissions natives : via APIs web dans la WebView Capacitor
- * (les prompts Android apparaissent quand le site demande géoloc / caméra / notifs).
- * Les plugins optionnels ne sont pas importés ici pour ne pas casser le build web.
+ * Demande les autorisations appareil (web + WebView APK).
+ * Sur Android, le manifeste APK doit déclarer RECORD_AUDIO, CAMERA, LOCATION, etc.
+ * sinon le système n’affiche jamais la demande.
  */
 export async function requestNativePermissions(): Promise<Record<string, string>> {
-  return { note: 'use_web_permissions_in_webview' };
+  const out: Record<string, string> = {};
+  if (typeof window === 'undefined') return out;
+
+  // Notifications
+  try {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') out.notifications = 'granted';
+      else if (Notification.permission === 'denied') out.notifications = 'denied';
+      else {
+        const r = await Notification.requestPermission();
+        out.notifications = r;
+      }
+    }
+  } catch (e) {
+    out.notifications = String(e);
+  }
+
+  // Micro — déclenche la boîte système Android / Chrome
+  try {
+    if (navigator.mediaDevices?.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      out.microphone = 'granted';
+    } else {
+      out.microphone = 'unsupported';
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    out.microphone = /denied|NotAllowed|Permission/i.test(msg) ? 'denied' : msg;
+  }
+
+  // Caméra
+  try {
+    if (navigator.mediaDevices?.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach((t) => t.stop());
+      out.camera = 'granted';
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    out.camera = /denied|NotAllowed|Permission/i.test(msg) ? 'denied' : msg;
+  }
+
+  // Localisation
+  try {
+    if (navigator.geolocation) {
+      await new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            out.location = 'granted';
+            resolve();
+          },
+          (err) => {
+            out.location = err.code === 1 ? 'denied' : String(err.message);
+            resolve();
+          },
+          { timeout: 8000, maximumAge: 60000 }
+        );
+      });
+    }
+  } catch (e) {
+    out.location = String(e);
+  }
+
+  return out;
+}
+
+/** Lance les demandes natives au démarrage APK (après splash) */
+export async function bootstrapNativePermissions(): Promise<void> {
+  if (!isNative) return;
+  try {
+    // Légère attente pour que la WebView soit prête
+    await new Promise((r) => setTimeout(r, 600));
+    await requestNativePermissions();
+  } catch {
+    /* */
+  }
 }

@@ -1,9 +1,10 @@
+import { isNative, requestNativePermissions } from '@/lib/mobile';
 /**
  * Demandes d'accès appareil (web / PWA / WebView APK)
  * Déclenche les boîtes de dialogue système (micro, caméra, GPS, notifications).
  */
 
-const STORAGE_KEY = 'mm_permissions_onboarding_v4';
+const STORAGE_KEY = 'mm_permissions_onboarding_v5';
 
 export type PermissionId =
   | 'notifications'
@@ -171,6 +172,36 @@ export async function requestStorage(): Promise<PermissionResult> {
 /** Enchaîne les prompts système (un après l’autre) */
 export async function requestAllDevicePermissions(): Promise<PermissionResult[]> {
   const results: PermissionResult[] = [];
+  // APK : enchaîne aussi la demande native WebView
+  if (isNative) {
+    try {
+      const native = await requestNativePermissions();
+      const map: Record<string, PermissionId> = {
+        notifications: 'notifications',
+        microphone: 'microphone',
+        camera: 'camera',
+        location: 'location',
+      };
+      for (const [k, id] of Object.entries(map)) {
+        const v = native[k];
+        if (v == null) continue;
+        results.push({
+          id,
+          ok: v === 'granted',
+          detail:
+            v === 'granted'
+              ? 'Autorisé (APK)'
+              : v === 'denied'
+                ? 'Refusé — Réglages Android → Apps → Stock AI → Autorisations'
+                : String(v),
+        });
+      }
+      results.push(await requestStorage());
+      return results;
+    } catch {
+      /* fallback web ci-dessous */
+    }
+  }
   results.push(await requestNotifications());
   results.push(await requestMicrophone());
   results.push(await requestCamera());
