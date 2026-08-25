@@ -743,10 +743,10 @@ export default function Inventaire() {
           created_by: member?.user_id || null,
         });
       } catch { /* table optionnelle */ }
-      // Synchro comptable : arrivage = achat reçu
+      // Synchro comptable : arrivage = achat reçu (visible en Comptabilité → Achats)
       try {
         const unitCost = Number(p.cost) || 0;
-        await supabase.from('purchases').insert({
+        const { error: purchErr } = await supabase.from('purchases').insert({
           establishment_id: estId,
           product_id: p.id,
           qty,
@@ -756,7 +756,14 @@ export default function Inventaire() {
           notes: arrivageForm.note || `Arrivage auto — ${p.name}`,
           created_by: member?.user_id || null,
         });
-      } catch { /* schéma purchases variable */ }
+        if (purchErr) {
+          console.error('purchase insert', purchErr);
+          // Ne bloque pas l'arrivage stock, mais informe
+          alert(`Stock OK, mais achat comptable non enregistré: ${purchErr.message}. Vérifiez le prix d'achat (coût) du produit.`);
+        }
+      } catch (e) {
+        console.error(e);
+      }
       await loadProducts();
       await loadAudit();
     } else {
