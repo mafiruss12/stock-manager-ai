@@ -24,7 +24,7 @@ function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'ot
     e.includes('email/password')
   ) {
     return context === 'signin'
-      ? 'Mot de passe incorrect. Vérifiez votre saisie ou réinitialisez-le.'
+      ? 'Identifiant ou mot de passe incorrect. Vérifiez majuscules/minuscules ou utilisez « Mot de passe oublié ».'
       : 'Identifiant ou mot de passe incorrect.';
   }
   if (
@@ -209,6 +209,9 @@ async function resendConfirmation() {
         const { error: err } = await signIn(login, password);
         if (err) {
           setError(mapAuthError(err, 'signin'));
+          if (err.toLowerCase().includes('trop de tentatives')) {
+            setError(err);
+          }
           setLoading(false);
           return;
         }

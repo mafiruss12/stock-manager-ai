@@ -600,18 +600,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return { error: safeErrorMessage(error, 'Identifiant ou mot de passe incorrect') };
       }
-      // Email vérifié si compte email réel (pas @maquis.local)
-      if (
-        data.user &&
-        email.includes('@') &&
-        !email.endsWith('@maquis.local') &&
-        !data.user.email_confirmed_at &&
-        data.user.app_metadata?.provider === 'email'
-      ) {
-        await supabase.auth.signOut();
-        setLoading(false);
-        return { error: 'Email non vérifié. Confirmez votre boîte mail avant de vous connecter.' };
-      }
+      // Ne plus bloquer sur e-mail non confirmé (terrain / clients mobiles)
+      // L'admin peut forcer la confirmation côté Supabase si besoin.
       registerLoginSuccess();
       const user = data.user ?? data.session?.user ?? null;
       if (data.session) {
@@ -631,7 +621,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: any) {
       registerLoginFailure();
       setLoading(false);
-      return { error: e?.message || 'Connexion impossible' };
+      return { error: e?.message || 'Connexion impossible (réseau). Vérifiez Internet et réessayez.' };
     }
   }
 
@@ -642,8 +632,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const strength = isStrongEnoughPassword(password);
     if (!strength.ok) return { error: strength.reason };
-    if (await isPasswordBreached(password)) {
-      return { error: 'Ce mot de passe apparaît dans des fuites connues. Choisissez-en un autre.' };
+    try {
+      if (await isPasswordBreached(password)) {
+        return { error: 'Ce mot de passe apparaît dans des fuites connues. Choisissez-en un autre.' };
+      }
+    } catch {
+      /* HIBP inaccessible : ne bloque pas l'inscription */
     }
     const email = toAuthEmail(login);
     setLoading(true);

@@ -65,13 +65,8 @@ export function isSafeLogin(login: string): boolean {
 }
 
 export function isStrongEnoughPassword(password: string): { ok: true } | { ok: false; reason: string } {
-  if (password.length < 10) return { ok: false, reason: 'Mot de passe : minimum 10 caractères.' };
-  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password)) {
-    return { ok: false, reason: 'Mot de passe : majuscule et minuscule requises.' };
-  }
-  if (!/[0-9]/.test(password)) return { ok: false, reason: 'Mot de passe : au moins un chiffre.' };
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    return { ok: false, reason: 'Mot de passe : au moins un caractère spécial.' };
+  if (!password || password.length < 6) {
+    return { ok: false, reason: 'Mot de passe : minimum 6 caractères.' };
   }
   return { ok: true };
 }
