@@ -50,7 +50,7 @@ type HistoryRow = {
   signature?: string | null;
 };
 
-export default function DailyReportPage() {
+export default function DailyReportPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { member, activeEstablishment } = useAuth();
   const estId = useEstId();
   const bizType = normalizeBusinessType(activeEstablishment?.type);
