@@ -12,6 +12,8 @@ import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
 import { notifyOwnerOnReport, getOwnerContacts, openOwnerChannelsAfterReport } from '@/lib/notifyOwner';
 import { ROLE_LABELS } from '@/lib/types';
+import { loadDayOpsSummary } from '@/lib/opsHub';
+import { Link } from 'react-router-dom';
 import {
   speakFrench, stopSpeaking, playTone, buildReportSpeech,
   startQuantityDictation, isSpeechRecognitionSupported,
@@ -243,6 +245,22 @@ export default function DailyReportPage() {
         }
       }
       setProducts(list);
+      // Prefill POS : quantités caisse du jour si rapport pas encore saisi
+      try {
+        const ops = await loadDayOpsSummary(estId, date);
+        if (!existing && ops.byProduct.length) {
+          const map: Record<string, string> = {};
+          for (const line of ops.byProduct) {
+            if (line.product_id && line.qty > 0) map[line.product_id] = String(line.qty);
+          }
+          if (Object.keys(map).length) {
+            setQtyMap(map);
+            setDictationHint('Quantités préremplies depuis la caisse du jour.');
+          }
+        }
+        // Si rapport existant sans items, aussi proposer
+      } catch { /* */ }
+
 
       try {
         const owner = await getOwnerContacts(estId);

@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useEstId } from '@/lib/useEstId';
 import { formatFCFA, todayISO } from '@/lib/format';
+import { loadDayOpsSummary } from '@/lib/opsHub';
 import { EmptyState } from '@/components/ui';
 
 type CashSession = {
@@ -61,7 +62,7 @@ export default function ClotureZPage() {
     setError(null);
     const today = todayISO();
 
-    const [sessRes, histRes, salesRes, expRes] = await Promise.all([
+    const [sessRes, histRes, dayOps] = await Promise.all([
       supabase
         .from('cash_sessions')
         .select('*')
@@ -76,16 +77,7 @@ export default function ClotureZPage() {
         .eq('establishment_id', estId)
         .order('session_date', { ascending: false })
         .limit(14),
-      supabase
-        .from('sales')
-        .select('total, payment_method, created_at')
-        .eq('establishment_id', estId)
-        .gte('created_at', `${today}T00:00:00`),
-      supabase
-        .from('expenses')
-        .select('amount, created_at')
-        .eq('establishment_id', estId)
-        .gte('created_at', `${today}T00:00:00`),
+      loadDayOpsSummary(estId, today),
     ]);
 
     if (sessRes.error && !String(sessRes.error.message || '').includes('//')) {
@@ -98,20 +90,9 @@ export default function ClotureZPage() {
     setSession((sessRes.data as CashSession) || null);
     setHistory(((histRes.data as CashSession[]) || []).filter((s) => s.session_date !== today || s.status === 'closed'));
 
-    const sales = salesRes.data || [];
-    const totalSales = sales.reduce((s, x) => s + Number(x.total || 0), 0);
-    const cashOnly = sales
-      .filter((x) => {
-        const m = String((x as { payment_method?: string }).payment_method || 'especes').toLowerCase();
-        return m.includes('espece') || m.includes('cash') || m === '' || m === 'especes';
-      })
-      .reduce((s, x) => s + Number(x.total || 0), 0);
-    const totalExp = (expRes.data || []).reduce((s, x) => s + Number(x.amount || 0), 0);
-
-    setSalesToday(totalSales);
-    const hasMethod = sales.some((x) => (x as { payment_method?: string }).payment_method);
-    setCashSalesToday(hasMethod ? cashOnly : totalSales);
-    setExpensesToday(totalExp);
+    setSalesToday(dayOps.salesTotal);
+    setCashSalesToday(dayOps.cashTotal);
+    setExpensesToday(dayOps.expensesTotal);
 
     if (sessRes.data) {
       setFloatInput(String(sessRes.data.opening_float ?? 0));

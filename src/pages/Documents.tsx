@@ -9,6 +9,7 @@ import { Modal, EmptyState } from '@/components/ui';
 import { openWhatsApp, buildInvoiceWhatsAppMessage } from '@/lib/integrations';
 import { toWhatsAppNumber } from '@/lib/login';
 import { getBusinessUI } from '@/lib/businessTypes';
+import { convertDevisToFacture } from '@/lib/opsHub';
 
 type DocType = 'devis' | 'facture';
 type DocLine = { label: string; qty: number; unit_price: number };
@@ -81,6 +82,19 @@ export default function Documents() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member?.establishment_id, tab]);
+
+  async function convertToFacture(d: BizDoc) {
+    if (d.doc_type !== 'devis') return;
+    if (!confirm(`Convertir le devis ${d.number} en facture ?`)) return;
+    try {
+      const fac = await convertDevisToFacture(d.id, member?.user_id);
+      alert(`Facture ${fac?.number || ''} créée. Onglet Factures.`);
+      setTab('facture');
+      await load();
+    } catch (e: any) {
+      alert(e?.message || 'Conversion impossible');
+    }
+  }
 
   const totals = useMemo(() => {
     const sub = form.lines.reduce((s, l) => s + Number(l.qty) * Number(l.unit_price), 0);
@@ -237,6 +251,7 @@ ${d.notes ? `<p class="muted">${d.notes}</p>` : ''}
             <Sparkles size={12} /> Documents commerciaux
           </p>
           <h1 className="text-2xl font-bold font-display text-stone-100">Devis & Factures</h1>
+          <p className="text-xs text-stone-500 mt-1">Synchronisé avec caisse · rapport du jour · clôture Z</p>
           <p className="text-stone-400 text-sm">Modifiables · thème orange / bleu · WhatsApp wa.me/225</p>
         </div>
         <button type="button" onClick={openCreate} className="btn-primary flex items-center gap-2">
@@ -293,6 +308,11 @@ ${d.notes ? `<p class="muted">${d.notes}</p>` : ''}
                 <button type="button" className="p-2.5 rounded-lg text-stone-300 hover:bg-stone-800" onClick={() => openEdit(d)}>
                   <Pencil size={18} />
                 </button>
+                    {d.doc_type === 'devis' && d.status !== 'converted' && (
+                      <button type="button" className="btn-secondary text-xs px-2 py-1" onClick={() => void convertToFacture(d)}>
+                        → Facture
+                      </button>
+                    )}
                 <button type="button" className="p-2.5 rounded-lg text-error-400 hover:bg-error-500/10" onClick={() => remove(d.id)}>
                   <Trash2 size={18} />
                 </button>

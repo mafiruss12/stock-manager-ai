@@ -7,6 +7,10 @@ import { getBusinessUI } from '@/lib/businessTypes';
 import type { Product, PaymentMethod } from '@/lib/types';
 import { Modal, EmptyState } from '@/components/ui';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
+import { createFactureFromCart, loadDayOpsSummary } from '@/lib/opsHub';
+import { useEstId } from '@/lib/useEstId';
+import { formatFCFA } from '@/lib/format';
+import { Link } from 'react-router-dom';
 
 interface CartItem {
   product: Product;
@@ -15,6 +19,7 @@ interface CartItem {
 
 export default function Caisse() {
   const { member, activeEstablishment } = useAuth();
+  const estId = useEstId();
   const ui = getBusinessUI(activeEstablishment?.type);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -133,6 +138,25 @@ export default function Caisse() {
       setProducts(updatedProducts);
       await cacheSet(`products:${member.establishment_id}`, updatedProducts);
 
+      // Facture liée (option)
+      try {
+        if (online && cart.length && member?.establishment_id) {
+          await createFactureFromCart({
+            estId: member.establishment_id,
+            lines: cart.map((i) => ({
+              label: i.product.name,
+              qty: i.qty,
+              unit_price: Number(i.product.price) || 0,
+            })),
+            total: cartTotal,
+            paymentMethod: String(paymentMethod),
+            userId: member.user_id,
+          });
+        }
+      } catch (e) {
+        console.warn('facture auto', e);
+      }
+
       setSuccess(true);
       setCart([]);
       setTimeout(() => {
@@ -155,6 +179,11 @@ export default function Caisse() {
       {/* Catalogue */}
       <div className="lg:col-span-2 flex flex-col">
         <h1 className="text-2xl font-bold font-display text-stone-100 mb-4">{ui.posTitle}</h1>
+      <div className="flex flex-wrap gap-2 text-xs mb-3">
+        <Link to="/daily-report" className="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/30">→ Rapport du jour</Link>
+        <Link to="/cloture" className="px-2 py-1 rounded-lg bg-stone-800 text-stone-300 border border-stone-700">→ Clôture Z</Link>
+        <Link to="/documents" className="px-2 py-1 rounded-lg bg-stone-800 text-stone-300 border border-stone-700">→ Devis / Factures</Link>
+      </div>
         <div className="relative mb-4">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
           <input
