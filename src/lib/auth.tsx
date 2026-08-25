@@ -708,15 +708,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const origin = window.location.origin;
+    const redirectTo = `${origin}/`;
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
-        queryParams: { access_type: 'online', prompt: 'select_account' },
+        redirectTo,
+        skipBrowserRedirect: false,
+        queryParams: {
+          access_type: 'online',
+          prompt: 'select_account',
+        },
       },
     });
     if (error) {
+      const msg = error.message || '';
+      if (/provider is not enabled/i.test(msg)) {
+        throw new Error(
+          'Google n\'est pas activé sur Supabase. Activez Authentication → Providers → Google.'
+        );
+      }
+      if (/redirect/i.test(msg)) {
+        throw new Error(
+          `URL de retour non autorisée (${origin}). Ajoutez-la dans Supabase → Authentication → URL Configuration.`
+        );
+      }
       throw error;
+    }
+    // Si pas de redirection auto (certains WebView), ouvrir l'URL
+    if (data?.url) {
+      window.location.assign(data.url);
     }
   }
 
