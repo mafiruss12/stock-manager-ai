@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { categoryEmoji, resolveProductImage } from '@/lib/productImages';
 
 export default function ProductThumb({
@@ -16,6 +16,10 @@ export default function ProductThumb({
   const [err, setErr] = useState(false);
   const emoji = categoryEmoji(category, name || '');
 
+  useEffect(() => {
+    setErr(false);
+  }, [src, imageUrl, name]);
+
   if (!src || err) {
     return (
       <span
@@ -30,6 +34,7 @@ export default function ProductThumb({
 
   return (
     <img
+      key={src.slice(0, 64)}
       src={src}
       alt={name || 'produit'}
       width={size}

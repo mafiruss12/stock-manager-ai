@@ -208,8 +208,17 @@ export default function Inventaire() {
           min_stock: editing.min_stock,
           price: editing.price,
           cost: editing.cost,
+          image_url: (editing as Product).image_url,
         };
-        await supabase.from('products').update(payload).eq('id', editing.id);
+        const { error: upErr } = await supabase.from('products').update(payload).eq('id', editing.id);
+        if (upErr) {
+          alert('Enregistrement image/produit impossible : ' + upErr.message);
+          return;
+        }
+        // Mise à jour immédiate de la liste (image comprise)
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editing.id ? { ...p, ...payload } as Product : p))
+        );
         await logAudit({
           establishment_id: estId,
           actor_id: member?.user_id,
@@ -223,7 +232,11 @@ export default function Inventaire() {
           client_op_id: opId,
         });
       } else {
-        const { data: ins } = await supabase.from('products').insert(payload).select('id').maybeSingle();
+        const { data: ins, error: insErr } = await supabase.from('products').insert(payload).select('id').maybeSingle();
+        if (insErr) {
+          alert('Création impossible : ' + insErr.message);
+          return;
+        }
         await logAudit({
           establishment_id: estId,
           actor_id: member?.user_id,
@@ -1356,7 +1369,7 @@ export default function Inventaire() {
                   </button>
                 )}
                 <p className="text-[11px] text-stone-500">
-                  Sans image perso, l&apos;app propose une photo selon le nom (Coca, Heineken…).
+                  Photo ou lien https://… Enregistrer pour appliquer. Sinon photo auto selon le nom.
                 </p>
               </div>
             </div>

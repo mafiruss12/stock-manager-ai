@@ -52,7 +52,11 @@ export function resolveProductImage(opts: {
   category?: string | null;
   image_url?: string | null;
 }): string | null {
-  if (opts.image_url && /^https?:\/\//i.test(opts.image_url)) return opts.image_url;
+  const raw = (opts.image_url || '').trim();
+  if (raw) {
+    // URL http(s), data: (photo uploadée), blob:
+    if (/^(https?:\/\/|data:image\/|blob:)/i.test(raw)) return raw;
+  }
   const name = (opts.name || '').toLowerCase();
   for (const rule of RULES) {
     if (rule.keys.some((k) => name.includes(k))) return rule.url;
