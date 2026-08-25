@@ -11,6 +11,7 @@ import ScanInventaire from '@/pages/ScanInventaire';
 import PatronMode from '@/pages/PatronMode';
 import AITrain from '@/pages/AITrain';
 import DailyReportPage from '@/pages/DailyReport';
+import ClotureZPage from '@/pages/ClotureZ';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Employees from '@/pages/Employees';
 import Expenses from '@/pages/Expenses';
@@ -151,7 +152,7 @@ function ProtectedRoutes() {
         <Route path="/reports" element={<Navigate to="/daily-report" replace />} />
         <Route path="/daily-report" element={<DailyReportPage />} />
         <Route path="/patron" element={<PatronMode />} />
-        <Route path="/cloture" element={<Navigate to="/daily-report" replace />} />
+        <Route path="/cloture" element={<ClotureZPage />} />
         <Route path="/ai" element={<AIAssistant />} />
         <Route path="/ai-train" element={<AITrain />} />
         <Route path="/chat" element={<ChatPage />} />

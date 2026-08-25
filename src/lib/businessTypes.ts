@@ -88,33 +88,33 @@ export const BUSINESS_THEMES: Record<
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
     '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/expenses', '/mes-employes',
-    '/calendar', '/daily-report', '/patron', '/statistics', '/reports', '/ai', '/ai-train', '/chat',
+    '/calendar', '/daily-report', '/cloture', '/patron', '/statistics', '/reports', '/ai', '/ai-train', '/chat',
     '/notifications', '/settings',
   ],
   magasin: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/cloture', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   boutique: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/cloture', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   superette: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/cloture', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   quincaillerie: [
   '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/purchases', '/suppliers', '/customers',
-    '/expenses', '/mes-employes', '/daily-report', '/statistics', '/accounting', '/reports',
+    '/expenses', '/mes-employes', '/daily-report', '/cloture', '/statistics', '/accounting', '/reports',
     '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
   location_event: [
     '/dashboard', '/rent/equipment', '/rent/clients', '/rent/orders',
     '/rent/movements', '/rent/payments', '/rent/calendar', '/rent/packs',
-    '/rent/invoices', '/mes-employes', '/daily-report', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
+    '/rent/invoices', '/mes-employes', '/daily-report', '/cloture', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
 };
 
