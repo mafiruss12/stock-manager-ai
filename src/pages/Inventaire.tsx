@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
+import { ensureProductImageCatalog, registerCatalogImage, lookupCatalogImage } from '@/lib/productImages';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 import { speakFrench, playTone } from '@/lib/a11yVoice';
 
@@ -44,6 +45,8 @@ export default function Inventaire() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [tab, setTab] = useState<'stock' | 'arrivage' | 'options'>('stock');
+
+  useEffect(() => { void ensureProductImageCatalog(); }, []);
   useEffect(() => {
     if (!canEditStock && tab !== 'stock') setTab('stock');
   }, [canEditStock, tab]);
@@ -189,7 +192,7 @@ export default function Inventaire() {
       establishment_id: estId,
       name: form.name.trim(),
       category: form.category || 'Autre',
-      image_url: form.image_url.trim() || null,
+      image_url: form.image_url.trim() || lookupCatalogImage(form.name) || null,
       units_per_package: Number(form.units_per_package) || 12,
       consigne_unit: Number(form.consigne_unit) || 0,
       empty_bottles: Number(form.empty_bottles) || 0,
@@ -210,6 +213,7 @@ export default function Inventaire() {
           cost: editing.cost,
           image_url: (editing as Product).image_url,
         };
+        if (form.image_url.trim()) registerCatalogImage(form.name, form.image_url.trim());
         const { error: upErr } = await supabase.from('products').update(payload).eq('id', editing.id);
         if (upErr) {
           alert('Enregistrement image/produit impossible : ' + upErr.message);
