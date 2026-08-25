@@ -42,7 +42,7 @@ function nextNumber(type: DocType) {
   return `${prefix}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-export default function Documents() {
+export default function Documents({ embedded = false }: { embedded?: boolean } = {}) {
   const { member, activeEstablishment } = useAuth();
   const ui = getBusinessUI(activeEstablishment?.type);
   const [tab, setTab] = useState<DocType>('devis');
@@ -250,7 +250,7 @@ ${d.notes ? `<p class="muted">${d.notes}</p>` : ''}
           <p className="text-xs font-medium uppercase tracking-wide text-amber-400 flex items-center gap-1">
             <Sparkles size={12} /> Documents commerciaux
           </p>
-          <h1 className="text-2xl font-bold font-display text-stone-100">Devis & Factures</h1>
+          {!embedded && (<h1 className="text-2xl font-bold font-display text-stone-100">Devis & Factures</h1>)}
           <p className="text-xs text-stone-500 mt-1">Synchronisé avec caisse · rapport du jour · clôture Z</p>
           <p className="text-stone-400 text-sm">Modifiables · thème orange / bleu · WhatsApp wa.me/225</p>
         </div>

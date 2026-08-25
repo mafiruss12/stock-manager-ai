@@ -17,7 +17,7 @@ interface CartItem {
   qty: number;
 }
 
-export default function Caisse() {
+export default function Caisse({ embedded = false }: { embedded?: boolean } = {}) {
   const { member, activeEstablishment } = useAuth();
   const estId = useEstId();
   const ui = getBusinessUI(activeEstablishment?.type);
@@ -178,12 +178,14 @@ export default function Caisse() {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-3rem)] lg:h-[calc(100vh-4rem)]">
       {/* Catalogue */}
       <div className="lg:col-span-2 flex flex-col">
-        <h1 className="text-2xl font-bold font-display text-stone-100 mb-4">{ui.posTitle}</h1>
+        {!embedded && (<h1 className="text-2xl font-bold font-display text-stone-100 mb-4">{ui.posTitle}</h1>)}
+      {!embedded && (
       <div className="flex flex-wrap gap-2 text-xs mb-3">
         <Link to="/daily-report" className="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-200 border border-amber-500/30">→ Rapport du jour</Link>
         <Link to="/cloture" className="px-2 py-1 rounded-lg bg-stone-800 text-stone-300 border border-stone-700">→ Clôture Z</Link>
         <Link to="/documents" className="px-2 py-1 rounded-lg bg-stone-800 text-stone-300 border border-stone-700">→ Devis / Factures</Link>
       </div>
+      )}
         <div className="relative mb-4">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-500" />
           <input

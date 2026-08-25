@@ -29,7 +29,7 @@ type CashSession = {
   notes?: string | null;
 };
 
-export default function ClotureZPage() {
+export default function ClotureZPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { member } = useAuth();
   const estId = useEstId();
   const [loading, setLoading] = useState(true);
@@ -208,7 +208,7 @@ export default function ClotureZPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-amber-400/90">Caisse</p>
-          <h1 className="text-2xl font-bold font-display text-stone-100">Journal & Clôture Z</h1>
+          {!embedded && (<h1 className="text-2xl font-bold font-display text-stone-100">Journal & Clôture Z</h1>)}
           <p className="text-sm text-stone-400">
             Fond de caisse, ventes du jour, espèces comptées et écart — idée issue de l’audit AI Studio.
           </p>

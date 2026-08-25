@@ -11,11 +11,12 @@ import ScanInventaire from '@/pages/ScanInventaire';
 import PatronMode from '@/pages/PatronMode';
 import AITrain from '@/pages/AITrain';
 import DailyReportPage from '@/pages/DailyReport';
+import DailyReportHub, { RedirectToReportTab } from '@/pages/DailyReportHub';
 
 function DailyReportSafe() {
   return (
     <ErrorBoundary>
-      <DailyReportPage />
+      <DailyReportHub />
     </ErrorBoundary>
   );
 }
@@ -140,8 +141,8 @@ function ProtectedRoutes() {
         <Route path="/rent/calendar" element={<RentCalendar />} />
         <Route path="/rent/packs" element={<RentPacks />} />
         <Route path="/rent/invoices" element={<RentInvoices />} />
-        <Route path="/documents" element={<Documents />} />
-        <Route path="/pos" element={<Caisse />} />
+        <Route path="/documents" element={<RedirectToReportTab tab="docs" />} />
+        <Route path="/pos" element={<RedirectToReportTab tab="caisse" />} />
         <Route path="/caisse" element={<Navigate to="/pos" replace />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/kitchen" element={<Kitchen />} />
@@ -161,7 +162,7 @@ function ProtectedRoutes() {
         <Route path="/reports" element={<Navigate to="/daily-report" replace />} />
         <Route path="/daily-report" element={<DailyReportSafe />} />
         <Route path="/patron" element={<PatronMode />} />
-        <Route path="/cloture" element={<ClotureZPage />} />
+        <Route path="/cloture" element={<RedirectToReportTab tab="cloture" />} />
         <Route path="/ai" element={<AIAssistant />} />
         <Route path="/ai-train" element={<AITrain />} />
         <Route path="/chat" element={<ChatPage />} />

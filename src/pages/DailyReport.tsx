@@ -1007,9 +1007,11 @@ export default function DailyReportPage() {
     <div className="max-w-2xl mx-auto space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold font-display text-stone-100 flex items-center gap-2">
+          {!embedded && (
+            <h1 className="text-2xl font-bold font-display text-stone-100 flex items-center gap-2">
             <ClipboardCheck className="text-amber-400" size={26} /> Rapport du jour
           </h1>
+          )}
           <p className="text-stone-400 text-sm mt-0.5">
             Point boissons → caisse → stock → envoi propriétaire
           </p>
