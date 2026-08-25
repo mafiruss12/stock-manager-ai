@@ -1,12 +1,13 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown, Brain } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown, Brain, Sun, Moon } from 'lucide-react';
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
 import ReportDelayNotifier from '@/components/ReportDelayNotifier';
 import PermissionsOnboarding from '@/components/PermissionsOnboarding';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
+import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { startPrefetchInterval } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
@@ -130,6 +131,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [estName, setEstName] = useState<string | null>(null);
   const [estLogo, setEstLogo] = useState<string | null>(null);
@@ -496,15 +498,49 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <span className="font-display font-bold text-stone-100 truncate">{estName || 'Stock Manager AI'}</span>
             </div>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="text-stone-300 p-1 rounded-lg hover:bg-stone-800"
-            title="Déconnexion"
-            aria-label="Déconnexion"
-          >
-            <LogOut size={20} />
-          </button>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                const next = themeMode === 'dark' ? 'light' : 'dark';
+                applyTheme(next);
+                setThemeMode(next);
+              }}
+              className="text-stone-300 p-2 rounded-lg hover:bg-stone-800"
+              title={themeMode === 'dark' ? 'Mode jour' : 'Mode sombre'}
+              aria-label="Changer le thème"
+            >
+              {themeMode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="text-stone-300 p-1 rounded-lg hover:bg-stone-800"
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         </header>
+
+        
+        {/* Bascule thème — bureau, haut droite */}
+        <div className="hidden lg:flex justify-end px-8 pt-4 pb-0">
+          <button
+            type="button"
+            onClick={() => {
+              const next = themeMode === 'dark' ? 'light' : 'dark';
+              applyTheme(next);
+              setThemeMode(next);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-stone-200 hover:border-amber-500/50"
+            title={themeMode === 'dark' ? 'Passer en mode jour' : 'Passer en mode sombre'}
+          >
+            {themeMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            {themeMode === 'dark' ? 'Mode jour' : 'Mode sombre'}
+          </button>
+        </div>
 
         <main className="flex-1 p-4 lg:p-8 pb-24"><SubscriptionGate />
           <DailyReportGate />
