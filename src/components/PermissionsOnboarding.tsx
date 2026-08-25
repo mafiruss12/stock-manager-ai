@@ -63,6 +63,10 @@ const ITEMS = [
 ] as const;
 
 export default function PermissionsOnboarding() {
+  // Désactivé : l'utilisateur ne veut plus voir ce message automatiquement
+  const DISABLED_BY_USER = true;
+  if (DISABLED_BY_USER) return null;
+
   const { member } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);

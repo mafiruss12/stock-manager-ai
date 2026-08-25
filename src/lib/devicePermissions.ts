@@ -20,11 +20,13 @@ export type PermissionResult = {
 };
 
 export function hasCompletedPermissionsOnboarding(): boolean {
+  // Toujours considéré comme fait — plus de popup automatique
   try {
-    return localStorage.getItem(STORAGE_KEY) === '1';
+    localStorage.setItem(STORAGE_KEY, '1');
   } catch {
-    return false;
+    /* */
   }
+  return true;
 }
 
 export function markPermissionsOnboardingDone(): void {
