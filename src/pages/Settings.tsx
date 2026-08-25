@@ -1,7 +1,7 @@
+import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useEffect, useState } from 'react';
-import { requestMicrophone, resetPermissionsOnboarding } from '@/lib/devicePermissions';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
-import { resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
+import { requestMicrophone, resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const { member, activeEstablishment, refresh, signOut } = useAuth();
   const [est, setEst] = useState<Establishment | null>(null);
   const [loading, setLoading] = useState(true);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [pwdForm, setPwdForm] = useState({ password: '', confirm: '' });
@@ -168,6 +169,42 @@ export default function SettingsPage() {
 
   return (
     <>
+      {/* Thème */}
+      <section className="card p-4 space-y-3">
+        <h2 className="font-semibold text-stone-100 flex items-center gap-2">Apparence</h2>
+        <p className="text-sm text-stone-400">Choisissez le mode d’affichage de l’application.</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-medium ${
+              themeMode === 'light'
+                ? 'border-amber-500 bg-amber-500/15 text-amber-200'
+                : 'border-stone-700 bg-stone-900 text-stone-300'
+            }`}
+            onClick={() => {
+              applyTheme('light');
+              setThemeMode('light');
+            }}
+          >
+            ☀️ Mode jour
+          </button>
+          <button
+            type="button"
+            className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-medium ${
+              themeMode === 'dark'
+                ? 'border-amber-500 bg-amber-500/15 text-amber-200'
+                : 'border-stone-700 bg-stone-900 text-stone-300'
+            }`}
+            onClick={() => {
+              applyTheme('dark');
+              setThemeMode('dark');
+            }}
+          >
+            🌙 Mode sombre
+          </button>
+        </div>
+      </section>
+
     {activeEstablishment && (
       <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-stone-200">
         <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
