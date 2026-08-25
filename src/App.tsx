@@ -11,6 +11,15 @@ import ScanInventaire from '@/pages/ScanInventaire';
 import PatronMode from '@/pages/PatronMode';
 import AITrain from '@/pages/AITrain';
 import DailyReportPage from '@/pages/DailyReport';
+
+function DailyReportSafe() {
+  return (
+    <ErrorBoundary>
+      <DailyReportPage />
+    </ErrorBoundary>
+  );
+}
+
 import ClotureZPage from '@/pages/ClotureZ';
 import SuperAdmin from '@/pages/SuperAdmin';
 import Employees from '@/pages/Employees';
@@ -150,7 +159,7 @@ function ProtectedRoutes() {
         <Route path="/accounting" element={<Accounting />} />
         <Route path="/statistics" element={<Statistics />} />
         <Route path="/reports" element={<Navigate to="/daily-report" replace />} />
-        <Route path="/daily-report" element={<DailyReportPage />} />
+        <Route path="/daily-report" element={<DailyReportSafe />} />
         <Route path="/patron" element={<PatronMode />} />
         <Route path="/cloture" element={<ClotureZPage />} />
         <Route path="/ai" element={<AIAssistant />} />

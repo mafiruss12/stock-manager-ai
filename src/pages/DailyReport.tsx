@@ -275,6 +275,8 @@ export default function DailyReportPage() {
 
   useEffect(() => {
     void load();
+    const t = window.setTimeout(() => setLoading(false), 12000);
+    return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estId, date]);
 
@@ -929,7 +931,7 @@ export default function DailyReportPage() {
       <EmptyState
         icon={<ClipboardCheck size={40} />}
         title="Aucun établissement"
-        message="Sélectionnez un établissement pour le rapport du jour."
+        message="Sélectionnez un établissement (menu Activité) pour le rapport du jour."
       />
     );
   }

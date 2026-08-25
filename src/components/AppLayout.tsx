@@ -394,7 +394,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    onClick={() => setSidebarOpen(false)}
+                    end={item.to === '/dashboard'}
+                    onClick={(e) => {
+                      setSidebarOpen(false);
+                      // Force navigation (certains WebView APK n'appliquent pas le NavLink)
+                      if (item.to === '/daily-report' || item.to === '/cloture') {
+                        e.preventDefault();
+                        navigate(item.to);
+                      }
+                    }}
                     className={({ isActive }) =>
                       `nav-item-link flex items-center gap-2.5 px-2 py-2 rounded-xl text-sm font-medium transition-all ${
                         isActive

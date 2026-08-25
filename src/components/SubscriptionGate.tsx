@@ -8,7 +8,7 @@ import {
   paymentWhatsAppLink,
 } from '@/lib/subscription';
 
-const ALLOWED_WHEN_BLOCKED = ['/settings', '/notifications', '/chat', '/subscription'];
+const ALLOWED_WHEN_BLOCKED = ['/settings', '/notifications', '/chat', '/subscription', '/daily-report', '/cloture', '/pos', '/inventory', '/dashboard'];
 
 export default function SubscriptionGate() {
   const { activeEstablishment, effectiveRole, member } = useAuth();
