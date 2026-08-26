@@ -19,6 +19,7 @@ import {
   type BtpDocStatus,
   type BtpBranding,
 } from '@/lib/btp';
+import { printBtpDocument } from '@/lib/btpPrint';
 
 type Item = {
   id?: string;
@@ -371,13 +372,14 @@ export default function BtpDocuments() {
           <button type="button" className="btn-ghost text-sm" onClick={() => setPrintDoc(null)}>
             Retour
           </button>
-          <button type="button" className="btn-primary text-sm inline-flex items-center gap-2" onClick={() => window.print()}>
+          <button type="button" className="btn-primary text-sm inline-flex items-center gap-2" onClick={() => printBtpDocument(d, printItems, company, branding)}>
             <Printer size={16} /> Imprimer / enregistrer PDF
           </button>
           <button type="button" className="btn-secondary text-sm" onClick={() => void openEdit(d)}>
             <Pencil size={14} /> Modifier
           </button>
         </div>
+        <div className="btp-print-root">
         <div className="btp-print-sheet bg-white text-stone-900 rounded-2xl p-6 md:p-8 max-w-3xl mx-auto shadow-xl print:shadow-none print:max-w-none animate-in">
           <header className="flex gap-4 border-b-2 border-sky-600 pb-4 mb-5">
             {company.logo_url ? (
@@ -529,12 +531,8 @@ export default function BtpDocuments() {
             {branding.stamp_url && <img src={branding.stamp_url} alt="Cachet" className="h-16 object-contain opacity-90" />}
           </footer>
         </div>
+        </div>
         <style>{`
-          @media print {
-            .no-print { display: none !important; }
-            body { background: white !important; }
-            .btp-print-sheet { box-shadow: none !important; border-radius: 0 !important; max-width: none !important; }
-          }
           .animate-in { animation: btpIn 0.45s ease-out; }
           @keyframes btpIn {
             from { opacity: 0; transform: translateY(12px) scale(0.98); }

@@ -662,3 +662,56 @@ html.theme-light .auth-logo-float {
 html.theme-light .auth-logo-center {
   opacity: 0.12 !important;
 }
+
+/* ========== Impression devis/facture BTP uniquement ========== */
+@media print {
+  html,
+  body {
+    background: white !important;
+    color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Masquer toute la plateforme */
+  body.printing-btp-doc nav,
+  body.printing-btp-doc aside,
+  body.printing-btp-doc header,
+  body.printing-btp-doc .bottom-nav-maquis,
+  body.printing-btp-doc .brand-footer,
+  body.printing-btp-doc .no-print,
+  body.printing-btp-doc [data-no-print],
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body.printing-btp-doc * {
+    visibility: hidden;
+  }
+
+  body.printing-btp-doc .btp-print-root,
+  body.printing-btp-doc .btp-print-root *,
+  body.printing-btp-doc .btp-print-sheet,
+  body.printing-btp-doc .btp-print-sheet * {
+    visibility: visible !important;
+  }
+
+  body.printing-btp-doc .btp-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+
+  body.printing-btp-doc .btp-print-sheet {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+  }
+}

@@ -6,7 +6,7 @@ const SOCIALS = [
 
 export default function BrandFooter({ compact = false }: { compact?: boolean }) {
   return (
-    <footer
+    <footer data-no-print
       className={`brand-footer border-t border-stone-800/80 bg-stone-950/80 ${
         compact ? 'px-3 py-3' : 'px-4 py-4'
       }`}
