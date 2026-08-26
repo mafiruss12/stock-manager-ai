@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Plus, Trash2, FileText, ArrowRight, Printer, Pencil, Sparkles, Receipt,
+  Plus, Trash2, FileText, ArrowRight, Printer, Pencil, Sparkles, Receipt, Eye, EyeOff,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -82,6 +82,7 @@ export default function BtpDocuments() {
   const [items, setItems] = useState<Item[]>([emptyItem()]);
   /** tableau = grille type Excel ; fields = fiche par ligne */
   const [editorMode, setEditorMode] = useState<'table' | 'fields'>('table');
+  const [showLivePreview, setShowLivePreview] = useState(false);
 
   async function load() {
     if (!est) return;
@@ -403,6 +404,53 @@ export default function BtpDocuments() {
     });
   }
 
+
+  function buildDraftDoc() {
+    return {
+      id: form.id || 'draft',
+      type: form.type,
+      doc_number: form.id
+        ? (docs.find((x) => x.id === form.id)?.doc_number || '…')
+        : nextDocNumber(form.type, docs),
+      title: form.title || DOC_TYPE_LABELS[form.type],
+      date: form.date,
+      validity_date: form.validity_date,
+      client_name: form.client_name || clients.find((c) => c.id === form.client_id)?.name || '',
+      client_phone: form.client_phone,
+      site_location: form.site_location,
+      status: form.status,
+      notes: form.notes,
+      payment_terms: form.payment_terms,
+      total_ht: totals.ht,
+      total_tax: totals.tax,
+      total_ttc: totals.ttc,
+      advance_amount: totals.advance,
+      balance_due: totals.balance,
+      advance_percent: parseOptionalNumber(form.advance_percent),
+      amount_paid: parseOptionalNumber(form.amount_paid),
+    };
+  }
+
+  function draftItemsForPrint() {
+    return items
+      .filter((i) => i.item_type === 'section' || i.title.trim())
+      .map((it, idx) => ({
+        id: `draft-${idx}`,
+        item_type: it.item_type,
+        title: it.title,
+        unit: it.unit,
+        quantity: parseOptionalNumber(it.quantity),
+        unit_price: parseOptionalNumber(it.unit_price),
+        tax_rate: parseOptionalNumber(it.tax_rate),
+        total_ht: it.item_type === 'item' ? lineTotal(it) : 0,
+      }));
+  }
+
+  function openLivePreviewWindow() {
+    printBtpDocument(buildDraftDoc(), draftItemsForPrint(), company, branding);
+  }
+
+
   const visible = filter === 'all' ? docs : docs.filter((d) => d.type === filter);
 
   if (printDoc) {
@@ -587,14 +635,24 @@ export default function BtpDocuments() {
   if (editing) {
     return (
       <div className="space-y-4 max-w-3xl pb-24">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h1 className="text-xl font-bold text-stone-100 flex items-center gap-2">
             <Sparkles className="text-sky-400" size={20} />
             {form.id ? 'Modifier' : 'Nouveau'} {DOC_TYPE_LABELS[form.type]}
           </h1>
-          <button type="button" className="btn-ghost text-sm" onClick={() => setEditing(false)}>
-            Retour
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-secondary text-sm inline-flex items-center gap-1.5"
+              onClick={() => setShowLivePreview((v) => !v)}
+            >
+              {showLivePreview ? <EyeOff size={16} /> : <Eye size={16} />}
+              Voir le devis
+            </button>
+            <button type="button" className="btn-ghost text-sm" onClick={() => setEditing(false)}>
+              Retour
+            </button>
+          </div>
         </div>
         {error && (
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>
@@ -1039,9 +1097,134 @@ export default function BtpDocuments() {
 
           <textarea className="input-field min-h-[60px]" placeholder="Notes (optionnel)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
           <textarea className="input-field min-h-[50px]" placeholder="Conditions de paiement (optionnel)" value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} />
-          <button type="button" className="btn-primary w-full text-base py-3" disabled={saving} onClick={() => void save()}>
-            {saving ? 'Enregistrement…' : 'Enregistrer le document'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 sticky bottom-2 z-10">
+            <button
+              type="button"
+              className="btn-secondary flex-1 text-sm py-3 inline-flex items-center justify-center gap-2"
+              onClick={() => setShowLivePreview((v) => !v)}
+            >
+              {showLivePreview ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showLivePreview ? 'Masquer l’aperçu' : 'Voir le devis'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary flex-1 text-sm py-3 inline-flex items-center justify-center gap-2"
+              onClick={() => openLivePreviewWindow()}
+            >
+              <Printer size={18} /> Aperçu plein écran / PDF
+            </button>
+            <button type="button" className="btn-primary flex-1 text-base py-3" disabled={saving} onClick={() => void save()}>
+              {saving ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
+
+          {/* Aperçu en direct pendant la saisie */}
+          {showLivePreview && (
+            <div className="mt-4 space-y-2 border-t border-sky-700/40 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-sky-300 flex items-center gap-2">
+                  <Eye size={16} /> Aperçu du devis (mise à jour en direct)
+                </p>
+                <button type="button" className="text-xs text-stone-400 underline" onClick={() => openLivePreviewWindow()}>
+                  Ouvrir en grand
+                </button>
+              </div>
+              <div
+                className="rounded-xl overflow-hidden border border-stone-600 shadow-lg max-h-[70vh] overflow-y-auto"
+                style={{ background: '#ffffff', color: '#1c1917' }}
+              >
+                <div className="p-4 text-sm" style={{ color: '#1c1917' }}>
+                  <div className="flex gap-3 border-b-2 border-sky-600 pb-3 mb-3">
+                    {company.logo_url ? (
+                      <img src={company.logo_url} alt="" className="h-12 w-12 object-contain" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-lg bg-sky-600 text-white font-bold flex items-center justify-center">
+                        {(company.name || 'B').slice(0, 1)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-sky-900">{company.name || 'Entreprise'}</p>
+                      {branding.activity && <p className="text-xs text-stone-600">{branding.activity}</p>}
+                      <p className="text-[10px] text-stone-500">{[company.phone, branding.email].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sky-700 uppercase text-sm">{DOC_TYPE_LABELS[form.type]}</p>
+                      <p className="text-xs font-semibold">{form.id ? docs.find((x) => x.id === form.id)?.doc_number : 'Brouillon'}</p>
+                      <p className="text-[10px] text-stone-500">{form.date}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                    <div className="rounded-lg bg-sky-50 p-2 border border-sky-100">
+                      <p className="text-[10px] uppercase text-sky-700 font-semibold">Client</p>
+                      <p className="font-semibold">{form.client_name || '—'}</p>
+                      {form.site_location && <p className="text-stone-500">📍 {form.site_location}</p>}
+                    </div>
+                    <div className="rounded-lg bg-stone-50 p-2 border border-stone-200">
+                      <p className="text-[10px] uppercase text-stone-500 font-semibold">Objet</p>
+                      <p className="font-medium">{form.title || '—'}</p>
+                    </div>
+                  </div>
+                  <table className="w-full text-xs mb-3">
+                    <thead>
+                      <tr className="bg-sky-700 text-white">
+                        <th className="text-left p-1.5"></th>
+                        <th className="text-left p-1.5">Désignation</th>
+                        <th className="text-right p-1.5">Qté</th>
+                        <th className="text-right p-1.5">P.U.</th>
+                        <th className="text-right p-1.5">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.filter((i) => i.item_type === 'section' || i.title.trim()).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-3 text-center text-stone-400">
+                            Saisissez des lignes pour voir l’aperçu…
+                          </td>
+                        </tr>
+                      ) : (
+                        items
+                          .filter((i) => i.item_type === 'section' || i.title.trim())
+                          .map((it, i) =>
+                            it.item_type === 'section' ? (
+                              <tr key={i} className="bg-sky-50">
+                                <td colSpan={5} className="p-1.5 font-semibold text-sky-900">{it.title}</td>
+                              </tr>
+                            ) : (
+                              <tr key={i} className="border-b border-stone-200">
+                                <td className="p-1.5 text-center">{materialIcon(it.title)}</td>
+                                <td className="p-1.5">{it.title}{it.unit ? ` (${it.unit})` : ''}</td>
+                                <td className="p-1.5 text-right">{parseOptionalNumber(it.quantity) || '—'}</td>
+                                <td className="p-1.5 text-right">{formatMoneyOrEmpty(parseOptionalNumber(it.unit_price)) || '—'}</td>
+                                <td className="p-1.5 text-right font-semibold">{formatMoneyOrEmpty(lineTotal(it)) || '—'}</td>
+                              </tr>
+                            ),
+                          )
+                      )}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-end">
+                    <div className="w-48 rounded-lg border-2 border-sky-600 bg-sky-50 p-2 text-xs space-y-1">
+                      <div className="flex justify-between text-stone-600">
+                        <span>Total HT</span>
+                        <span>{formatMoney(totals.ht)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-sky-900 text-sm border-t border-sky-200 pt-1">
+                        <span>Total général</span>
+                        <span>{formatMoney(totals.ttc)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {(form.notes || form.payment_terms || branding.footer_text) && (
+                    <div className="mt-3 text-[10px] text-stone-500 space-y-1 border-t border-stone-200 pt-2">
+                      {form.payment_terms && <p><strong>Paiement :</strong> {form.payment_terms}</p>}
+                      {form.notes && <p><strong>Notes :</strong> {form.notes}</p>}
+                      <p>{branding.footer_text || 'Merci de votre confiance.'}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
