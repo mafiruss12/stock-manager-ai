@@ -11,6 +11,11 @@ import {
   parseInventoryText,
   type ScannedLine,
 } from '@/lib/inventoryScan';
+import {
+  hasVisionApi,
+  recognizeInventoryVision,
+  setLocalGeminiKey,
+} from '@/lib/visionScan';
 import { EmptyState } from '@/components/ui';
 
 export default function ScanInventaire() {
@@ -26,6 +31,10 @@ export default function ScanInventaire() {
   const [busy, setBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrStatus, setOcrStatus] = useState('');
+  const [scanMode, setScanMode] = useState<'auto' | 'list' | 'object'>('auto');
+  const [engineUsed, setEngineUsed] = useState('');
+  const [geminiKeyDraft, setGeminiKeyDraft] = useState('');
+  const [visionReady, setVisionReady] = useState(() => hasVisionApi());
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ updated: 0, created: 0, skipped: 0 });
 
@@ -49,36 +58,60 @@ export default function ScanInventaire() {
     setStep('ocr');
     setBusy(true);
     setOcrProgress(0);
-    setOcrStatus('Préparation de l’image…');
+    setOcrStatus('Analyse…');
+    setEngineUsed('');
     try {
-      const text = await runOcrFrench(file, (pct, status) => {
-        setOcrProgress(pct);
-        setOcrStatus(status);
-      });
-      setOcrText(text);
-      if (!text || text.trim().length < 2) {
-        setError(
-          'Aucun texte reconnu. Photo trop floue, sombre, ou hors connexion (le moteur OCR charge depuis internet la 1re fois). Réessayez avec une photo nette et éclairée.'
-        );
-        setStep('pick');
-        return;
+      let lines: ScannedLine[] = [];
+      let text = '';
+
+      if (hasVisionApi()) {
+        try {
+          setOcrStatus('Reconnaissance IA (objets + texte)…');
+          const vis = await recognizeInventoryVision(file, products, scanMode, (pct, status) => {
+            setOcrProgress(pct);
+            setOcrStatus(status);
+          });
+          lines = vis.lines;
+          text = vis.rawText;
+          setEngineUsed('Gemini Vision');
+        } catch (ve: any) {
+          console.warn('Vision failed, OCR fallback', ve);
+          setOcrStatus('IA indisponible — OCR local…');
+          text = await runOcrFrench(file, (pct, status) => {
+            setOcrProgress(pct);
+            setOcrStatus(status);
+          });
+          lines = parseInventoryText(text, products);
+          setEngineUsed('OCR Tesseract (secours)');
+        }
+      } else {
+        setOcrStatus('OCR local (ajoutez une clé Gemini pour la reconnaissance d’objets)…');
+        text = await runOcrFrench(file, (pct, status) => {
+          setOcrProgress(pct);
+          setOcrStatus(status);
+        });
+        lines = parseInventoryText(text, products);
+        setEngineUsed('OCR Tesseract');
       }
-      const parsed = parseInventoryText(text, products);
-      if (parsed.length === 0) {
+
+      setOcrText(text);
+      if (lines.length === 0) {
         setError(
-          `Texte lu mais aucun produit détecté. Texte brut : « ${text.slice(0, 120)}… ». Reprenez une photo plus nette du carnet / tableau.`
+          text
+            ? `Rien d’exploitable. Aperçu : « ${text.slice(0, 140)} ». Photo plus nette ou mode « Objet unique ».`
+            : 'Aucun produit détecté. Photo nette, éclairée ; ou configurez Gemini pour la reconnaissance d’objets.',
         );
         setStep('pick');
       } else {
-        setLines(parsed);
-        setStep('review');
+        setLines(lines);
+        setStep('review'); // engine shown below
       }
     } catch (e: any) {
       const msg = e?.message || String(e);
       setError(
         msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
-          ? 'OCR : connexion internet requise pour charger le moteur (1re utilisation). Vérifiez le réseau et réessayez.'
-          : `OCR impossible : ${msg}`
+          ? 'Connexion requise pour l’IA / OCR. Vérifiez le réseau.'
+          : msg,
       );
       setStep('pick');
     } finally {
@@ -200,9 +233,54 @@ export default function ScanInventaire() {
       {step === 'pick' && (
         <div className="card space-y-4">
           <p className="text-sm text-stone-300">
-            Prenez une photo <strong>nette</strong> de votre carnet d&apos;inventaire ou tableau (écriture
-            lisible, bon éclairage). L&apos;IA extrait les produits et quantités.
+            Photo d&apos;un <strong>produit</strong> (bouteille, sac, matériel) ou d&apos;un <strong>carnet / tableau</strong>.
+            L&apos;IA Gemini reconnait les objets ; sinon OCR texte.
           </p>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ['auto', 'Auto (liste ou objet)'],
+              ['object', 'Objet unique'],
+              ['list', 'Liste / carnet'],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setScanMode(id)}
+                className={`text-xs px-3 py-1.5 rounded-full ${scanMode === id ? 'bg-amber-500/20 text-amber-300' : 'bg-stone-800 text-stone-400'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-stone-500">
+            Moteur : {visionReady ? '✓ Gemini Vision + OCR secours' : 'OCR seul — ajoutez une clé Gemini ci-dessous'}
+          </p>
+          {!visionReady && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
+              <p className="text-xs text-amber-200/90">
+                Clé Gemini (Google AI Studio) pour reconnaitre les produits sur photo. Stockée localement sur cet appareil.
+              </p>
+              <input
+                className="input-field text-sm"
+                type="password"
+                placeholder="AIza…"
+                value={geminiKeyDraft}
+                onChange={(e) => setGeminiKeyDraft(e.target.value)}
+              />
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => {
+                  if (!geminiKeyDraft.trim()) return;
+                  setLocalGeminiKey(geminiKeyDraft.trim());
+                  setVisionReady(true);
+                  setGeminiKeyDraft('');
+                }}
+              >
+                Activer la reconnaissance d&apos;objets
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
@@ -246,6 +324,11 @@ export default function ScanInventaire() {
       )}
 
       {step === 'review' && (
+        <>
+        {engineUsed && (
+          <p className="text-xs text-amber-400/90">Détecté via : {engineUsed}</p>
+        )}
+
         <div className="space-y-4">
           <div className="card">
             <p className="text-sm text-stone-300 mb-2">
@@ -370,6 +453,7 @@ export default function ScanInventaire() {
             </button>
           </div>
         </div>
+        </>
       )}
 
       {step === 'done' && (

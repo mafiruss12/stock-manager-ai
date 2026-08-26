@@ -48,7 +48,7 @@ export function findDuplicate(name: string, products: Product[]): Product | null
   return best;
 }
 
-function guessCategory(name: string): string {
+export function guessCategoryFromName(name: string): string {
   const n = name.toLowerCase();
   if (/ciment|sable|gravier|fer|acier|brique|parpaing|beton|béton|tuyau|cable|câble|peinture|carrelage/.test(n))
     return 'BTP';
@@ -130,7 +130,7 @@ export function parseInventoryText(text: string, existing: Product[]): ScannedLi
     results.push({
       id: `scan-${results.length}-${Date.now()}`,
       name: namePart,
-      category: guessCategory(namePart),
+      category: guessCategoryFromName(namePart),
       unit: guessUnit(namePart, raw),
       stock,
       cost: cost || (dup ? Number(dup.cost) : 0),
