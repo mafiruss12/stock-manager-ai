@@ -48,3 +48,43 @@ export function nextDocNumber(type: BtpDocType, existing: { type: string; doc_nu
   const n = same.length + 1;
   return `${prefix}-${year}-${String(n).padStart(4, '0')}`;
 }
+
+export type BtpBranding = {
+  slogan?: string;
+  activity?: string;
+  email?: string;
+  website?: string;
+  city?: string;
+  country?: string;
+  rccm?: string;
+  nif?: string;
+  tva_number?: string;
+  bank_name?: string;
+  iban?: string;
+  mobile_money?: string;
+  header_note?: string;
+  footer_text?: string;
+  legal_notice?: string;
+  payment_terms_default?: string;
+  stamp_url?: string;
+};
+
+export const DEFAULT_BRANDING: BtpBranding = {
+  slogan: '',
+  activity: 'Travaux de bâtiment & fournitures',
+  email: '',
+  website: '',
+  city: '',
+  country: 'Côte d\'Ivoire',
+  rccm: '',
+  nif: '',
+  tva_number: '',
+  bank_name: '',
+  iban: '',
+  mobile_money: '',
+  header_note: '',
+  footer_text: 'Merci de votre confiance.',
+  legal_notice: 'Devis valable 30 jours. Acompte à la commande.',
+  payment_terms_default: 'Acompte 30 % à la commande, solde à la réception des travaux.',
+  stamp_url: '',
+};

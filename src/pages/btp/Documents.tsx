@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import {
   formatMoney, nextDocNumber, lineHT, DOC_TYPE_LABELS, DOC_STATUS_LABELS,
-  type BtpDocType, type BtpDocStatus,
+  DEFAULT_BRANDING, type BtpDocType, type BtpDocStatus, type BtpBranding,
 } from '@/lib/btp';
 
 type Item = {
@@ -31,6 +31,10 @@ export default function BtpDocuments() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | BtpDocType>('all');
+  const [printDoc, setPrintDoc] = useState<any | null>(null);
+  const [printItems, setPrintItems] = useState<any[]>([]);
+  const [branding, setBranding] = useState<BtpBranding>({ ...DEFAULT_BRANDING });
+  const [company, setCompany] = useState<{ name?: string; address?: string; phone?: string; logo_url?: string }>({});
 
   const [form, setForm] = useState({
     id: '' as string,
@@ -56,14 +60,25 @@ export default function BtpDocuments() {
   async function load() {
     if (!est) return;
     setLoading(true);
-    const [d, c, m] = await Promise.all([
+    const [d, c, m, e] = await Promise.all([
       supabase.from('btp_documents').select('*').eq('establishment_id', est).order('created_at', { ascending: false }),
       supabase.from('btp_clients').select('*').eq('establishment_id', est).order('name'),
       supabase.from('btp_materials').select('*').eq('establishment_id', est).order('name'),
+      supabase.from('establishments').select('name, address, phone, logo_url, branding').eq('id', est).maybeSingle(),
     ]);
     setDocs(d.data || []);
     setClients(c.data || []);
     setMaterials(m.data || []);
+    if (e.data) {
+      setCompany({
+        name: e.data.name,
+        address: e.data.address || '',
+        phone: e.data.phone || '',
+        logo_url: (e.data as any).logo_url || '',
+      });
+      const br = (e.data as any).branding;
+      if (br && typeof br === 'object') setBranding({ ...DEFAULT_BRANDING, ...br });
+    }
     setLoading(false);
   }
 
@@ -96,7 +111,7 @@ export default function BtpDocuments() {
       site_location: '',
       status: 'draft',
       notes: '',
-      payment_terms: 'Acompte 30 % à la commande, solde à la livraison',
+      payment_terms: branding.payment_terms_default || 'Acompte 30 % à la commande, solde à la livraison',
       global_discount_percent: 0,
       advance_percent: 30,
       amount_paid: 0,
@@ -104,6 +119,12 @@ export default function BtpDocuments() {
     setItems([{ item_type: 'item', title: '', unit: 'u', quantity: 1, unit_price: 0, tax_rate: 0, discount_percent: 0, total_ht: 0 }]);
     setEditing(true);
     setError(null);
+  }
+
+  async function openPrint(doc: any) {
+    const { data } = await supabase.from('btp_document_items').select('*').eq('document_id', doc.id).order('sort_order');
+    setPrintItems(data || []);
+    setPrintDoc(doc);
   }
 
   async function openEdit(doc: any) {
@@ -269,6 +290,134 @@ export default function BtpDocuments() {
   }
 
   const visible = filter === 'all' ? docs : docs.filter((d) => d.type === filter);
+
+
+  if (printDoc) {
+    const d = printDoc;
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2 no-print">
+          <button type="button" className="btn-ghost text-sm" onClick={() => setPrintDoc(null)}>Retour</button>
+          <button type="button" className="btn-primary text-sm" onClick={() => window.print()}>Imprimer / PDF</button>
+        </div>
+        <div className="btp-print-sheet bg-white text-stone-900 rounded-xl p-6 max-w-3xl mx-auto shadow print:shadow-none print:max-w-none">
+          {/* EN-TÊTE */}
+          <header className="flex gap-4 border-b-2 border-sky-600 pb-4 mb-4">
+            {company.logo_url ? (
+              <img src={company.logo_url} alt="" className="h-16 w-16 object-contain rounded" />
+            ) : (
+              <div className="h-16 w-16 rounded bg-sky-100 flex items-center justify-center text-sky-700 font-bold text-lg">
+                {(company.name || 'B').slice(0, 1)}
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold text-sky-800 leading-tight">{company.name || 'Entreprise'}</h1>
+              {branding.activity && <p className="text-sm text-stone-600">{branding.activity}</p>}
+              {branding.slogan && <p className="text-xs italic text-stone-500">{branding.slogan}</p>}
+              {branding.header_note && <p className="text-xs text-sky-700 mt-0.5">{branding.header_note}</p>}
+              <p className="text-xs text-stone-600 mt-1">
+                {[company.address, branding.city, branding.country].filter(Boolean).join(', ')}
+              </p>
+              <p className="text-xs text-stone-600">
+                {[company.phone, branding.email, branding.website].filter(Boolean).join(' · ')}
+              </p>
+              <p className="text-[10px] text-stone-500 mt-0.5">
+                {[branding.rccm && `RCCM ${branding.rccm}`, branding.nif && `NIF ${branding.nif}`, branding.tva_number && `TVA ${branding.tva_number}`].filter(Boolean).join(' · ')}
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-lg font-bold text-sky-700 uppercase">{DOC_TYPE_LABELS[d.type as BtpDocType] || d.type}</p>
+              <p className="text-sm font-semibold">{d.doc_number}</p>
+              <p className="text-xs text-stone-500">Date : {d.date}</p>
+              {d.validity_date && <p className="text-xs text-stone-500">Validité : {d.validity_date}</p>}
+            </div>
+          </header>
+
+          <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+            <div className="rounded-lg bg-stone-50 p-3 border border-stone-200">
+              <p className="text-[10px] uppercase text-stone-500 font-semibold mb-1">Client</p>
+              <p className="font-semibold">{d.client_name || '—'}</p>
+              {d.client_phone && <p className="text-xs">{d.client_phone}</p>}
+              {d.site_location && <p className="text-xs mt-1">Chantier : {d.site_location}</p>}
+            </div>
+            <div className="rounded-lg bg-stone-50 p-3 border border-stone-200">
+              <p className="text-[10px] uppercase text-stone-500 font-semibold mb-1">Document</p>
+              <p className="font-medium">{d.title}</p>
+              <p className="text-xs">Statut : {DOC_STATUS_LABELS[d.status as BtpDocStatus] || d.status}</p>
+            </div>
+          </div>
+
+          <table className="w-full text-sm border-collapse mb-4">
+            <thead>
+              <tr className="bg-sky-700 text-white">
+                <th className="text-left p-2">Désignation</th>
+                <th className="text-right p-2">Qté</th>
+                <th className="text-right p-2">P.U.</th>
+                <th className="text-right p-2">HT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {printItems.map((it: any) =>
+                it.item_type === 'section' ? (
+                  <tr key={it.id} className="bg-stone-100">
+                    <td colSpan={4} className="p-2 font-semibold text-sky-900">{it.title}</td>
+                  </tr>
+                ) : (
+                  <tr key={it.id} className="border-b border-stone-200">
+                    <td className="p-2">{it.title}</td>
+                    <td className="p-2 text-right whitespace-nowrap">{it.quantity} {it.unit}</td>
+                    <td className="p-2 text-right">{formatMoney(it.unit_price)}</td>
+                    <td className="p-2 text-right font-medium">{formatMoney(it.total_ht)}</td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+
+          <div className="flex justify-end mb-4">
+            <div className="w-56 text-sm space-y-1">
+              <div className="flex justify-between"><span>Total HT</span><span>{formatMoney(d.total_ht)}</span></div>
+              <div className="flex justify-between"><span>TVA</span><span>{formatMoney(d.total_tax)}</span></div>
+              <div className="flex justify-between font-bold text-sky-800 text-base border-t border-stone-300 pt-1">
+                <span>Total TTC</span><span>{formatMoney(d.total_ttc)}</span>
+              </div>
+              {Number(d.advance_amount) > 0 && (
+                <div className="flex justify-between text-xs text-stone-600"><span>Acompte</span><span>{formatMoney(d.advance_amount)}</span></div>
+              )}
+              <div className="flex justify-between text-xs"><span>Reste dû</span><span>{formatMoney(d.balance_due)}</span></div>
+            </div>
+          </div>
+
+          {(d.payment_terms || branding.payment_terms_default) && (
+            <p className="text-xs text-stone-600 mb-2"><strong>Paiement :</strong> {d.payment_terms || branding.payment_terms_default}</p>
+          )}
+          {d.notes && <p className="text-xs text-stone-600 mb-2"><strong>Notes :</strong> {d.notes}</p>}
+          {branding.legal_notice && <p className="text-[10px] text-stone-500 mb-3">{branding.legal_notice}</p>}
+
+          {(branding.mobile_money || branding.bank_name || branding.iban) && (
+            <div className="text-xs text-stone-600 border border-stone-200 rounded-lg p-2 mb-3">
+              <p className="font-semibold text-stone-700 mb-0.5">Règlement</p>
+              {branding.mobile_money && <p>Mobile Money : {branding.mobile_money}</p>}
+              {branding.bank_name && <p>Banque : {branding.bank_name}</p>}
+              {branding.iban && <p>Compte : {branding.iban}</p>}
+            </div>
+          )}
+
+          {/* PIED DE PAGE */}
+          <footer className="border-t border-stone-300 pt-3 mt-4 flex items-end justify-between gap-4">
+            <div className="text-[10px] text-stone-500 flex-1">
+              <p>{branding.footer_text || 'Merci de votre confiance.'}</p>
+              <p className="mt-1">{company.name} · {[company.phone, branding.email].filter(Boolean).join(' · ')}</p>
+            </div>
+            {branding.stamp_url && (
+              <img src={branding.stamp_url} alt="Cachet" className="h-16 object-contain opacity-90" />
+            )}
+          </footer>
+        </div>
+        <style>{`@media print { .no-print { display: none !important; } body { background: white; } .btp-print-sheet { box-shadow: none; } }`}</style>
+      </div>
+    );
+  }
 
   if (editing) {
     return (

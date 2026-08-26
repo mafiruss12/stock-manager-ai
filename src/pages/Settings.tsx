@@ -1,3 +1,5 @@
+import { DEFAULT_BRANDING, type BtpBranding } from '@/lib/btp';
+import { isBtp } from '@/lib/businessTypes';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useEffect, useState } from 'react';
 import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
@@ -22,6 +24,8 @@ export default function SettingsPage() {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '', avatar_url: '' });
   const [form, setForm] = useState({ name: '', type: 'maquis', address: '', phone: '', logo_url: '', owner_email: '', owner_phone: '' });
+  const [btpBranding, setBtpBranding] = useState<BtpBranding>({ ...DEFAULT_BRANDING });
+  const [brandingSaved, setBrandingSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canManageEst = member && ['super_admin', 'admin', 'owner'].includes(member.role);
@@ -57,7 +61,25 @@ export default function SettingsPage() {
     })();
   }, [member]);
 
-  async function saveProfile() {
+  
+  async function saveBtpBranding() {
+    if (!est?.id) return;
+    setSaving(true);
+    setError(null);
+    const { error: err } = await supabase
+      .from('establishments')
+      .update({ branding: btpBranding } as any)
+      .eq('id', est.id);
+    if (err) setError(err.message);
+    else {
+      setBrandingSaved(true);
+      setTimeout(() => setBrandingSaved(false), 2500);
+      await refresh();
+    }
+    setSaving(false);
+  }
+
+async function saveProfile() {
     if (!member) return;
     setSaving(true);
     setError(null);
@@ -170,7 +192,99 @@ export default function SettingsPage() {
   return (
     <>
       {/* Thème */}
-      <section className="card p-4 space-y-3">
+      
+      {canManageEst && isBtp(form.type || est?.type) && (
+        <section className="card p-4 space-y-3 border border-sky-500/30">
+          <h2 className="font-semibold text-stone-100">En-tête & pied de page (devis / factures)</h2>
+          <p className="text-xs text-stone-500">
+            Ces informations apparaissent sur vos devis et factures BTP pour un rendu professionnel.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">Activité / métier</label>
+              <input className="input-field" value={btpBranding.activity || ''} onChange={(e) => setBtpBranding({ ...btpBranding, activity: e.target.value })} placeholder="Ex. Maçonnerie & gros œuvre" />
+            </div>
+            <div>
+              <label className="label">Slogan</label>
+              <input className="input-field" value={btpBranding.slogan || ''} onChange={(e) => setBtpBranding({ ...btpBranding, slogan: e.target.value })} placeholder="Ex. La qualité au service du chantier" />
+            </div>
+            <div>
+              <label className="label">Email entreprise</label>
+              <input className="input-field" value={btpBranding.email || ''} onChange={(e) => setBtpBranding({ ...btpBranding, email: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Site web</label>
+              <input className="input-field" value={btpBranding.website || ''} onChange={(e) => setBtpBranding({ ...btpBranding, website: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Ville</label>
+              <input className="input-field" value={btpBranding.city || ''} onChange={(e) => setBtpBranding({ ...btpBranding, city: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Pays</label>
+              <input className="input-field" value={btpBranding.country || ''} onChange={(e) => setBtpBranding({ ...btpBranding, country: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">RCCM</label>
+              <input className="input-field" value={btpBranding.rccm || ''} onChange={(e) => setBtpBranding({ ...btpBranding, rccm: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">NIF / IFU</label>
+              <input className="input-field" value={btpBranding.nif || ''} onChange={(e) => setBtpBranding({ ...btpBranding, nif: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">N° TVA</label>
+              <input className="input-field" value={btpBranding.tva_number || ''} onChange={(e) => setBtpBranding({ ...btpBranding, tva_number: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Mobile Money</label>
+              <input className="input-field" value={btpBranding.mobile_money || ''} onChange={(e) => setBtpBranding({ ...btpBranding, mobile_money: e.target.value })} placeholder="Orange / Wave / MTN…" />
+            </div>
+            <div>
+              <label className="label">Banque</label>
+              <input className="input-field" value={btpBranding.bank_name || ''} onChange={(e) => setBtpBranding({ ...btpBranding, bank_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">IBAN / compte</label>
+              <input className="input-field" value={btpBranding.iban || ''} onChange={(e) => setBtpBranding({ ...btpBranding, iban: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Note d&apos;en-tête (sous le logo)</label>
+            <input className="input-field" value={btpBranding.header_note || ''} onChange={(e) => setBtpBranding({ ...btpBranding, header_note: e.target.value })} placeholder="Ex. Agréé marchés publics" />
+          </div>
+          <div>
+            <label className="label">Pied de page</label>
+            <textarea className="input-field min-h-[60px]" value={btpBranding.footer_text || ''} onChange={(e) => setBtpBranding({ ...btpBranding, footer_text: e.target.value })} placeholder="Merci de votre confiance. Contact…" />
+          </div>
+          <div>
+            <label className="label">Mentions légales / conditions</label>
+            <textarea className="input-field min-h-[70px]" value={btpBranding.legal_notice || ''} onChange={(e) => setBtpBranding({ ...btpBranding, legal_notice: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Conditions de paiement par défaut</label>
+            <textarea className="input-field min-h-[50px]" value={btpBranding.payment_terms_default || ''} onChange={(e) => setBtpBranding({ ...btpBranding, payment_terms_default: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">URL cachet / signature (image)</label>
+            <input className="input-field" value={btpBranding.stamp_url || ''} onChange={(e) => setBtpBranding({ ...btpBranding, stamp_url: e.target.value })} placeholder="https://… ou data:image…" />
+            <input type="file" accept="image/*" className="mt-2 text-xs text-stone-400" onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              if (f.size > 800_000) { setError('Image trop lourde (max 800 Ko)'); return; }
+              const r = new FileReader();
+              r.onload = () => setBtpBranding({ ...btpBranding, stamp_url: String(r.result || '') });
+              r.readAsDataURL(f);
+            }} />
+            {btpBranding.stamp_url && <img src={btpBranding.stamp_url} alt="Cachet" className="mt-2 h-16 object-contain" />}
+          </div>
+          <button type="button" className="btn-primary" disabled={saving} onClick={() => void saveBtpBranding()}>
+            {saving ? '…' : brandingSaved ? 'Enregistré ✓' : 'Enregistrer en-tête & pied de page'}
+          </button>
+        </section>
+      )}
+
+<section className="card p-4 space-y-3">
         <h2 className="font-semibold text-stone-100 flex items-center gap-2">Apparence</h2>
         <p className="text-sm text-stone-400">Choisissez le mode d’affichage de l’application.</p>
         <div className="grid grid-cols-2 gap-2">
