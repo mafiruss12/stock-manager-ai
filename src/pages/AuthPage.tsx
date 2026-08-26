@@ -1,3 +1,4 @@
+import AdMarquee from '@/components/AdMarquee';
 import { useState, useEffect } from 'react';
 import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -373,7 +374,8 @@ async function resendConfirmation() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <AdMarquee className="mb-4 mx-1" />
+        <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
                 <label className="label">Nom complet</label>

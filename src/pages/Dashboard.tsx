@@ -1,3 +1,4 @@
+import AdMarquee from '@/components/AdMarquee';
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   TrendingUp, DollarSign, Package, Users, AlertTriangle, Receipt, ShoppingCart,
@@ -295,6 +296,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      <AdMarquee className="mb-4" />
       {error && (
         <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200 mb-3">
           {error}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity } from 'lucide-react';
+import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
@@ -11,7 +11,7 @@ import {
   getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink } from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 
-type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions' | 'activity';
+type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions' | 'activity' | 'pubs';
 
 export default function SuperAdmin() {
   const { member } = useAuth();
@@ -23,6 +23,10 @@ export default function SuperAdmin() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [pubList, setPubList] = useState<{ id: string; title: string; body: string; link_url: string | null; active: boolean; sort_order: number }[]>([]);
+  const [pubForm, setPubForm] = useState({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+  const [pubEditing, setPubEditing] = useState<string | null>(null);
+  const [pubSaving, setPubSaving] = useState(false);
 
   const [approveModal, setApproveModal] = useState<AccessRequest | null>(null);
   const [estModal, setEstModal] = useState(false);
@@ -54,14 +58,16 @@ export default function SuperAdmin() {
 
   async function loadData() {
     setLoading(true);
-    const [reqRes, memRes, estRes] = await Promise.all([
+    const [reqRes, memRes, estRes, pubRes] = await Promise.all([
       supabase.from('access_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('members').select('*').order('created_at', { ascending: false }),
       supabase.from('establishments').select('*').order('created_at', { ascending: false }),
+      supabase.from('app_announcements').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
     ]);
     setRequests((reqRes.data ?? []) as AccessRequest[]);
     setMembers((memRes.data ?? []) as Member[]);
     setEstablishments((estRes.data ?? []) as Establishment[]);
+    setPubList((pubRes.data ?? []) as typeof pubList);
     const errs = [reqRes.error?.message, memRes.error?.message, estRes.error?.message].filter(Boolean);
     if (errs.length) setError(errs.join(' · '));
     else setError(null);
@@ -415,6 +421,57 @@ export default function SuperAdmin() {
     );
   }
 
+  
+  async function loadPubs() {
+    const { data } = await supabase.from('app_announcements').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+    setPubList((data ?? []) as typeof pubList);
+  }
+
+  async function savePub() {
+    if (!pubForm.body.trim()) {
+      setError('Le texte de la publicité est obligatoire.');
+      return;
+    }
+    setPubSaving(true);
+    setError(null);
+    const payload = {
+      title: pubForm.title.trim(),
+      body: pubForm.body.trim(),
+      link_url: pubForm.link_url.trim() || null,
+      active: pubForm.active,
+      sort_order: Number(pubForm.sort_order) || 0,
+      updated_at: new Date().toISOString(),
+      created_by: member?.user_id || null,
+    };
+    try {
+      if (pubEditing) {
+        const { error } = await supabase.from('app_announcements').update(payload).eq('id', pubEditing);
+        if (error) throw error;
+        flash('Publicité mise à jour');
+      } else {
+        const { error } = await supabase.from('app_announcements').insert(payload);
+        if (error) throw error;
+        flash('Publicité ajoutée');
+      }
+      setPubForm({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+      setPubEditing(null);
+      await loadPubs();
+    } catch (e: any) {
+      setError(e?.message || 'Erreur enregistrement pub');
+    }
+    setPubSaving(false);
+  }
+
+  async function deletePub(id: string) {
+    if (!confirm('Supprimer cette publicité ?')) return;
+    const { error } = await supabase.from('app_announcements').delete().eq('id', id);
+    if (error) setError(error.message);
+    else {
+      flash('Publicité supprimée');
+      await loadPubs();
+    }
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
   }
@@ -444,6 +501,7 @@ export default function SuperAdmin() {
             ['establishments', <Building2 size={16} key="b" />, 'Établissements'],
             ['subscriptions', <KeyRound size={16} key="s" />, 'Abonnements'],
             ['activity', <Activity size={16} key="a" />, 'Activité'],
+            ['pubs', <Megaphone size={16} key="p" />, 'Publicités'],
           ] as const
         ).map(([id, icon, label]) => (
           <button
@@ -695,6 +753,115 @@ export default function SuperAdmin() {
           </div>
         </div>
       )}
+
+      
+      {tab === 'pubs' && (
+        <div className="space-y-4">
+          <div className="card space-y-3 border border-amber-500/30">
+            <h2 className="text-lg font-semibold text-stone-100 flex items-center gap-2">
+              <Megaphone size={18} className="text-amber-400" /> Publicités &amp; annonces
+            </h2>
+            <p className="text-xs text-stone-500">
+              Ces messages défilent sur la <strong className="text-stone-300">page de connexion</strong> et le <strong className="text-stone-300">tableau de bord</strong> de tous les utilisateurs.
+            </p>
+            <input
+              className="input-field"
+              placeholder="Titre (optionnel)"
+              value={pubForm.title}
+              onChange={(e) => setPubForm({ ...pubForm, title: e.target.value })}
+            />
+            <textarea
+              className="input-field min-h-[80px]"
+              placeholder="Texte de la pub / information *"
+              value={pubForm.body}
+              onChange={(e) => setPubForm({ ...pubForm, body: e.target.value })}
+            />
+            <input
+              className="input-field"
+              placeholder="Lien (optionnel) https://..."
+              value={pubForm.link_url}
+              onChange={(e) => setPubForm({ ...pubForm, link_url: e.target.value })}
+            />
+            <div className="flex flex-wrap gap-3 items-center">
+              <label className="flex items-center gap-2 text-sm text-stone-300">
+                <input
+                  type="checkbox"
+                  checked={pubForm.active}
+                  onChange={(e) => setPubForm({ ...pubForm, active: e.target.checked })}
+                />
+                Active (visible)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-300">
+                Ordre
+                <input
+                  type="number"
+                  className="input-field w-20"
+                  value={pubForm.sort_order}
+                  onChange={(e) => setPubForm({ ...pubForm, sort_order: Number(e.target.value) || 0 })}
+                />
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" className="btn-primary" disabled={pubSaving} onClick={() => void savePub()}>
+                {pubSaving ? '…' : pubEditing ? 'Mettre à jour' : 'Ajouter la pub'}
+              </button>
+              {pubEditing && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() => {
+                    setPubEditing(null);
+                    setPubForm({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+                  }}
+                >
+                  Annuler
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="space-y-2">
+            {pubList.length === 0 ? (
+              <p className="text-sm text-stone-500">Aucune publicité pour le moment.</p>
+            ) : (
+              pubList.map((a) => (
+                <div key={a.id} className="card flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-stone-100 truncate">
+                      {a.active ? '🟢' : '⚪'} {a.title || 'Sans titre'}
+                    </p>
+                    <p className="text-sm text-stone-400 line-clamp-2">{a.body}</p>
+                    {a.link_url && (
+                      <p className="text-xs text-amber-400 truncate">{a.link_url}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs"
+                      onClick={() => {
+                        setPubEditing(a.id);
+                        setPubForm({
+                          title: a.title || '',
+                          body: a.body || '',
+                          link_url: a.link_url || '',
+                          active: a.active,
+                          sort_order: a.sort_order || 0,
+                        });
+                      }}
+                    >
+                      Modifier
+                    </button>
+                    <button type="button" className="btn-danger text-xs" onClick={() => void deletePub(a.id)}>
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
 
       {tab === 'subscriptions' && (
         <div className="space-y-4">

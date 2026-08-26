@@ -547,3 +547,32 @@ html.theme-light .text-red-400 {
 html.theme-light .text-amber-400 {
   color: #c2410c !important;
 }
+
+/* Publicité défilante */
+.ad-marquee-track {
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+.ad-marquee-inner {
+  display: inline-flex;
+  min-width: 100%;
+}
+.ad-marquee-scroll {
+  display: inline-block;
+  padding-right: 3rem;
+  animation: ad-marquee 28s linear infinite;
+}
+@keyframes ad-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+html.theme-light .ad-marquee-wrap {
+  background: linear-gradient(90deg, #fff7ed, #ffedd5, #fff7ed) !important;
+  border-color: #fdba74 !important;
+}
+html.theme-light .ad-marquee-inner,
+html.theme-light .ad-marquee-scroll {
+  color: #9a3412 !important;
+}
+html.theme-light .ad-marquee-wrap .text-amber-200 {
+  color: #c2410c !important;
+}
