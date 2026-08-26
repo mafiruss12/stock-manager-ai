@@ -585,3 +585,22 @@ html.theme-light .ad-marquee-v-item a,
 html.theme-light .ad-marquee-wrap .text-amber-200 {
   color: #c2410c !important;
 }
+
+.ad-marquee-with-img {
+  min-height: 5.5rem;
+  max-height: 6.5rem;
+}
+.ad-marquee-v-track-lg {
+  height: 5.5rem !important;
+}
+.ad-marquee-v-item-lg {
+  height: 5.5rem !important;
+  gap: 0.75rem;
+}
+.ad-marquee-img {
+  width: 4.5rem;
+  height: 4.5rem;
+}
+.ad-marquee-v-item {
+  gap: 0.5rem;
+}

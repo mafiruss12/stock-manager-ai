@@ -23,8 +23,8 @@ export default function SuperAdmin() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [pubList, setPubList] = useState<{ id: string; title: string; body: string; link_url: string | null; active: boolean; sort_order: number }[]>([]);
-  const [pubForm, setPubForm] = useState({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+  const [pubList, setPubList] = useState<{ id: string; title: string; body: string; link_url: string | null; image_url: string | null; active: boolean; sort_order: number }[]>([]);
+  const [pubForm, setPubForm] = useState({ title: '', body: '', link_url: '', image_url: '', active: true, sort_order: 0 });
   const [pubEditing, setPubEditing] = useState<string | null>(null);
   const [pubSaving, setPubSaving] = useState(false);
 
@@ -428,8 +428,8 @@ export default function SuperAdmin() {
   }
 
   async function savePub() {
-    if (!pubForm.body.trim()) {
-      setError('Le texte de la publicité est obligatoire.');
+    if (!pubForm.body.trim() && !pubForm.image_url.trim()) {
+      setError('Ajoutez un texte et/ou une image pour la publicité.');
       return;
     }
     setPubSaving(true);
@@ -438,6 +438,7 @@ export default function SuperAdmin() {
       title: pubForm.title.trim(),
       body: pubForm.body.trim(),
       link_url: pubForm.link_url.trim() || null,
+      image_url: pubForm.image_url.trim() || null,
       active: pubForm.active,
       sort_order: Number(pubForm.sort_order) || 0,
       updated_at: new Date().toISOString(),
@@ -453,7 +454,7 @@ export default function SuperAdmin() {
         if (error) throw error;
         flash('Publicité ajoutée');
       }
-      setPubForm({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+      setPubForm({ title: '', body: '', link_url: '', image_url: '', active: true, sort_order: 0 });
       setPubEditing(null);
       await loadPubs();
     } catch (e: any) {
@@ -782,6 +783,58 @@ export default function SuperAdmin() {
               value={pubForm.link_url}
               onChange={(e) => setPubForm({ ...pubForm, link_url: e.target.value })}
             />
+            <div className="space-y-2">
+              <p className="text-xs text-stone-400">Image (optionnel)</p>
+              <div className="flex flex-wrap items-center gap-3">
+                {pubForm.image_url ? (
+                  <img
+                    src={pubForm.image_url}
+                    alt="Aperçu pub"
+                    className="h-20 w-20 rounded-xl object-cover border border-stone-700"
+                  />
+                ) : (
+                  <div className="h-20 w-20 rounded-xl border border-dashed border-stone-600 flex items-center justify-center text-stone-500 text-xs">
+                    Aperçu
+                  </div>
+                )}
+                <div className="flex-1 min-w-[180px] space-y-2">
+                  <input
+                    className="input-field"
+                    placeholder="URL image https://... ou choisir un fichier"
+                    value={pubForm.image_url.startsWith('data:') ? '' : pubForm.image_url}
+                    onChange={(e) => setPubForm({ ...pubForm, image_url: e.target.value })}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="block w-full text-xs text-stone-400"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 1_200_000) {
+                        setError('Image trop lourde (max ~1 Mo). Compressez-la.');
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const data = String(reader.result || '');
+                        setPubForm((prev) => ({ ...prev, image_url: data }));
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  {pubForm.image_url && (
+                    <button
+                      type="button"
+                      className="text-xs text-red-400 underline"
+                      onClick={() => setPubForm({ ...pubForm, image_url: '' })}
+                    >
+                      Retirer l&apos;image
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-3 items-center">
               <label className="flex items-center gap-2 text-sm text-stone-300">
                 <input
@@ -811,7 +864,7 @@ export default function SuperAdmin() {
                   className="btn-ghost"
                   onClick={() => {
                     setPubEditing(null);
-                    setPubForm({ title: '', body: '', link_url: '', active: true, sort_order: 0 });
+                    setPubForm({ title: '', body: '', link_url: '', image_url: '', active: true, sort_order: 0 });
                   }}
                 >
                   Annuler
@@ -825,6 +878,9 @@ export default function SuperAdmin() {
             ) : (
               pubList.map((a) => (
                 <div key={a.id} className="card flex flex-col sm:flex-row sm:items-center gap-3">
+                  {a.image_url && (
+                    <img src={a.image_url} alt="" className="h-14 w-14 rounded-lg object-cover border border-stone-700 shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-stone-100 truncate">
                       {a.active ? '🟢' : '⚪'} {a.title || 'Sans titre'}
@@ -844,6 +900,7 @@ export default function SuperAdmin() {
                           title: a.title || '',
                           body: a.body || '',
                           link_url: a.link_url || '',
+                          image_url: a.image_url || '',
                           active: a.active,
                           sort_order: a.sort_order || 0,
                         });
