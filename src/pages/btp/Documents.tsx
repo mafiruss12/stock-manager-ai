@@ -162,9 +162,38 @@ export default function BtpDocuments() {
   }
 
   async function openPrint(doc: any) {
-    const { data } = await supabase.from('btp_document_items').select('*').eq('document_id', doc.id).order('sort_order');
-    setPrintItems(data || []);
+    setError(null);
     setPrintDoc(doc);
+    setPrintItems([]);
+    const { data, error: err } = await supabase
+      .from('btp_document_items')
+      .select('*')
+      .eq('document_id', doc.id)
+      .order('sort_order');
+    if (err) {
+      setError(err.message);
+      setPrintItems([]);
+    } else {
+      setPrintItems(data || []);
+    }
+    // Recharger branding si besoin
+    if (est && (!company.name || !branding.activity)) {
+      const { data: e } = await supabase
+        .from('establishments')
+        .select('name, address, phone, logo_url, branding')
+        .eq('id', est)
+        .maybeSingle();
+      if (e) {
+        setCompany({
+          name: e.name,
+          address: e.address || '',
+          phone: e.phone || '',
+          logo_url: (e as any).logo_url || '',
+        });
+        const br = (e as any).branding;
+        if (br && typeof br === 'object') setBranding({ ...DEFAULT_BRANDING, ...br });
+      }
+    }
   }
 
   async function openEdit(doc: any) {
@@ -362,6 +391,18 @@ export default function BtpDocuments() {
     });
   }
 
+  /** Ajoute N lignes vides au-dessus (where='above') ou en dessous (where='below') de l'index */
+  function insertLines(idx: number, count: number, where: 'above' | 'below') {
+    const n = Math.max(1, Math.min(20, Math.floor(count) || 1));
+    const fresh = Array.from({ length: n }, () => emptyItem());
+    setItems((prev) => {
+      const copy = [...prev];
+      const at = where === 'above' ? idx : idx + 1;
+      copy.splice(at, 0, ...fresh);
+      return copy;
+    });
+  }
+
   const visible = filter === 'all' ? docs : docs.filter((d) => d.type === filter);
 
   if (printDoc) {
@@ -380,7 +421,7 @@ export default function BtpDocuments() {
           </button>
         </div>
         <div className="btp-print-root">
-        <div className="btp-print-sheet bg-white text-stone-900 rounded-2xl p-6 md:p-8 max-w-3xl mx-auto shadow-xl print:shadow-none print:max-w-none animate-in">
+        <div className="btp-print-sheet rounded-2xl p-6 md:p-8 max-w-3xl mx-auto shadow-xl animate-in" style={{ background: "#ffffff", color: "#1c1917" }}>
           <header className="flex gap-4 border-b-2 border-sky-600 pb-4 mb-5">
             {company.logo_url ? (
               <img src={company.logo_url} alt="" className="h-16 w-16 object-contain rounded-lg" />
@@ -784,15 +825,32 @@ export default function BtpDocuments() {
                           />
                         </td>
                         <td className="p-1.5">
-                          <button type="button" className="text-red-400 p-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
-                            <Trash2 size={14} />
-                          </button>
+                          <div className="flex flex-col gap-0.5 items-center">
+                            <button type="button" title="Ligne au-dessus" className="text-[10px] text-sky-400 hover:text-sky-300 px-1" onClick={() => insertLines(idx, 1, 'above')}>↑+1</button>
+                            <button type="button" className="text-red-400 p-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+                              <Trash2 size={14} />
+                            </button>
+                            <button type="button" title="Ligne en dessous" className="text-[10px] text-sky-400 hover:text-sky-300 px-1" onClick={() => insertLines(idx, 1, 'below')}>↓+1</button>
+                          </div>
                         </td>
                       </tr>
                     ),
                   )}
                 </tbody>
               </table>
+              <div className="px-2 pb-2 flex flex-wrap gap-2 items-center border-t border-stone-800 pt-2">
+                <span className="text-[11px] text-stone-500">Insérer en bas :</span>
+                {[1, 2, 3, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    className="text-xs px-2.5 py-1 rounded-lg bg-stone-800 text-stone-300 hover:bg-sky-900/50 hover:text-sky-200"
+                    onClick={() => setItems((p) => [...p, ...Array.from({ length: n }, () => emptyItem())])}
+                  >
+                    +{n} ligne{n > 1 ? 's' : ''}
+                  </button>
+                ))}
+              </div>
               <div className="p-2 border-t border-stone-800 flex gap-2">
                 <button type="button" className="btn-primary text-xs" onClick={() => setItems((p) => [...p, emptyItem()])}>
                   + Ligne
@@ -825,13 +883,20 @@ export default function BtpDocuments() {
                       : 'bg-stone-900/70 border-stone-700/80'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-xs font-semibold uppercase tracking-wide text-sky-400/90">
                       {it.item_type === 'section' ? 'Section' : `Ligne ${idx + 1}`}
                     </span>
-                    <button type="button" className="text-red-400 p-1.5" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
-                      <Trash2 size={16} />
-                    </button>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button type="button" className="text-[11px] px-2 py-1 rounded-lg bg-stone-800 text-sky-300" onClick={() => insertLines(idx, 1, 'above')}>↑ +1</button>
+                      <button type="button" className="text-[11px] px-2 py-1 rounded-lg bg-stone-800 text-sky-300" onClick={() => insertLines(idx, 2, 'above')}>↑ +2</button>
+                      <button type="button" className="text-[11px] px-2 py-1 rounded-lg bg-stone-800 text-sky-300" onClick={() => insertLines(idx, 1, 'below')}>↓ +1</button>
+                      <button type="button" className="text-[11px] px-2 py-1 rounded-lg bg-stone-800 text-sky-300" onClick={() => insertLines(idx, 2, 'below')}>↓ +2</button>
+                      <button type="button" className="text-[11px] px-2 py-1 rounded-lg bg-stone-800 text-sky-300" onClick={() => insertLines(idx, 3, 'below')}>↓ +3</button>
+                      <button type="button" className="text-red-400 p-1.5" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                   {it.item_type === 'section' ? (
                     <div className="flex gap-2 items-center">
