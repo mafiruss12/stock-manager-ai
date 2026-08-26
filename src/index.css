@@ -391,3 +391,159 @@ html.theme-light footer {
   color: #64748b !important;
   border-color: #e2e8f0 !important;
 }
+
+/* Cartes dashboard / rappels — mode jour lisible */
+html.theme-light .theme-card-light,
+html[data-theme='light'] .theme-card-light {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.08);
+}
+html.theme-light .theme-card-light h2,
+html.theme-light .theme-card-light .text-stone-100 {
+  color: #0f172a !important;
+}
+html.theme-light .theme-card-light .text-stone-500,
+html.theme-light .theme-card-light .text-stone-400 {
+  color: #475569 !important;
+}
+
+/* Sky / alertes */
+html.theme-light .bg-sky-500\/10,
+html.theme-light .bg-sky-50 {
+  background-color: #e0f2fe !important;
+}
+html.theme-light .text-sky-50,
+html.theme-light .text-sky-100,
+html.theme-light .text-sky-100\/90,
+html.theme-light .text-sky-200,
+html.theme-light .text-sky-200\/80,
+html.theme-light .text-sky-200\/70 {
+  color: #0c4a6e !important;
+}
+html.theme-light .text-sky-300 {
+  color: #0369a1 !important;
+}
+
+/* Emerald lisible */
+html.theme-light .text-emerald-200,
+html.theme-light .text-emerald-300,
+html.theme-light .text-emerald-400 {
+  color: #047857 !important;
+}
+html.theme-light .bg-emerald-600\/30 {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border-color: #6ee7b7 !important;
+}
+html.theme-light .bg-red-600\/25 {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+html.theme-light .text-red-200 {
+  color: #b91c1c !important;
+}
+
+/* Sections grises dashboard */
+html.theme-light .bg-stone-900\/60,
+html.theme-light .bg-stone-900\/50 {
+  background-color: #ffffff !important;
+}
+html.theme-light .bg-stone-800\/50 {
+  background-color: #f1f5f9 !important;
+}
+
+html.theme-light .bottom-nav-maquis {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 -4px 12px rgba(15,23,42,0.06);
+}
+html.theme-light .bottom-nav-maquis a {
+  color: #64748b !important;
+}
+html.theme-light .bottom-nav-maquis a.text-amber-400,
+html.theme-light .bottom-nav-maquis a[aria-current='page'] {
+  color: #ea580c !important;
+}
+
+/* Rappel rapports — contraste correct sombre ET jour */
+.report-reminder-box {
+  border-color: rgba(14, 165, 233, 0.45);
+  background: rgba(14, 165, 233, 0.12);
+  color: #e0f2fe;
+}
+.report-reminder-title { color: #f0f9ff; font-weight: 600; }
+.report-reminder-body { color: #e0f2fe; }
+.report-reminder-muted { color: #bae6fd; }
+.report-reminder-icon { color: #7dd3fc; }
+.report-reminder-btn-sec {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #e0f2fe;
+  background: transparent;
+}
+
+html.theme-light .report-reminder-box,
+html[data-theme='light'] .report-reminder-box {
+  border-color: #38bdf8 !important;
+  background: #e0f2fe !important;
+  color: #0c4a6e !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.06);
+}
+html.theme-light .report-reminder-title { color: #0c4a6e !important; }
+html.theme-light .report-reminder-body { color: #075985 !important; }
+html.theme-light .report-reminder-muted { color: #0369a1 !important; }
+html.theme-light .report-reminder-icon { color: #0284c7 !important; }
+html.theme-light .report-reminder-btn-sec {
+  border-color: #0284c7 !important;
+  color: #0c4a6e !important;
+  background: #ffffff !important;
+}
+html.theme-light .cal-day-future {
+  background-color: #f1f5f9 !important;
+  color: #64748b !important;
+}
+html.theme-light .cal-day-ok {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  border-color: #6ee7b7 !important;
+}
+html.theme-light .cal-day-miss {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+html.theme-light .cal-day-ok text-emerald-200,
+html.theme-light .text-emerald-200 {
+  color: #065f46 !important;
+}
+html.theme-light .text-red-200 {
+  color: #991b1b !important;
+}
+/* Historique employés dans calendrier */
+html.theme-light .OwnerReportCalendar .bg-stone-800,
+html.theme-light .rounded-xl.border.border-stone-700 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html.theme-light .theme-inner-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+html.theme-light .theme-inner-card .text-stone-300,
+html.theme-light .theme-inner-card .text-stone-200 {
+  color: #1e293b !important;
+}
+html.theme-light .theme-inner-card .text-stone-400,
+html.theme-light .theme-inner-card .text-stone-500 {
+  color: #64748b !important;
+}
+html.theme-light .text-emerald-400 {
+  color: #059669 !important;
+}
+html.theme-light .text-red-400 {
+  color: #dc2626 !important;
+}
+html.theme-light .text-amber-400 {
+  color: #c2410c !important;
+}

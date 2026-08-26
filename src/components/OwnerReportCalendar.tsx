@@ -127,14 +127,14 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
   }
 
   return (
-    <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-4">
+    <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-4 theme-card-light">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold text-stone-100 flex items-center gap-2">
             <ClipboardList className="text-sky-400" size={20} />
             Calendrier des points (rapports)
           </h2>
-          <p className="text-xs text-stone-500">
+          <p className="text-xs text-stone-600 dark:text-stone-400">
             Vert = point effectué · Rouge = point non effectué · Gris = jour futur
           </p>
         </div>
@@ -156,7 +156,7 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
           <div className="overflow-x-auto">
             <div className="grid grid-cols-7 gap-1 min-w-[280px] text-center text-xs">
               {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((d) => (
-                <div key={d} className="py-1 text-stone-500 font-medium">
+                <div key={d} className="py-1 text-stone-600 dark:text-stone-400 font-semibold">
                   {d}
                 </div>
               ))}
@@ -166,11 +166,11 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                 const isFuture = iso > today;
                 const has = byDate.has(iso);
                 const isToday = iso === today;
-                let bg = 'bg-stone-800/50 text-stone-500';
+                let bg = 'cal-day-future bg-stone-800/50 text-stone-500';
                 if (!isFuture) {
                   bg = has
-                    ? 'bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
-                    : 'bg-red-600/25 text-red-200 border border-red-500/40';
+                    ? 'cal-day-ok bg-emerald-600/30 text-emerald-200 border border-emerald-500/40'
+                    : 'cal-day-miss bg-red-600/25 text-red-200 border border-red-500/40';
                 }
                 if (isToday) bg += ' ring-2 ring-amber-400/60';
                 const rep = byDate.get(iso);
@@ -224,13 +224,13 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs text-stone-500 -mt-1 mb-2">
+            <p className="text-xs text-stone-600 dark:text-stone-400 -mt-1 mb-2">
               Cliquez sur un jour <span className="text-emerald-300">vert</span> pour ouvrir le rapport effectué,
               ou un jour <span className="text-red-300">rouge</span> pour le compléter.
             </p>
             <h3 className="text-sm font-medium text-stone-300">Historique par employé (mois affiché)</h3>
             {staff.length === 0 ? (
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-stone-600 dark:text-stone-400">
                 Aucun gérant / caissier / employé actif. Les jours verts = un point a été enregistré pour
                 l&apos;établissement (voir signature sur le calendrier).
               </p>
@@ -241,7 +241,7 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm text-stone-100 font-medium">
                         {s.full_name || s.email || s.role}
-                        <span className="text-xs text-stone-500 font-normal ml-2">{s.role}</span>
+                        <span className="text-xs text-stone-600 dark:text-stone-400 font-normal ml-2">{s.role}</span>
                       </p>
                       <p className="text-xs">
                         <span className="text-emerald-400">{done.length} fait</span>

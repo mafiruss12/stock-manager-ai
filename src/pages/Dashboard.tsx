@@ -361,7 +361,7 @@ export default function Dashboard() {
       </div>
 
       {/* Sorties boissons & bénéfice auto (rapports du jour) */}
-      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
+      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 theme-card-light">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <h2 className="text-lg font-semibold text-stone-100">Sorties boissons &amp; bénéfice</h2>
@@ -379,7 +379,7 @@ export default function Dashboard() {
             { label: '7 jours', r: data.bevWeek },
             { label: 'Mois', r: data.bevMonth },
           ].map((b) => (
-            <div key={b.label} className="rounded-xl border border-stone-700 bg-stone-800/50 px-3 py-3">
+            <div key={b.label} className="rounded-xl border border-stone-700 bg-stone-800/50 px-3 py-3 theme-inner-card">
               <p className="text-xs text-stone-500 uppercase">{b.label}</p>
               <p className="text-stone-300 text-sm mt-1">{b.r?.totalQty ?? 0} sorties</p>
               <p className="text-stone-400 text-xs">CA {formatFCFA(b.r?.totalCA ?? 0)}</p>

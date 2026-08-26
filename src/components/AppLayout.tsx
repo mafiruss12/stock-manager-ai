@@ -554,6 +554,35 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         {' · '}
         <span>Powered by <span className="text-amber-500/90">Kevin Tech Pro</span></span>
       </footer>
+      
+      {/* Barre bas type Maquis Bar (mobile) */}
+      <nav className="bottom-nav-maquis lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-stone-800 bg-stone-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+        <div className="grid grid-cols-5 gap-0 max-w-lg mx-auto">
+          {[
+            { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+            { to: '/pos', label: 'Caisse', icon: <ShoppingCart size={22} /> },
+            { to: '/orders', label: 'Ventes', icon: <Receipt size={22} /> },
+            { to: '/inventory', label: 'Boissons', icon: <Package size={22} /> },
+            { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
+          ].map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/dashboard'}
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center gap-0.5 py-2 min-h-[56px] text-[10px] font-semibold transition-colors ${
+                  isActive ? 'text-amber-400' : 'text-stone-400'
+                }`
+              }
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+
       <OfflineBanner />
       </div>
 
