@@ -9,6 +9,7 @@ import type { Product, Sale } from '@/lib/types';
 import { formatFCFA, daysAgoISO } from '@/lib/format';
 import { EmptyState } from '@/components/ui';
 import { loadKnowledge, matchTrainedAnswer, getPersona, type AiKnowledge } from '@/lib/aiTrainer';
+import { SUPPORT_EMAIL, supportMailto } from '@/lib/supportContact';
 
 
 interface AIInsight {
@@ -23,6 +24,7 @@ interface ChatTurn {
   id: string;
   role: 'user' | 'assistant';
   text: string;
+  escalate?: boolean;
 }
 
 function buildReply(
@@ -86,8 +88,24 @@ function buildReply(
     return "Je peux vous guider sur : caisse, inventaire, dépenses, clôture, employés, chat, commandes, tables, fournisseurs, stats et alertes stock. Posez une question précise, ex. « Comment faire la clôture ? »";
   }
 
-  // Réponse générale avec résumé
-  return `Voici un résumé de votre établissement (30 j) :\n• Ventes : ${formatFCFA(ctx.salesTotal)}\n• Dépenses : ${formatFCFA(ctx.expensesTotal)}\n• Produits en alerte stock : ${ctx.lowStock.length}\n• ${ctx.topProduct ? `Top produit : ${ctx.topProduct.name}` : 'Pas encore de top produit'}\n\nPosez une question (ex. « Comment encaisser ? », « Quels stocks sont bas ? »).`;
+  if (/support|assistance|contacter|contact|humain|ecrire|écrire|\bemail\b|\bmail\b|kevin\s*tech|pas\s*resolu|pas\s*résolu|marche\s*pas|ne\s*fonctionne/.test(q)) {
+    return `__ESCALATE__L’assistant n’a pas pu résoudre ce point automatiquement.
+
+Écrivez à **Kevin Tech Pro** : **${SUPPORT_EMAIL}**
+Précisez : nom de l’établissement, page concernée, et le problème.
+
+Utilisez le bouton « Écrire au support » sous ce message.`;
+  }
+
+  // Réponse générale — sans publier l’email
+  return `Voici un résumé de votre établissement (30 j) :
+• Ventes : ${formatFCFA(ctx.salesTotal)}
+• Dépenses : ${formatFCFA(ctx.expensesTotal)}
+• Produits en alerte stock : ${ctx.lowStock.length}
+• ${ctx.topProduct ? `Top produit : ${ctx.topProduct.name}` : 'Pas encore de top produit'}
+
+Si ce n’est pas la bonne réponse, reformulez — ou écrivez **contacter le support**.`;
+
 }
 
 export default function AIAssistant() {
@@ -263,8 +281,10 @@ export default function AIAssistant() {
     setTurns((t) => [...t, { id: `u-${Date.now()}`, role: 'user', text: q }]);
     setThinking(true);
     await new Promise((r) => setTimeout(r, 350));
-    const reply = buildReply(q, ctx, knowledge);
-    setTurns((t) => [...t, { id: `a-${Date.now()}`, role: 'assistant', text: reply }]);
+    const raw = buildReply(q, ctx, knowledge);
+    const escalate = raw.startsWith('__ESCALATE__');
+    const reply = escalate ? raw.replace(/^__ESCALATE__/, '') : raw;
+    setTurns((t) => [...t, { id: `a-${Date.now()}`, role: 'assistant', text: reply, escalate }]);
     setThinking(false);
     setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   }
@@ -379,6 +399,17 @@ export default function AIAssistant() {
                 }`}
               >
                 {t.text}
+                {t.role === 'assistant' && t.escalate && (
+                  <a
+                    href={supportMailto(
+                      'Assistance Stock Manager AI',
+                      `Bonjour Kevin Tech Pro,\n\nL’assistant IA n’a pas résolu mon problème.\n\nÉtablissement : ${member?.establishment_id || ''}\nCompte : ${member?.email || ''}\n\nDescription :\n`,
+                    )}
+                    className="mt-3 inline-flex items-center gap-2 rounded-xl bg-amber-500 text-stone-900 font-semibold text-xs px-3 py-2 hover:bg-amber-400"
+                  >
+                    Écrire au support (email)
+                  </a>
+                )}
               </div>
               {t.role === 'user' && (
                 <div className="w-8 h-8 rounded-full bg-stone-700 flex items-center justify-center shrink-0">

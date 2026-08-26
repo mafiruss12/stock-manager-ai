@@ -399,7 +399,6 @@ async function resendConfirmation() {
               <br />
               <span className="text-amber-400 font-bold">Powered by Kevin Tech Pro</span>
             </p>
-            <a href="mailto:kevintechpro0@gmail.com" className="text-[11px] text-sky-400 hover:underline">kevintechpro0@gmail.com</a>
           </div>
           <AdMarquee className="mb-4 mx-1" />
         <form onSubmit={handleSubmit} className="space-y-4">

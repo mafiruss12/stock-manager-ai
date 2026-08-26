@@ -1,5 +1,4 @@
-/** Signature Kevin Tech Pro — visible sur toute la plateforme */
-const EMAIL = 'kevintechpro0@gmail.com';
+/** Signature Kevin Tech Pro — sans email public (réservé à l’assistance IA) */
 const SOCIALS = [
   { label: 'Facebook', href: 'https://www.facebook.com/search/top?q=kevin%20tech%20pro' },
   { label: 'TikTok', href: 'https://www.tiktok.com/search?q=kevin%20tech%20pro' },
@@ -33,12 +32,6 @@ export default function BrandFooter({ compact = false }: { compact?: boolean }) 
         </div>
         {!compact && (
           <>
-            <a
-              href={`mailto:${EMAIL}`}
-              className="text-xs text-sky-400 hover:underline"
-            >
-              {EMAIL}
-            </a>
             <div className="flex flex-wrap justify-center gap-3 text-[11px]">
               {SOCIALS.map((s) => (
                 <a
