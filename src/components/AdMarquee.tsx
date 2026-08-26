@@ -20,7 +20,7 @@ export async function fetchActiveAnnouncements(): Promise<AppAnnouncement[]> {
   return (data || []) as AppAnnouncement[];
 }
 
-/** Bandeau publicité / infos défilant (connexion + dashboard) */
+/** Publicités / infos — défilement vertical (vers le bas) */
 export default function AdMarquee({ className = '' }: { className?: string }) {
   const [items, setItems] = useState<AppAnnouncement[]>([]);
 
@@ -40,46 +40,46 @@ export default function AdMarquee({ className = '' }: { className?: string }) {
 
   if (items.length === 0) return null;
 
-  const parts = items.map((a) => {
-    const text = a.title?.trim() ? `${a.title} — ${a.body}` : a.body;
-    return { id: a.id, text: text.trim(), href: a.link_url || null };
-  }).filter((p) => p.text);
+  const parts = items
+    .map((a) => {
+      const text = a.title?.trim() ? `${a.title} — ${a.body}` : a.body;
+      return { id: a.id, text: text.trim(), href: a.link_url || null };
+    })
+    .filter((p) => p.text);
 
   if (parts.length === 0) return null;
 
-  const content = (
-    <>
-      {parts.map((p, i) => (
-        <span key={`${p.id}-${i}`} className="inline-flex items-center">
-          {i > 0 && <span className="mx-4 text-amber-500/70">•</span>}
-          {p.href ? (
-            <a href={p.href} target="_blank" rel="noopener noreferrer" className="hover:underline text-amber-200">
-              {p.text}
-            </a>
-          ) : (
-            <span>{p.text}</span>
-          )}
-        </span>
-      ))}
-      <span className="mx-4 text-amber-500/70">•</span>
-    </>
-  );
+  // Liste doublée pour boucle continue verticale
+  const loop = [...parts, ...parts];
 
   return (
     <div
-      className={`ad-marquee-wrap flex items-center gap-2 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 ${className}`}
+      className={`ad-marquee-wrap ad-marquee-vertical flex gap-2 overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/15 via-orange-500/10 to-amber-500/15 ${className}`}
       role="marquee"
       aria-label="Annonces et publicités"
     >
-      <span className="shrink-0 pl-3 text-amber-500">
+      <span className="shrink-0 self-start pt-3 pl-3 text-amber-500">
         <Megaphone size={18} />
       </span>
-      <div className="ad-marquee-track flex-1 overflow-hidden py-2.5">
-        <div className="ad-marquee-inner text-sm font-medium text-stone-100">
-          <span className="ad-marquee-scroll">
-            {content}
-            {content}
-          </span>
+      <div className="ad-marquee-v-track flex-1 overflow-hidden">
+        <div
+          className="ad-marquee-v-scroll"
+          style={{
+            // durée proportionnelle au nombre de messages
+            animationDuration: `${Math.max(8, parts.length * 5)}s`,
+          }}
+        >
+          {loop.map((p, i) => (
+            <div key={`${p.id}-${i}`} className="ad-marquee-v-item text-sm font-medium text-stone-100">
+              {p.href ? (
+                <a href={p.href} target="_blank" rel="noopener noreferrer" className="hover:underline text-amber-200">
+                  {p.text}
+                </a>
+              ) : (
+                <span>{p.text}</span>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
