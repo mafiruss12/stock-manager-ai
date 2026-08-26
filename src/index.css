@@ -618,3 +618,47 @@ html.theme-light .brand-footer .text-stone-300 {
 html.theme-light .brand-footer .text-amber-400 {
   color: #c2410c !important;
 }
+
+/* Fond connexion — logo Kevin Tech Pro animé */
+.auth-logo-bg {
+  background: radial-gradient(ellipse at 50% 40%, rgba(37, 99, 235, 0.15), transparent 55%),
+    linear-gradient(160deg, #0c0a09 0%, #1c1917 50%, #0f172a 100%);
+}
+.auth-logo-bg-glow {
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(circle at 50% 45%, rgba(59, 130, 246, 0.18), transparent 50%);
+  animation: auth-glow-pulse 8s ease-in-out infinite;
+}
+.auth-logo-float {
+  animation-name: auth-logo-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  filter: drop-shadow(0 0 24px rgba(59, 130, 246, 0.25));
+}
+.auth-logo-center {
+  animation: auth-logo-breathe 10s ease-in-out infinite;
+  filter: drop-shadow(0 0 40px rgba(37, 99, 235, 0.2));
+}
+@keyframes auth-logo-drift {
+  0%, 100% { transform: translateY(0) rotate(-4deg) scale(1); }
+  50% { transform: translateY(-28px) rotate(4deg) scale(1.06); }
+}
+@keyframes auth-logo-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.07; }
+  50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.14; }
+}
+@keyframes auth-glow-pulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+html.theme-light .auth-logo-bg {
+  background: radial-gradient(ellipse at 50% 40%, rgba(59, 130, 246, 0.12), transparent 55%),
+    linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%) !important;
+}
+html.theme-light .auth-logo-float {
+  opacity: 0.18 !important;
+}
+html.theme-light .auth-logo-center {
+  opacity: 0.12 !important;
+}

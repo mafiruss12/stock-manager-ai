@@ -316,20 +316,37 @@ async function resendConfirmation() {
         </div>
       </div>
 
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <div
+      {/* Fond logo Kevin Tech Pro animé */}
+      <div className="auth-logo-bg absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+        <div className="auth-logo-bg-glow" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <img
             key={i}
-            className="absolute rounded-full bg-primary-400/10 animate-rise"
+            src="/kevin-tech-pro-logo.png"
+            alt=""
+            className="auth-logo-float absolute object-contain opacity-[0.12]"
             style={{
-              left: `${(i * 8 + 3) % 100}%`,
-              width: `${8 + (i % 4) * 6}px`,
-              height: `${8 + (i % 4) * 6}px`,
-              animationDelay: `${i * 0.8}s`,
-              animationDuration: `${8 + (i % 5) * 2}s`,
+              left: `${8 + (i % 3) * 32}%`,
+              top: `${10 + Math.floor(i / 3) * 42}%`,
+              width: `${120 + (i % 3) * 40}px`,
+              height: `${120 + (i % 3) * 40}px`,
+              animationDelay: `${i * 1.2}s`,
+              animationDuration: `${14 + (i % 4) * 3}s`,
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
             }}
           />
         ))}
+        {/* Grand logo central en fond */}
+        <img
+          src="/kevin-tech-pro-logo.png"
+          alt=""
+          className="auth-logo-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.08] w-[min(90vw,520px)] h-[min(90vw,520px)]"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
+          }}
+        />
       </div>
 
       <div className="relative z-10 w-full max-w-md mt-10">
