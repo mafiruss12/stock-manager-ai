@@ -1126,6 +1126,7 @@ export default function SuperAdmin() {
               <option value="superette">Supérette</option>
                             <option value="quincaillerie">Quincaillerie</option>
                             <option value="location_event">Location événementielle</option>
+                            <option value="btp">BTP / BatiDevis</option>
             </select>
           </div>
           <div>

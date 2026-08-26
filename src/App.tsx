@@ -52,7 +52,11 @@ import RentPayments from '@/pages/rent/Payments';
 import RentCalendar from '@/pages/rent/Calendar';
 import RentPacks from '@/pages/rent/Packs';
 import RentInvoices from '@/pages/rent/Invoices';
-import { isLocationEvent } from '@/lib/businessTypes';
+import { isLocationEvent, isBtp } from '@/lib/businessTypes';
+import BtpDashboard from '@/pages/btp/Dashboard';
+import BtpDocuments from '@/pages/btp/Documents';
+import BtpClients from '@/pages/btp/Clients';
+import BtpMaterials from '@/pages/btp/Materials';
 
 import AppLayout from '@/components/AppLayout';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -82,6 +86,7 @@ function ConfigError() {
 function DashboardSwitch() {
   const { activeEstablishment } = useAuth();
   if (isLocationEvent(activeEstablishment?.type)) return <RentDashboard />;
+  if (isBtp(activeEstablishment?.type)) return <BtpDashboard />;
   return <Dashboard />;
 }
 
@@ -141,6 +146,9 @@ function ProtectedRoutes() {
         <Route path="/rent/calendar" element={<RentCalendar />} />
         <Route path="/rent/packs" element={<RentPacks />} />
         <Route path="/rent/invoices" element={<RentInvoices />} />
+        <Route path="/btp/documents" element={<BtpDocuments />} />
+        <Route path="/btp/clients" element={<BtpClients />} />
+        <Route path="/btp/materials" element={<BtpMaterials />} />
         <Route path="/documents" element={<RedirectToReportTab tab="docs" />} />
         <Route path="/pos" element={<RedirectToReportTab tab="caisse" />} />
         <Route path="/caisse" element={<Navigate to="/pos" replace />} />

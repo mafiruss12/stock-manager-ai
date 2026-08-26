@@ -6,7 +6,8 @@ export type BusinessType =
   | 'boutique'
   | 'superette'
   | 'quincaillerie'
-  | 'location_event';
+  | 'location_event'
+  | 'btp';
 
 
 export const BUSINESS_TYPES: BusinessType[] = [
@@ -16,6 +17,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
   'superette',
   'quincaillerie',
   'location_event',
+  'btp',
 ];
 
 
@@ -26,6 +28,7 @@ export const BUSINESS_LABELS: Record<BusinessType, string> = {
   superette: 'Supérette',
   quincaillerie: 'Quincaillerie',
   location_event: 'Location événementielle',
+  btp: 'BTP / BatiDevis',
 };
 
 export const BUSINESS_DESCRIPTIONS: Record<BusinessType, string> = {
@@ -35,6 +38,7 @@ export const BUSINESS_DESCRIPTIONS: Record<BusinessType, string> = {
   superette: 'Épicerie, stock rapide et rayons',
   quincaillerie: 'Matériaux, outillage et stock technique',
   location_event: 'Chaises, tables, bâches, sono — mariages et cérémonies',
+  btp: 'Devis, factures et matériaux pour artisans et entreprises du bâtiment',
 };
 
 export const BUSINESS_THEMES: Record<
@@ -83,6 +87,13 @@ export const BUSINESS_THEMES: Record<
     label: 'Indigo',
     gradient: 'from-indigo-500/20 to-violet-600/5',
   },
+  btp: {
+    primary: '#0ea5e9',
+    primarySoft: 'rgba(14, 165, 233, 0.15)',
+    accent: '#0284c7',
+    label: 'Sky',
+    gradient: 'from-sky-500/20 to-blue-600/5',
+  },
 };
 
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
@@ -115,6 +126,10 @@ export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
     '/dashboard', '/rent/equipment', '/rent/clients', '/rent/orders',
     '/rent/movements', '/rent/payments', '/rent/calendar', '/rent/packs',
     '/rent/invoices', '/mes-employes', '/daily-report', '/cloture', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
+  ],
+  btp: [
+    '/dashboard', '/btp/documents', '/btp/clients', '/btp/materials',
+    '/mes-employes', '/expenses', '/statistics', '/ai', '/ai-train', '/chat', '/notifications', '/settings',
   ],
 };
 
@@ -246,6 +261,16 @@ export const BUSINESS_UI: Record<BusinessType, BusinessUI> = {
     shortcutInventory: 'Matériel',
     emptyProducts: 'Aucun matériel. Ajoutez le parc location.',
   },
+  btp: {
+    productSingular: 'Matériau',
+    productPlural: 'Matériaux BTP',
+    inventoryTitle: 'Catalogue matériaux',
+    inventorySubtitle: 'Prix unitaires et catégories chantier',
+    posTitle: 'Devis & factures',
+    posSubtitle: 'Documents BTP',
+    reportTitle: 'Suivi chantier',
+    emptyProducts: 'Aucun matériau. Ajoutez ciment, fer, main-d\'œuvre…',
+  },
 };
 
 export function getBusinessUI(type: string | null | undefined): BusinessUI {
@@ -273,18 +298,23 @@ export function normalizeBusinessType(raw: string | null | undefined): BusinessT
   // Anciens types retirés → maquis
   if (v in { bar: 1, restaurant: 1, pharmacie: 1, commerce: 1, cafe: 1 }) return 'maquis';
   const allowed: BusinessType[] = [
-    'maquis', 'magasin', 'boutique', 'superette', 'quincaillerie', 'location_event',
+    'maquis', 'magasin', 'boutique', 'superette', 'quincaillerie', 'location_event', 'btp',
   ];
   if ((allowed as string[]).includes(v)) return v as BusinessType;
   if (v === 'store' || v === 'shop') return 'magasin';
   if (v === 'superette' || v === 'supermarche') return 'superette';
   if (v === 'location' || v === 'event' || v === 'rental') return 'location_event';
+  if (v === 'batidevis' || v === 'construction' || v === 'chantier' || v === 'devis') return 'btp';
   return 'maquis';
 }
 
 
 export function isLocationEvent(type: string | null | undefined): boolean {
   return normalizeBusinessType(type) === 'location_event';
+}
+
+export function isBtp(type: string | null | undefined): boolean {
+  return normalizeBusinessType(type) === 'btp';
 }
 
 export function applyBusinessTheme(type: BusinessType) {

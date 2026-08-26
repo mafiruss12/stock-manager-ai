@@ -77,6 +77,9 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/rent/calendar', label: 'Calendrier location', icon: <Calendar size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/packs', label: 'Packs événements', icon: <Sparkles size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/rent/invoices', label: 'Factures location', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/btp/documents', label: 'Devis & factures', icon: <FileText size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/btp/clients', label: 'Clients chantier', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/btp/materials', label: 'Matériaux BTP', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/admin', label: 'Administration', icon: <UserCog size={20} />, roles: ['super_admin'] },
     ] },
 ];
@@ -552,16 +555,33 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <UpdateBanner />
       <BrandFooter />
       
-      {/* Barre bas type Maquis Bar (mobile) */}
+      {/* Barre bas mobile — adaptée au type d'établissement */}
       <nav className="bottom-nav-maquis lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-stone-800 bg-stone-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5 gap-0 max-w-lg mx-auto">
-          {[
-            { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
-            { to: '/pos', label: 'Caisse', icon: <ShoppingCart size={22} /> },
-            { to: '/orders', label: 'Ventes', icon: <Receipt size={22} /> },
-            { to: '/inventory', label: 'Boissons', icon: <Package size={22} /> },
-            { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
-          ].map((item) => (
+          {(bizType === 'btp'
+            ? [
+                { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+                { to: '/btp/documents', label: 'Devis', icon: <FileText size={22} /> },
+                { to: '/btp/clients', label: 'Clients', icon: <Users size={22} /> },
+                { to: '/btp/materials', label: 'Matériaux', icon: <Package size={22} /> },
+                { to: '/ai', label: 'IA', icon: <Brain size={22} /> },
+              ]
+            : bizType === 'location_event'
+            ? [
+                { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+                { to: '/rent/orders', label: 'Commandes', icon: <Receipt size={22} /> },
+                { to: '/rent/clients', label: 'Clients', icon: <Users size={22} /> },
+                { to: '/rent/equipment', label: 'Matériel', icon: <Package size={22} /> },
+                { to: '/rent/calendar', label: 'Agenda', icon: <Calendar size={22} /> },
+              ]
+            : [
+                { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+                { to: '/pos', label: 'Caisse', icon: <ShoppingCart size={22} /> },
+                { to: '/orders', label: 'Ventes', icon: <Receipt size={22} /> },
+                { to: '/inventory', label: 'Boissons', icon: <Package size={22} /> },
+                { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
+              ]
+          ).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
