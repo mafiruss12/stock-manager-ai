@@ -79,6 +79,8 @@ export default function BtpDocuments() {
     amount_paid: '' as number | '',
   });
   const [items, setItems] = useState<Item[]>([emptyItem()]);
+  /** tableau = grille type Excel ; fields = fiche par ligne */
+  const [editorMode, setEditorMode] = useState<'table' | 'fields'>('table');
 
   async function load() {
     if (!est) return;
@@ -660,14 +662,37 @@ export default function BtpDocuments() {
             </div>
           </div>
 
-          <div className="hidden sm:grid grid-cols-[2rem_1fr_4.5rem_6.5rem_6.5rem_2rem] gap-2 px-1 text-[10px] uppercase tracking-wide text-sky-400/90 font-semibold">
-            <span></span>
-            <span>Désignation</span>
-            <span className="text-right">Qté</span>
-            <span className="text-right">Prix unit.</span>
-            <span className="text-right">Prix total</span>
-            <span></span>
+          {/* Choix du mode de saisie */}
+          <div className="flex gap-2 p-1 rounded-xl bg-stone-950/80 border border-stone-700/80">
+            <button
+              type="button"
+              onClick={() => setEditorMode('table')}
+              className={`flex-1 text-sm py-2.5 rounded-lg font-medium transition ${
+                editorMode === 'table'
+                  ? 'bg-sky-600 text-white shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              📊 Tableau de devis
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorMode('fields')}
+              className={`flex-1 text-sm py-2.5 rounded-lg font-medium transition ${
+                editorMode === 'fields'
+                  ? 'bg-sky-600 text-white shadow'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              📝 Saisie par champs
+            </button>
           </div>
+          <p className="text-[11px] text-stone-500">
+            {editorMode === 'table'
+              ? 'Mode tableau : saisie rapide type Excel (tout reste modifiable).'
+              : 'Mode champs : une fiche claire par ligne (idéal mobile).'}
+          </p>
+
 
           {materials.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -684,94 +709,218 @@ export default function BtpDocuments() {
             </div>
           )}
 
-          <div className="space-y-2">
-            {items.map((it, idx) => (
-              <div
-                key={idx}
-                className={`rounded-xl border p-2.5 transition-all duration-300 hover:border-sky-500/40 ${
-                  it.item_type === 'section'
-                    ? 'bg-sky-950/30 border-sky-700/40'
-                    : 'bg-stone-900/60 border-stone-700/80'
-                }`}
-              >
-                {it.item_type === 'section' ? (
-                  <div className="flex gap-2 items-center">
-                    <span className="text-lg">📋</span>
-                    <input
-                      className="input-field flex-1 font-semibold"
-                      placeholder="Titre de section (ex. Gros œuvre)"
-                      value={it.title}
-                      onChange={(e) => updateItem(idx, { title: e.target.value })}
-                    />
-                    <button type="button" className="text-red-400 p-2" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+          {/* ===== MODE TABLEAU ===== */}
+          {editorMode === 'table' && (
+            <div className="overflow-x-auto rounded-xl border border-stone-700/80">
+              <table className="w-full text-sm min-w-[520px]">
+                <thead>
+                  <tr className="bg-sky-900/40 text-sky-200 text-[11px] uppercase tracking-wide">
+                    <th className="p-2 w-8 text-center"></th>
+                    <th className="p-2 text-left">Désignation</th>
+                    <th className="p-2 text-right w-20">Qté</th>
+                    <th className="p-2 text-right w-28">Prix unit.</th>
+                    <th className="p-2 text-right w-28">Prix total</th>
+                    <th className="p-2 text-left w-16">Unité</th>
+                    <th className="p-2 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, idx) =>
+                    it.item_type === 'section' ? (
+                      <tr key={idx} className="bg-sky-950/40 border-b border-sky-800/50">
+                        <td className="p-1.5 text-center">📋</td>
+                        <td colSpan={5} className="p-1.5">
+                          <input
+                            className="input-field py-1.5 font-semibold text-sm"
+                            placeholder="Titre de section"
+                            value={it.title}
+                            onChange={(e) => updateItem(idx, { title: e.target.value })}
+                          />
+                        </td>
+                        <td className="p-1.5">
+                          <button type="button" className="text-red-400 p-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={idx} className="border-b border-stone-800 hover:bg-stone-800/40">
+                        <td className="p-1.5 text-center text-lg">{materialIcon(it.title)}</td>
+                        <td className="p-1">
+                          <input
+                            className="input-field py-1.5 text-sm"
+                            placeholder="Désignation"
+                            value={it.title}
+                            onChange={(e) => updateItem(idx, { title: e.target.value })}
+                          />
+                        </td>
+                        <td className="p-1">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="input-field py-1.5 text-sm text-right tabular-nums"
+                            placeholder="—"
+                            value={it.quantity}
+                            onChange={(e) => updateItem(idx, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                          />
+                        </td>
+                        <td className="p-1">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="input-field py-1.5 text-sm text-right tabular-nums"
+                            placeholder="—"
+                            value={it.unit_price}
+                            onChange={(e) => updateItem(idx, { unit_price: e.target.value === '' ? '' : Number(e.target.value) })}
+                          />
+                        </td>
+                        <td className="p-1.5 text-right tabular-nums text-sky-300 font-semibold text-sm whitespace-nowrap">
+                          {formatMoneyOrEmpty(lineTotal(it)) || '—'}
+                        </td>
+                        <td className="p-1">
+                          <input
+                            className="input-field py-1.5 text-xs"
+                            placeholder="u"
+                            value={it.unit}
+                            onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                          />
+                        </td>
+                        <td className="p-1.5">
+                          <button type="button" className="text-red-400 p-1" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+              <div className="p-2 border-t border-stone-800 flex gap-2">
+                <button type="button" className="btn-primary text-xs" onClick={() => setItems((p) => [...p, emptyItem()])}>
+                  + Ligne
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  onClick={() =>
+                    setItems((p) => [
+                      ...p,
+                      { item_type: 'section', title: '', unit: '', quantity: '', unit_price: '', tax_rate: '', discount_percent: 0, total_ht: 0 },
+                    ])
+                  }
+                >
+                  + Section
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ===== MODE SAISIE PAR CHAMPS ===== */}
+          {editorMode === 'fields' && (
+            <div className="space-y-3">
+              {items.map((it, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-2xl border p-3 space-y-3 transition ${
+                    it.item_type === 'section'
+                      ? 'bg-sky-950/30 border-sky-700/40'
+                      : 'bg-stone-900/70 border-stone-700/80'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-sky-400/90">
+                      {it.item_type === 'section' ? 'Section' : `Ligne ${idx + 1}`}
+                    </span>
+                    <button type="button" className="text-red-400 p-1.5" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
                       <Trash2 size={16} />
                     </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex gap-2 items-start sm:items-center">
-                      <span className="text-xl leading-none pt-2 sm:pt-0 select-none">{materialIcon(it.title)}</span>
+                  {it.item_type === 'section' ? (
+                    <div className="flex gap-2 items-center">
+                      <span className="text-xl">📋</span>
                       <input
-                        className="input-field flex-1"
-                        placeholder="Désignation (ex. Ciment 50 kg)"
+                        className="input-field font-semibold"
+                        placeholder="Titre de section"
                         value={it.title}
                         onChange={(e) => updateItem(idx, { title: e.target.value })}
                       />
-                      <button type="button" className="text-red-400 p-2 shrink-0" onClick={() => setItems(items.filter((_, i) => i !== idx))}>
-                        <Trash2 size={16} />
-                      </button>
                     </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-[4.5rem_6.5rem_6.5rem_4rem] gap-2 mt-2 sm:ml-9">
+                  ) : (
+                    <>
                       <div>
-                        <label className="text-[10px] text-stone-500 sm:hidden">Qté</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          className="input-field text-right tabular-nums"
-                          placeholder="Qté"
-                          value={it.quantity}
-                          onChange={(e) => updateItem(idx, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-stone-500 sm:hidden">Prix unit.</label>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          className="input-field text-right tabular-nums"
-                          placeholder="Prix unit."
-                          value={it.unit_price}
-                          onChange={(e) => updateItem(idx, { unit_price: e.target.value === '' ? '' : Number(e.target.value) })}
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-stone-500 sm:hidden">Prix total</label>
-                        <div className="input-field text-right tabular-nums text-sky-300 font-semibold bg-stone-950/50 flex items-center justify-end min-h-[42px]">
-                          {formatMoneyOrEmpty(lineTotal(it)) || '—'}
+                        <label className="label">Désignation</label>
+                        <div className="flex gap-2 items-center">
+                          <span className="text-2xl">{materialIcon(it.title)}</span>
+                          <input
+                            className="input-field flex-1"
+                            placeholder="Ex. Ciment 50 kg, Fer 8 mm…"
+                            value={it.title}
+                            onChange={(e) => updateItem(idx, { title: e.target.value })}
+                          />
                         </div>
                       </div>
-                      <div className="hidden sm:block">
-                        <input
-                          className="input-field text-xs"
-                          placeholder="Unité"
-                          value={it.unit}
-                          onChange={(e) => updateItem(idx, { unit: e.target.value })}
-                        />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="label">Quantité</label>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="input-field text-right tabular-nums"
+                            placeholder="—"
+                            value={it.quantity}
+                            onChange={(e) => updateItem(idx, { quantity: e.target.value === '' ? '' : Number(e.target.value) })}
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Unité</label>
+                          <input
+                            className="input-field"
+                            placeholder="sac, m³, j…"
+                            value={it.unit}
+                            onChange={(e) => updateItem(idx, { unit: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Prix unitaire (FCFA)</label>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            className="input-field text-right tabular-nums"
+                            placeholder="—"
+                            value={it.unit_price}
+                            onChange={(e) => updateItem(idx, { unit_price: e.target.value === '' ? '' : Number(e.target.value) })}
+                          />
+                        </div>
+                        <div>
+                          <label className="label">Prix total</label>
+                          <div className="input-field text-right tabular-nums text-sky-300 font-bold flex items-center justify-end min-h-[42px] bg-stone-950/60">
+                            {formatMoneyOrEmpty(lineTotal(it)) || '—'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="sm:hidden mt-1 ml-9">
-                      <input
-                        className="input-field text-xs"
-                        placeholder="Unité (sac, m³, j…)"
-                        value={it.unit}
-                        onChange={(e) => updateItem(idx, { unit: e.target.value })}
-                      />
-                    </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <button type="button" className="btn-primary text-sm flex-1" onClick={() => setItems((p) => [...p, emptyItem()])}>
+                  + Ajouter une ligne
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm"
+                  onClick={() =>
+                    setItems((p) => [
+                      ...p,
+                      { item_type: 'section', title: '', unit: '', quantity: '', unit_price: '', tax_rate: '', discount_percent: 0, total_ht: 0 },
+                    ])
+                  }
+                >
+                  + Section
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3 pt-2 border-t border-stone-800">
             <div>
