@@ -14,7 +14,8 @@ import {
 import { EmptyState } from '@/components/ui';
 
 export default function ScanInventaire() {
-  const { member } = useAuth();
+  const { member, activeEstablishment } = useAuth();
+  const estId = activeEstablishment?.id || member?.establishment_id;
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,31 +24,49 @@ export default function ScanInventaire() {
   const [lines, setLines] = useState<ScannedLine[]>([]);
   const [step, setStep] = useState<'pick' | 'ocr' | 'review' | 'done'>('pick');
   const [busy, setBusy] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStatus, setOcrStatus] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ updated: 0, created: 0, skipped: 0 });
 
   useEffect(() => {
-    if (!member?.establishment_id) return;
+    if (!estId) return;
     supabase
       .from('products')
       .select('*')
-      .eq('establishment_id', member.establishment_id)
+      .eq('establishment_id', estId)
       .then(({ data }) => setProducts((data ?? []) as Product[]));
-  }, [member?.establishment_id]);
+  }, [estId]);
 
   async function onFile(file: File | null) {
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Choisissez une image (photo JPG/PNG).');
+      return;
+    }
     setError(null);
     setPreview(URL.createObjectURL(file));
     setStep('ocr');
     setBusy(true);
+    setOcrProgress(0);
+    setOcrStatus('Préparation de l’image…');
     try {
-      const text = await runOcrFrench(file);
+      const text = await runOcrFrench(file, (pct, status) => {
+        setOcrProgress(pct);
+        setOcrStatus(status);
+      });
       setOcrText(text);
+      if (!text || text.trim().length < 2) {
+        setError(
+          'Aucun texte reconnu. Photo trop floue, sombre, ou hors connexion (le moteur OCR charge depuis internet la 1re fois). Réessayez avec une photo nette et éclairée.'
+        );
+        setStep('pick');
+        return;
+      }
       const parsed = parseInventoryText(text, products);
       if (parsed.length === 0) {
         setError(
-          'Aucun produit détecté. Reprenez une photo nette, bien éclairée, du carnet ou tableau (écriture lisible).'
+          `Texte lu mais aucun produit détecté. Texte brut : « ${text.slice(0, 120)}… ». Reprenez une photo plus nette du carnet / tableau.`
         );
         setStep('pick');
       } else {
@@ -55,10 +74,17 @@ export default function ScanInventaire() {
         setStep('review');
       }
     } catch (e: any) {
-      setError(e?.message || 'OCR impossible. Réessayez.');
+      const msg = e?.message || String(e);
+      setError(
+        msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')
+          ? 'OCR : connexion internet requise pour charger le moteur (1re utilisation). Vérifiez le réseau et réessayez.'
+          : `OCR impossible : ${msg}`
+      );
       setStep('pick');
     } finally {
       setBusy(false);
+      setOcrProgress(0);
+      setOcrStatus('');
     }
   }
 
@@ -77,7 +103,7 @@ export default function ScanInventaire() {
   }
 
   async function integrate() {
-    if (!member?.establishment_id) return;
+    if (!estId) return;
     setBusy(true);
     setError(null);
     let updated = 0;
@@ -105,7 +131,7 @@ export default function ScanInventaire() {
           updated++;
         } else {
           const { error: err } = await supabase.from('products').insert({
-            establishment_id: member.establishment_id,
+            establishment_id: estId,
             name: line.name.trim(),
             category: line.category || 'Autre',
             unit: line.unit || 'unité',
@@ -139,7 +165,7 @@ export default function ScanInventaire() {
     }
   }
 
-  if (!member?.establishment_id) {
+  if (!estId) {
     return (
       <EmptyState
         icon={<Camera size={48} />}

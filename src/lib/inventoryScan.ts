@@ -9,7 +9,6 @@ export interface ScannedLine {
   cost: number;
   price: number;
   min_stock: number;
-  /** matched existing product id if duplicate */
   matchId: string | null;
   matchName: string | null;
   action: 'update' | 'create' | 'skip';
@@ -17,13 +16,13 @@ export interface ScannedLine {
   raw: string;
 }
 
-/** Normalise pour détecter doublons (Flag = FLAG = flag 65cl…) */
+/** Normalise pour détecter doublons */
 export function normalizeProductKey(name: string): string {
   return (name || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\b(bouteille|bout|bt|cl|ml|casier|csr|x)\b/g, ' ')
+    .replace(/\b(bouteille|bout|bt|cl|ml|casier|csr|x|kg|m3|m2|sac|barre|u|unite|unité)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -32,17 +31,15 @@ export function normalizeProductKey(name: string): string {
 export function findDuplicate(name: string, products: Product[]): Product | null {
   const key = normalizeProductKey(name);
   if (!key) return null;
-  // exact normalized
   let best: Product | null = null;
   let bestScore = 0;
   for (const p of products) {
     const pk = normalizeProductKey(p.name);
     if (!pk) continue;
     if (pk === key) return p;
-    // contains
     if (pk.includes(key) || key.includes(pk)) {
       const score = Math.min(pk.length, key.length) / Math.max(pk.length, key.length);
-      if (score > bestScore && score >= 0.6) {
+      if (score > bestScore && score >= 0.55) {
         bestScore = score;
         best = p;
       }
@@ -53,10 +50,13 @@ export function findDuplicate(name: string, products: Product[]): Product | null
 
 function guessCategory(name: string): string {
   const n = name.toLowerCase();
+  if (/ciment|sable|gravier|fer|acier|brique|parpaing|beton|béton|tuyau|cable|câble|peinture|carrelage/.test(n))
+    return 'BTP';
   if (/coca|fanta|sprite|soda|eau|jus|boisson|malta|tonic|schweppes/.test(n)) return 'Soft';
   if (/vin|whisky|vodka|ricard|pastis|gin|rhum|liqueur/.test(n)) return 'Spiritueux';
   if (/biere|bière|bock|castel|flag|beaufort|doppel|desperados|heineken|guinness|amate|ivoiro/.test(n))
     return 'Alcool';
+  if (/chaise|table|bache|bâche|sono|nappe|tente/.test(n)) return 'Location';
   return 'Autre';
 }
 
@@ -66,29 +66,30 @@ function guessUnit(name: string, raw: string): string {
   if (/50\s*cl/.test(t)) return 'Bouteille 50cl';
   if (/33\s*cl|25\s*cl/.test(t)) return 'Bouteille 33cl';
   if (/casier/.test(t)) return 'Casier';
-  return 'Bouteille';
+  if (/\bkg\b/.test(t)) return 'kg';
+  if (/m[³3]|m3/.test(t)) return 'm³';
+  if (/\bsac\b/.test(t)) return 'sac';
+  return 'unité';
 }
 
-/** Parse texte OCR → lignes produits */
+/** Parse texte OCR → lignes produits (tous établissements) */
 export function parseInventoryText(text: string, existing: Product[]): ScannedLine[] {
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter((l) => l.length > 2);
+    .filter((l) => l.length > 1);
 
   const results: ScannedLine[] = [];
   const seen = new Set<string>();
 
   for (const raw of lines) {
-    // ignore headers
-    if (/^(cat[eé]gorie|produit|marque|format|qte|qt[eé]|stock|prix|valeur|casier|n[°o]|total)/i.test(raw))
+    if (/^(cat[eé]gorie|produit|marque|format|qte|qt[eé]|stock|prix|valeur|casier|n[°o]|total|désignation|designation|quantit)/i.test(raw))
       continue;
-    if (/^[\d\s.,]+$/.test(raw)) continue;
+    if (/^[\d\s.,€$fcfa\-_=]+$/i.test(raw)) continue;
+    if (raw.length < 2) continue;
 
-    // Pattern: name ... numbers
-    // e.g. "Flag 65cl 48 2 450 600" or "BOCK 66  12"
     const nums = [...raw.matchAll(/(\d+(?:[.,]\d+)?)/g)].map((m) =>
-      parseFloat(m[1].replace(',', '.'))
+      parseFloat(m[1].replace(',', '.')),
     );
     let namePart = raw
       .replace(/(\d+(?:[.,]\d+)?)/g, ' ')
@@ -96,7 +97,6 @@ export function parseInventoryText(text: string, existing: Product[]): ScannedLi
       .replace(/\s+/g, ' ')
       .trim();
 
-    // clean leftover
     namePart = namePart.replace(/^[-–—:\s]+|[-–—:\s]+$/g, '');
     if (namePart.length < 2) continue;
     if (namePart.length > 80) namePart = namePart.slice(0, 80);
@@ -105,19 +105,17 @@ export function parseInventoryText(text: string, existing: Product[]): ScannedLi
     if (!key || seen.has(key)) continue;
     seen.add(key);
 
-    // Heuristic numbers: stock often first medium number; prices 200-5000
     let stock = 0;
     let cost = 0;
     let price = 0;
     const candidates = nums.filter((n) => !Number.isNaN(n));
     for (const n of candidates) {
       if (n >= 1 && n <= 500 && stock === 0) stock = Math.round(n);
-      else if (n >= 100 && n <= 20000) {
+      else if (n >= 100 && n <= 500000) {
         if (cost === 0) cost = Math.round(n);
         else if (price === 0) price = Math.round(n);
       }
     }
-    // if only one big number and no stock-like, might be price only
     if (stock === 0 && candidates.length === 1 && candidates[0] <= 500) {
       stock = Math.round(candidates[0]);
     }
@@ -146,13 +144,109 @@ export function parseInventoryText(text: string, existing: Product[]): ScannedLi
     });
   }
 
-  return results.slice(0, 80);
+  return results.slice(0, 100);
 }
 
-export async function runOcrFrench(file: File | Blob): Promise<string> {
-  const Tesseract = await import('tesseract.js');
-  const result = await Tesseract.recognize(file, 'fra', {
-    logger: () => {},
+/** Réduit / normalise l’image pour un OCR plus fiable (max ~1600px) */
+export async function prepareImageForOcr(file: File | Blob): Promise<Blob> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxSide = 1600;
+    let { width, height } = bitmap;
+    if (width > maxSide || height > maxSide) {
+      const scale = maxSide / Math.max(width, height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    // léger contraste
+    try {
+      const img = ctx.getImageData(0, 0, width, height);
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const v = g < 128 ? Math.max(0, g * 0.85) : Math.min(255, g * 1.15);
+        d[i] = d[i + 1] = d[i + 2] = v;
+      }
+      ctx.putImageData(img, 0, 0);
+    } catch {
+      /* ignore */
+    }
+    bitmap.close?.();
+    return await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b || file), 'image/jpeg', 0.92);
+    });
+  } catch {
+    return file;
+  }
+}
+
+/**
+ * OCR français (fallback anglais) — chemins CDN pour Vite/PWA/APK.
+ */
+export async function runOcrFrench(
+  file: File | Blob,
+  onProgress?: (pct: number, status: string) => void,
+): Promise<string> {
+  const prepared = await prepareImageForOcr(file);
+  const { createWorker } = await import('tesseract.js');
+
+  const workerOpts = (langPath: string, corePath: string) => ({
+    workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+    corePath,
+    langPath,
+    logger: (m: { status?: string; progress?: number }) => {
+      if (typeof m.progress === 'number') {
+        onProgress?.(Math.round(m.progress * 100), m.status === 'recognizing text' ? 'Lecture du texte…' : (m.status || '…'));
+      } else if (m.status) {
+        onProgress?.(5, String(m.status));
+      }
+    },
   });
-  return result.data.text || '';
+
+  const cores = [
+    'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd.wasm.js',
+    'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core.wasm.js',
+  ];
+  const langs = [
+    'https://tessdata.projectnaptha.com/4.0.0_fast',
+    'https://tessdata.projectnaptha.com/4.0.0',
+  ];
+
+  let lastErr: unknown = null;
+  for (const corePath of cores) {
+    for (const langPath of langs) {
+      let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
+      try {
+        onProgress?.(2, 'Chargement du moteur OCR…');
+        worker = await createWorker('fra', 1, workerOpts(langPath, corePath) as any);
+        const { data } = await worker.recognize(prepared);
+        let out = (data.text || '').trim();
+        if (out.length < 3) {
+          await worker.reinitialize('eng');
+          const r2 = await worker.recognize(prepared);
+          out = (r2.data.text || '').trim() || out;
+        }
+        await worker.terminate();
+        return out;
+      } catch (e) {
+        lastErr = e;
+        try {
+          await worker?.terminate();
+        } catch {
+          /* */
+        }
+      }
+    }
+  }
+  throw lastErr instanceof Error
+    ? lastErr
+    : new Error('Impossible de démarrer l’OCR. Vérifiez la connexion internet.');
 }
