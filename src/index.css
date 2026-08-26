@@ -604,3 +604,17 @@ html.theme-light .ad-marquee-wrap .text-amber-200 {
 .ad-marquee-v-item {
   gap: 0.5rem;
 }
+
+html.theme-light .brand-footer {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html.theme-light .brand-footer .text-stone-400 {
+  color: #64748b !important;
+}
+html.theme-light .brand-footer .text-stone-300 {
+  color: #334155 !important;
+}
+html.theme-light .brand-footer .text-amber-400 {
+  color: #c2410c !important;
+}

@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
 import OfflineBanner from '@/components/OfflineBanner';
+import BrandFooter from '@/components/BrandFooter';
 import UpdateBanner from '@/components/UpdateBanner';
 import { displayLogin } from '@/lib/login';
 import TypePicker from '@/components/TypePicker';
@@ -542,18 +543,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <main className="flex-1 p-4 lg:p-8 pb-24"><SubscriptionGate />
+        <main className="flex-1 p-4 lg:p-8 pb-36"><SubscriptionGate />
           <DailyReportGate />
           <OwnerReportReminder />
           <ReportDelayNotifier />
           <PermissionsOnboarding />
         {children}</main>
         <UpdateBanner />
-      <footer className="px-4 py-3 text-center text-[11px] text-stone-500 border-t border-stone-800/80">
-        <span className="text-stone-400 font-medium">Stock Manager AI</span>
-        {' · '}
-        <span>Powered by <span className="text-amber-500/90">Kevin Tech Pro</span></span>
-      </footer>
+      <BrandFooter />
       
       {/* Barre bas type Maquis Bar (mobile) */}
       <nav className="bottom-nav-maquis lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-stone-800 bg-stone-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">

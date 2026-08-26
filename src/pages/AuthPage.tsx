@@ -1,3 +1,4 @@
+import BrandFooter from '@/components/BrandFooter';
 import AdMarquee from '@/components/AdMarquee';
 import { useState, useEffect } from 'react';
 import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -374,6 +375,15 @@ async function resendConfirmation() {
             </div>
           )}
 
+          <div className="flex flex-col items-center gap-2 mb-4">
+            <img src="/kevin-tech-pro-logo.png" alt="Kevin Tech Pro" className="h-14 w-14 rounded-xl object-contain bg-white p-1 shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg'; }} />
+            <p className="text-xs text-stone-400 text-center">
+              <span className="font-semibold text-stone-200">Stock Manager AI</span>
+              <br />
+              <span className="text-amber-400 font-bold">Powered by Kevin Tech Pro</span>
+            </p>
+            <a href="mailto:kevintechpro0@gmail.com" className="text-[11px] text-sky-400 hover:underline">kevintechpro0@gmail.com</a>
+          </div>
           <AdMarquee className="mb-4 mx-1" />
         <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
@@ -459,6 +469,7 @@ async function resendConfirmation() {
               )}
             </button>
           </form>
+          <div className="mt-6"><BrandFooter /></div>
 
           {mode === 'forgot' ? (
             <button
