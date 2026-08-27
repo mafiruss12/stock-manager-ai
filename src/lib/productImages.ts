@@ -29,6 +29,30 @@ const CATEGORY_URL: Record<string, string> = {
   eau: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=128&h=128&fit=crop',
 };
 
+/** Alias facture dépôt → clé catalogue RCO */
+const DEPOT_ALIASES: Record<string, string[]> = {
+  bock65: ['bock66', 'bock'],
+  bock100: ['bock66', 'bock'],
+  beaufort50: ['beauford50cl', 'beauford50', 'beaufort50cl'],
+  beaufort33: ['beauford33cl', 'beauford33', 'beaufort33cl'],
+  castel50: ['castel33cl', 'castel'],
+  castel33: ['castel33cl', 'castel'],
+  racine50: ['racinebierre', 'racine'],
+  racinefort: ['racinefortbierre', 'racinefort'],
+  dopel50: ['dopelbiereslocales', 'dopel'],
+  dopelenergie: ['codisenergie', 'energieboomcanette'],
+  orangina60: ['orangina'],
+  orangina33: ['orangina'],
+  chill: ['chill'],
+  guinness65: ['guinness'],
+  guinness33: ['guinness'],
+  desperados33: ['despe', 'desperados'],
+  heineken33: ['heineken'],
+  rinoh: ['rhino'],
+  rhinoh: ['rhino'],
+  maltaguinness: ['guinness'],
+};
+
 let globalCatalog: Map<string, string> = new Map();
 let catalogLoaded = false;
 let catalogPromise: Promise<void> | null = null;
@@ -131,6 +155,14 @@ export function lookupCatalogImage(name?: string | null): string | null {
   for (const [k, url] of globalCatalog) {
     const kb = k.replace(/\d+/g, '');
     if (bare.length >= 4 && (kb === bare || kb.includes(bare) || bare.includes(kb))) return url;
+  }
+  // alias facture dépôt
+  const aliases = DEPOT_ALIASES[key] || DEPOT_ALIASES[bare] || [];
+  for (const a of aliases) {
+    if (globalCatalog.has(a)) return globalCatalog.get(a)!;
+    for (const [k, url] of globalCatalog) {
+      if (k.includes(a) || a.includes(k)) return url;
+    }
   }
   return null;
 }
