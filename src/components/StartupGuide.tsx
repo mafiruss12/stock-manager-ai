@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   CheckCircle2, Circle, ChevronRight, Package, ShoppingCart,
   ClipboardCheck, Wallet, Users, Settings, Sparkles, X,
@@ -127,7 +127,7 @@ function stepsFor(type: BusinessType): Step[] {
       id: 'open',
       title: 'Ouvrir la journée',
       description: 'Fond de caisse et démarrage des ventes',
-      to: '/cloture',
+      to: '/daily-report?tab=cloture',
       icon: <Wallet size={18} />,
       check: (c) => c.hasSession,
     },
@@ -135,7 +135,7 @@ function stepsFor(type: BusinessType): Step[] {
       id: 'sale',
       title: 'Enregistrer une première vente',
       description: 'Via caisse rapide ou point manuel',
-      to: '/pos',
+      to: '/daily-report?tab=caisse',
       icon: <ShoppingCart size={18} />,
       check: (c) => c.hasSale,
     },
@@ -143,7 +143,7 @@ function stepsFor(type: BusinessType): Step[] {
       id: 'point',
       title: 'Faire un point manuel',
       description: 'Comptage des restants en fin de service',
-      to: '/point-manuel',
+      to: '/daily-report',
       icon: <ClipboardCheck size={18} />,
       check: () => false,
     },
@@ -229,7 +229,7 @@ export default function StartupGuide({ compact = false }: { compact?: boolean })
       className={`rounded-2xl border border-amber-500/30 bg-stone-900/70 startup-guide-card ${compact ? 'mb-6 p-4' : 'p-5'}`}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
+        <Link to="/guide" className="block min-w-0 flex-1 hover:opacity-90 cursor-pointer">
           <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-accent, #E89B2D)' }}>
             Guide de démarrage · {BUSINESS_LABELS[bizType]}
           </p>
@@ -237,9 +237,9 @@ export default function StartupGuide({ compact = false }: { compact?: boolean })
             {allDone ? 'Configuration terminée 🎉' : 'Mettez votre activité en route'}
           </h2>
           <p className="text-sm text-stone-400 mt-1">
-            {loading ? 'Vérification…' : `${doneCount}/${steps.length} étapes complétées`}
+            {loading ? 'Vérification…' : `${doneCount}/${steps.length} étapes complétées — toucher une étape`}
           </p>
-        </div>
+        </Link>
         {compact && (
           <button
             type="button"
@@ -270,27 +270,30 @@ export default function StartupGuide({ compact = false }: { compact?: boolean })
             <li key={step.id}>
               <Link
                 to={step.to}
-                className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all hover:scale-[1.01] ${
+                role="button"
+                className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition-all cursor-pointer active:scale-[0.99] hover:scale-[1.01] relative z-10 ${
                   done
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : 'border-stone-800 bg-stone-950/40 hover:border-stone-700'
+                    ? 'border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/15'
+                    : 'border-amber-500/25 bg-stone-950/40 hover:border-amber-500/50 hover:bg-amber-500/10'
                 }`}
               >
                 <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                    done ? 'bg-emerald-500/20 text-emerald-400' : 'bg-stone-800 text-stone-400'
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                    done ? 'bg-emerald-500/25 text-emerald-400' : 'bg-amber-500/15 text-amber-400'
                   }`}
                 >
                   {done ? <CheckCircle2 size={18} /> : step.icon}
                 </span>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${done ? 'text-emerald-300' : 'text-stone-100'}`}>
+                <div className="flex-1 min-w-0 text-left">
+                  <p className={`text-sm font-semibold ${done ? 'text-emerald-300' : 'text-stone-100'}`}>
                     {i + 1}. {step.title}
                   </p>
-                  <p className="text-xs text-stone-500 truncate">{step.description}</p>
+                  <p className="text-xs text-stone-400 truncate">{step.description}</p>
+                  <p className="text-[11px] text-amber-400/90 mt-0.5">
+                    {done ? 'Terminé — ouvrir' : 'Appuyer pour ouvrir →'}
+                  </p>
                 </div>
-                {!done && <ChevronRight size={16} className="text-stone-600 shrink-0" />}
-                {done && <Circle size={0} className="hidden" />}
+                <ChevronRight size={18} className={`shrink-0 ${done ? 'text-emerald-400' : 'text-amber-400'}`} />
               </Link>
             </li>
           );
