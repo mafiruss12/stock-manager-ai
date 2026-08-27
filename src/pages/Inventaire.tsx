@@ -750,7 +750,10 @@ export default function Inventaire() {
     const existing = new Set(products.map((p) => p.name.toLowerCase()));
     const toInsert = getSeedCatalog(bizType).filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
       ...s,
+      stock: 0,
       establishment_id: estId,
+      image_url: lookupCatalogImage(s.name) || null,
+      units_per_package: 12,
     }));
     if (toInsert.length === 0) {
       alert('Tous les produits du catalogue sont déjà présents.');

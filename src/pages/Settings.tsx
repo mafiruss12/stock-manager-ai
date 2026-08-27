@@ -6,6 +6,7 @@ import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, Refr
 // MapPin used for GPS
 import { requestMicrophone, resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
+import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import { useAuth } from '@/lib/auth';
 import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
@@ -247,6 +248,12 @@ async function saveProfile() {
           },
           { onConflict: 'user_id,establishment_id' }
         );
+        // Catalogue par défaut (stock = 0) selon le type d'établissement
+        try {
+          await seedDefaultStockForEstablishment(newEst.id, form.type || newEst.type);
+        } catch {
+          /* non bloquant */
+        }
         setEst(newEst as Establishment);
         setSaved(true);
         setTimeout(() => setSaved(false), 2500);

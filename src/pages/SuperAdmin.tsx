@@ -11,6 +11,7 @@ import {
   getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink } from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
+import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 
 type Tab = 'requests' | 'members' | 'establishments' | 'map' | 'subscriptions' | 'activity' | 'pubs';
 
@@ -294,19 +295,24 @@ export default function SuperAdmin() {
     if (!estForm.name || !member) return;
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 30);
-    const { error: err } = await supabase.from('establishments').insert({
+    const { data: created, error: err } = await supabase.from('establishments').insert({
       name: estForm.name,
       type: estForm.type,
       address: estForm.address || null,
       phone: estForm.phone || null,
       created_by: member.user_id,
       subscription_status: 'trial',
-      trial_ends_at: trialEnd.toISOString() });
+      trial_ends_at: trialEnd.toISOString() }).select('id, type').single();
     if (err) setError(err.message);
     else {
+      if (created?.id) {
+        try {
+          await seedDefaultStockForEstablishment(created.id, created.type || estForm.type);
+        } catch { /* ignore */ }
+      }
       setEstModal(false);
       setEstForm({ name: '', type: 'maquis', address: '', phone: '' });
-      flash('Établissement créé');
+      flash('Établissement créé (catalogue démarrage stock à 0)');
       await loadData();
     }
   }
