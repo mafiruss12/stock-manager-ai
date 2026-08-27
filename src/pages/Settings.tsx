@@ -2,9 +2,15 @@ import { DEFAULT_BRANDING, type BtpBranding } from '@/lib/btp';
 import { isBtp } from '@/lib/businessTypes';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useEffect, useState } from 'react';
-import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield, MapPin, Loader2, Navigation } from 'lucide-react';
+import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield, MapPin, Loader2, Navigation, Fingerprint } from 'lucide-react';
 // MapPin used for GPS
 import { requestMicrophone, resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
+import {
+  isBiometricSupported,
+  isBiometricEnabled,
+  registerBiometric,
+  disableBiometric,
+} from '@/lib/biometric';
 import { supabase } from '@/lib/supabase';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +30,10 @@ export default function SettingsPage() {
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
   const [pwdErr, setPwdErr] = useState<string | null>(null);
   const [pwdSaving, setPwdSaving] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(() => isBiometricEnabled());
+  const [bioBusy, setBioBusy] = useState(false);
+  const [bioMsg, setBioMsg] = useState<string | null>(null);
+  const [bioErr, setBioErr] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState({ full_name: '', avatar_url: '' });
   const [form, setForm] = useState({ name: '', type: 'maquis', address: '', phone: '', logo_url: '', owner_email: '', owner_phone: '' });
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -541,6 +551,64 @@ async function saveProfile() {
               {pwdSaving ? 'Enregistrement…' : 'Changer le mot de passe'}
             </button>
           </div>
+        </div>
+
+        {/* Biométrie */}
+        <div className="card">
+          <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
+            <Fingerprint size={20} className="text-amber-400" /> Sécurité — Biométrie
+          </h2>
+          {!isBiometricSupported() ? (
+            <p className="text-sm text-stone-400">
+              Cet appareil ou navigateur ne prend pas en charge l’empreinte / Face ID (WebAuthn).
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-stone-400">
+                Déverrouillez l’app avec l’empreinte ou le visage après connexion. Valable sur cet appareil uniquement.
+              </p>
+              {bioErr && (
+                <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">{bioErr}</div>
+              )}
+              {bioMsg && (
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{bioMsg}</div>
+              )}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-stone-200">
+                  {bioEnabled ? 'Biométrie activée' : 'Biométrie désactivée'}
+                </span>
+                <button
+                  type="button"
+                  disabled={bioBusy}
+                  className="btn-primary text-sm px-4 py-2"
+                  onClick={async () => {
+                    setBioBusy(true);
+                    setBioErr(null);
+                    setBioMsg(null);
+                    if (bioEnabled) {
+                      disableBiometric();
+                      setBioEnabled(false);
+                      setBioMsg('Biométrie désactivée.');
+                    } else {
+                      const res = await registerBiometric(
+                        member?.user_id || 'user',
+                        member?.full_name || member?.email || 'Utilisateur'
+                      );
+                      if (res.ok) {
+                        setBioEnabled(true);
+                        setBioMsg('Biométrie enregistrée sur cet appareil.');
+                      } else {
+                        setBioErr(res.error || 'Échec');
+                      }
+                    }
+                    setBioBusy(false);
+                  }}
+                >
+                  {bioBusy ? '…' : bioEnabled ? 'Désactiver' : 'Activer'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Établissement */}

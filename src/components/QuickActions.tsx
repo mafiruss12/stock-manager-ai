@@ -31,7 +31,7 @@ function actionsFor(type: BusinessType): Action[] {
         { to: '/cloture', label: 'Clôture Z', sub: 'Fermer la journée', icon: <Wallet size={22} />, color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
         { to: '/tables', label: 'Tables / Serveurs', sub: 'Occupation', icon: <LayoutGrid size={22} />, color: '#14b8a6', bg: 'rgba(20,184,166,0.15)' },
         { to: '/kits', label: 'Kits & Promos', sub: 'Packs & offres', icon: <Package size={22} />, color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
-        { to: '/menu-qr', label: 'Menu QR', sub: 'Menu en ligne', icon: <FileText size={22} />, color: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+        { to: '/stock-transfer', label: 'Transfert stock', sub: 'Multi-établissements', icon: <Truck size={22} />, color: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
       ];
     case 'location_event':
       return [
