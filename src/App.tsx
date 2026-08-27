@@ -45,6 +45,9 @@ import TeamPage from '@/pages/Team';
 import MesEmployes from '@/pages/MesEmployes';
 import PointManuel from '@/pages/PointManuel';
 import GuidePage from '@/pages/Guide';
+import KitsPromos from '@/pages/KitsPromos';
+import MenuQR from '@/pages/MenuQR';
+import PublicMenu from '@/pages/PublicMenu';
 import RentDashboard from '@/pages/rent/Dashboard';
 import RentEquipment from '@/pages/rent/Equipment';
 import RentClients from '@/pages/rent/Clients';
@@ -161,6 +164,8 @@ function ProtectedRoutes() {
         <Route path="/inventaire" element={<Navigate to="/inventory" replace />} />
         <Route path="/point-manuel" element={<PointManuel />} />
         <Route path="/guide" element={<GuidePage />} />
+        <Route path="/kits" element={<KitsPromos />} />
+        <Route path="/menu-qr" element={<MenuQR />} />
         <Route path="/tables" element={<Tables />} />
         <Route path="/mes-employes" element={<MesEmployes />} />
         <Route path="/employees" element={<Navigate to="/mes-employes" replace />} />
@@ -197,6 +202,7 @@ export default function App() {
       <AuthProvider>
         <ErrorBoundary>
           <Routes>
+            <Route path="/m/:estId" element={<PublicMenu />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </ErrorBoundary>
