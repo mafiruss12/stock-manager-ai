@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { AlertTriangle, ClipboardList } from 'lucide-react';
+import { AlertTriangle, ClipboardList, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   buildReminderMessage,
   formatDateFr,
-  freeMailto,
   freeWhatsAppLink,
   getMissingReportDates,
   isReportRequiredRole,
@@ -13,16 +12,45 @@ import {
 } from '@/lib/dailyReportGate';
 import { supabase } from '@/lib/supabase';
 
+const DISMISS_KEY = (estId: string, day: string) => `mm_report_banner_dismiss_${estId}_${day}`;
+
+/** Visible uniquement à partir de 22h00 (heure locale) */
+function isAfterReportHour(): boolean {
+  try {
+    return new Date().getHours() >= 22;
+  } catch {
+    return false;
+  }
+}
+
+function wasDismissedToday(estId: string, day: string): boolean {
+  try {
+    return localStorage.getItem(DISMISS_KEY(estId, day)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function dismissToday(estId: string, day: string) {
+  try {
+    localStorage.setItem(DISMISS_KEY(estId, day), '1');
+  } catch {
+    /* */
+  }
+}
+
 /**
- * Obligation rapport journalier + liste des jours manqués.
- * Employé / caissier / gérant : ne peuvent pas ignorer le jour en cours.
+ * Rappel rapport journalier :
+ * - seulement à partir de 22h
+ * - une seule fois par jour (fermeture = disparition jusqu'au lendemain 22h)
+ * - ne s'affiche pas à chaque entrée / sortie de l'app
  */
 export default function DailyReportGate() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
   const location = useLocation();
   const [missingDates, setMissingDates] = useState<string[]>([]);
   const [checking, setChecking] = useState(true);
-  const [dismissedPast, setDismissedPast] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   const role = String(effectiveRole || member?.role || '');
   const estId = activeEstablishment?.id || member?.establishment_id || null;
@@ -37,23 +65,39 @@ export default function DailyReportGate() {
       if (!required || !estId) {
         setMissingDates([]);
         setChecking(false);
+        setVisible(false);
         return;
       }
+      if (!isAfterReportHour()) {
+        setChecking(false);
+        setVisible(false);
+        return;
+      }
+      if (wasDismissedToday(estId, today)) {
+        setChecking(false);
+        setVisible(false);
+        return;
+      }
+
       setChecking(true);
       const missing = await getMissingReportDates(estId, 14);
-      if (!cancelled) {
-        setMissingDates(missing);
-        setChecking(false);
-        if (missing.length && member?.user_id) {
-          const key = `mm_report_nudge_${estId}_${today}`;
-          if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, '1');
-            const msg = buildReminderMessage({
-              establishmentName: activeEstablishment?.name || 'Établissement',
-              staffName: member.full_name || 'Équipe',
-              date: today,
-              missingDates: missing,
-            });
+      if (cancelled) return;
+      setMissingDates(missing);
+      setChecking(false);
+      const show = missing.length > 0;
+      setVisible(show);
+
+      if (show && member?.user_id) {
+        const key = `mm_report_nudge_${estId}_${today}`;
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, '1');
+          const msg = buildReminderMessage({
+            establishmentName: activeEstablishment?.name || 'Établissement',
+            staffName: member.full_name || 'Équipe',
+            date: today,
+            missingDates: missing,
+          });
+          try {
             await supabase.from('notifications').insert({
               user_id: member.user_id,
               title: msg.title,
@@ -64,6 +108,8 @@ export default function DailyReportGate() {
               read: false,
               action_label: 'Faire le rapport',
             });
+          } catch {
+            /* */
           }
         }
       }
@@ -74,11 +120,13 @@ export default function DailyReportGate() {
     };
   }, [required, estId, member?.user_id, activeEstablishment?.name, location.pathname, today]);
 
+  function handleDismiss() {
+    if (estId) dismissToday(estId, today);
+    setVisible(false);
+  }
 
-  if (checking || !required || missingDates.length === 0) return null;
+  if (checking || !required || !visible || missingDates.length === 0) return null;
   if (location.pathname.startsWith('/daily-report')) return null;
-  // Peut masquer uniquement les jours passés si aujourd'hui est fait
-  if (!todayMissing && dismissedPast) return null;
 
   const msg = buildReminderMessage({
     establishmentName: activeEstablishment?.name || 'Établissement',
@@ -89,30 +137,38 @@ export default function DailyReportGate() {
 
   const ownerPhone =
     (activeEstablishment as { phone?: string } | null)?.phone ||
-    member?.phone ||
+    (member as { phone?: string } | null)?.phone ||
     '';
 
   return (
-    <div className="mx-3 mt-2 sm:mx-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm text-amber-50 space-y-2">
-      <div className="flex items-start gap-2">
+    <div className="mx-3 mt-2 sm:mx-4 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-3 text-sm text-amber-50 space-y-2 relative">
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="absolute top-2 right-2 p-1 rounded-lg text-amber-200/80 hover:bg-amber-500/20"
+        aria-label="Fermer"
+        title="Ne plus afficher aujourd’hui"
+      >
+        <X size={16} />
+      </button>
+      <div className="flex items-start gap-2 pr-6">
         <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-amber-100 flex items-center gap-2">
-            <ClipboardList size={16} /> Rapport journalier obligatoire
+            <ClipboardList size={16} /> Rapport journalier (après 22h)
           </p>
           {todayMissing ? (
             <p className="text-amber-100/90 mt-1">
-              Le point d&apos;aujourd&apos;hui ({formatDateFr(today)}) n&apos;est pas encore fait. Pensez à le faire vous-même chaque jour — c&apos;est obligatoire pour le suivi.
+              Le point d&apos;aujourd&apos;hui ({formatDateFr(today)}) n&apos;est pas encore fait.
+              Rappel affiché une seule fois par jour à partir de 22h.
             </p>
           ) : (
-            <p className="text-amber-100/90 mt-1">
-              Des jours précédents n&apos;ont pas de rapport. Merci de régulariser si possible.
-            </p>
+            <p className="text-amber-100/90 mt-1">Des jours précédents n&apos;ont pas de rapport.</p>
           )}
           {pastMissing.length > 0 && (
             <p className="text-xs text-amber-200/80 mt-1">
               Jours manquants : {pastMissing.map(formatDateFr).join(' · ')}
-              {todayMissing ? ` · + aujourd'hui` : ''}
+              {todayMissing ? " · + aujourd'hui" : ''}
             </p>
           )}
         </div>
@@ -121,10 +177,11 @@ export default function DailyReportGate() {
         <Link
           to="/daily-report"
           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-stone-900 text-xs font-semibold"
+          onClick={handleDismiss}
         >
           Faire le rapport
         </Link>
-        {ownerPhone && (
+        {ownerPhone ? (
           <a
             href={freeWhatsAppLink(ownerPhone, msg.waText)}
             target="_blank"
@@ -133,24 +190,14 @@ export default function DailyReportGate() {
           >
             WhatsApp
           </a>
-        )}
-        {member?.email && (
-          <a
-            href={freeMailto(member.email, msg.mailSubject, msg.mailBody)}
-            className="inline-flex px-3 py-1.5 rounded-lg border border-amber-500/40 text-xs text-amber-100"
-          >
-            E-mail
-          </a>
-        )}
-        {!todayMissing && (
-          <button
-            type="button"
-            className="text-xs text-amber-200/70 underline ml-auto"
-            onClick={() => setDismissedPast(true)}
-          >
-            Masquer
-          </button>
-        )}
+        ) : null}
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="inline-flex px-3 py-1.5 rounded-lg border border-amber-500/40 text-xs text-amber-100"
+        >
+          Plus tard (1× / jour)
+        </button>
       </div>
     </div>
   );
