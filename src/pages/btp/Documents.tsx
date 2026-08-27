@@ -935,11 +935,12 @@ export default function BtpDocuments() {
               {items.map((it, idx) => (
                 <div
                   key={idx}
-                  className={`rounded-2xl border p-3 space-y-3 transition ${
+                  className={`rounded-2xl border p-3 space-y-3 transition-all duration-300 btp-line-card hover:border-sky-500/40 ${
                     it.item_type === 'section'
                       ? 'bg-sky-950/30 border-sky-700/40'
                       : 'bg-stone-900/70 border-stone-700/80'
                   }`}
+                  style={{ animationDelay: `${Math.min(idx, 10) * 40}ms` }}
                 >
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-xs font-semibold uppercase tracking-wide text-sky-400/90">
@@ -1270,11 +1271,15 @@ export default function BtpDocuments() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {visible.map((d) => (
-            <li key={d.id} className="card flex flex-col sm:flex-row sm:items-center gap-3 hover:border-sky-500/30 transition border border-transparent">
+          {visible.map((d, i) => (
+            <li
+              key={d.id}
+              className="card flex flex-col sm:flex-row sm:items-center gap-3 hover:border-sky-500/40 hover:shadow-lg hover:shadow-sky-900/20 transition-all duration-300 border border-stone-800/80 btp-doc-card"
+              style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+            >
               <button type="button" className="flex-1 text-left min-w-0" onClick={() => void openEdit(d)}>
                 <p className="font-medium text-stone-100 truncate flex items-center gap-2">
-                  <span>{d.type === 'invoice' ? '🧾' : '📄'}</span>
+                  <span className="text-lg">{d.type === 'invoice' ? '🧾' : d.type === 'situation' ? '📊' : '📄'}</span>
                   {d.doc_number} · {d.title || DOC_TYPE_LABELS[d.type as BtpDocType]}
                 </p>
                 <p className="text-xs text-stone-500">
@@ -1304,6 +1309,13 @@ export default function BtpDocuments() {
           ))}
         </ul>
       )}
+      <style>{`
+        .btp-doc-card, .btp-line-card { animation: btpCardIn 0.4s ease-out both; }
+        @keyframes btpCardIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
       <p className="text-xs text-stone-600">
         <Link to="/btp/clients" className="text-sky-400 underline">Clients</Link>
         {' · '}
