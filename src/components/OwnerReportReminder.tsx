@@ -89,31 +89,31 @@ export default function OwnerReportReminder() {
       : 'Aucun employé / gérant / caissier actif';
 
   return (
-    <div className="report-reminder-box mx-3 mt-2 sm:mx-4 rounded-xl border px-3 py-3 text-sm space-y-2">
+    <div className="mx-3 mt-2 sm:mx-4 rounded-xl border border-sky-500/40 bg-sky-500/10 px-3 py-3 text-sm text-sky-50 space-y-2">
       <div className="flex items-start gap-2">
-        <Bell className="report-reminder-icon shrink-0 mt-0.5" size={18} />
+        <Bell className="text-sky-300 shrink-0 mt-0.5" size={18} />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold report-reminder-title flex items-center gap-2">
+          <p className="font-semibold text-sky-100 flex items-center gap-2">
             <ClipboardList size={16} /> Rappels rapports — votre établissement
           </p>
           {todayMissing ? (
-            <p className="mt-1 report-reminder-body">
+            <p className="mt-1 text-sky-100/90">
               Le <strong>point d&apos;aujourd&apos;hui</strong> n&apos;a pas encore été fait.
             </p>
           ) : (
-            <p className="mt-1 report-reminder-body">Des jours précédents n&apos;ont pas de point.</p>
+            <p className="mt-1 text-sky-100/90">Des jours précédents n&apos;ont pas de point.</p>
           )}
-          <p className="text-xs report-reminder-muted mt-1">
-            Équipe concernée (doit faire le point) : <span className="report-reminder-title font-medium">{staffNames}</span>
+          <p className="text-xs text-sky-200/80 mt-1">
+            Équipe concernée (doit faire le point) : <span className="text-sky-100">{staffNames}</span>
           </p>
           {pastMissing.length > 0 && (
-            <p className="text-xs report-reminder-muted mt-1">
+            <p className="text-xs text-sky-200/80 mt-1">
               Jours sans point : {pastMissing.map(formatDateFr).join(' · ')}
               {todayMissing ? ' · + aujourd&apos;hui' : ''}
             </p>
           )}
           {todayMissing && pastMissing.length === 0 && (
-            <p className="text-xs report-reminder-muted mt-1">Seul aujourd&apos;hui est en attente.</p>
+            <p className="text-xs text-sky-200/80 mt-1">Seul aujourd&apos;hui est en attente.</p>
           )}
         </div>
       </div>
@@ -124,12 +124,12 @@ export default function OwnerReportReminder() {
         >
           Voir / faire le point
         </Link>
-        <Link to="/suivi" className="inline-flex px-3 py-1.5 rounded-lg report-reminder-btn-sec border text-xs">
+        <Link to="/suivi" className="inline-flex px-3 py-1.5 rounded-lg border border-sky-500/40 text-xs text-sky-100">
           Suivi gérant
         </Link>
         <button
           type="button"
-          className="text-xs report-reminder-muted underline ml-auto"
+          className="text-xs text-sky-200/70 underline ml-auto"
           onClick={() => setDismissed(true)}
         >
           Masquer pour cette session
