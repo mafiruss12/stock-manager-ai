@@ -1171,6 +1171,61 @@ export default function Inventaire() {
               )}
             </div>
           </div>
+          <div className="card border border-red-900/40 bg-red-950/20">
+            <h2 className="font-semibold text-stone-100 mb-2 flex items-center gap-2">
+              <Trash2 size={18} className="text-red-400" /> Suppression de boissons / produits
+            </h2>
+            <p className="text-xs text-stone-400 mb-3">
+              Coche les produits dans l’onglet <strong className="text-stone-300">Voir mon stock</strong>,
+              puis reviens ici pour supprimer. Tu peux aussi tout vider d’un coup.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm"
+                onClick={() => {
+                  setTab('stock');
+                  setTimeout(() => toggleSelectAllFiltered(), 50);
+                }}
+                disabled={bulkBusy || products.length === 0}
+              >
+                Sélectionner tout le stock affiché
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm text-red-300 border-red-800/50"
+                disabled={bulkBusy || selectedIds.size === 0}
+                onClick={() => void removeMany('selected')}
+              >
+                <Trash2 size={16} />
+                Supprimer la sélection ({selectedIds.size})
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm text-red-300"
+                disabled={bulkBusy || filtered.length === 0}
+                onClick={() => void removeMany('filtered')}
+              >
+                Supprimer la liste filtrée ({filtered.length})
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex items-center gap-2 justify-center text-sm bg-red-700 hover:bg-red-600 border-0"
+                disabled={bulkBusy || products.length === 0}
+                onClick={() => void removeMany('all')}
+              >
+                <Trash2 size={16} />
+                Supprimer TOUT le stock ({products.length})
+              </button>
+            </div>
+            {selectedIds.size > 0 && (
+              <p className="text-xs text-amber-300/90 mt-3">
+                {selectedIds.size} produit(s) coché(s). Va dans « Voir mon stock » pour cocher / décocher ligne par ligne.
+              </p>
+            )}
+            {bulkBusy && <p className="text-xs text-stone-400 mt-2">Suppression en cours…</p>}
+          </div>
+
           <div className="card">
             <h2 className="font-semibold text-stone-100 mb-2 flex items-center gap-2">
               <History size={18} className="text-amber-400" /> Historique des mouvements
@@ -1292,49 +1347,6 @@ export default function Inventaire() {
           ))}
         </div>
       </div>
-
-      {/* Actions bulk suppression */}
-      {canEditStock && products.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-stone-700/80 bg-stone-900/70">
-          <button
-            type="button"
-            className="btn-secondary text-xs"
-            onClick={() => toggleSelectAllFiltered()}
-            disabled={bulkBusy || filtered.length === 0}
-          >
-            {filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id))
-              ? 'Tout désélectionner'
-              : 'Tout sélectionner (liste)'}
-          </button>
-          <button
-            type="button"
-            className="btn-secondary text-xs text-red-300 border-red-800/50"
-            disabled={bulkBusy || selectedIds.size === 0}
-            onClick={() => void removeMany('selected')}
-          >
-            <Trash2 size={14} className="inline mr-1" />
-            Supprimer sélection ({selectedIds.size})
-          </button>
-          <button
-            type="button"
-            className="btn-secondary text-xs text-red-300"
-            disabled={bulkBusy || filtered.length === 0}
-            onClick={() => void removeMany('filtered')}
-          >
-            Supprimer la liste filtrée ({filtered.length})
-          </button>
-          <button
-            type="button"
-            className="btn-primary text-xs bg-red-700 hover:bg-red-600 border-0"
-            disabled={bulkBusy || products.length === 0}
-            onClick={() => void removeMany('all')}
-          >
-            <Trash2 size={14} className="inline mr-1" />
-            Supprimer TOUT le stock ({products.length})
-          </button>
-          {bulkBusy && <span className="text-xs text-stone-400">Suppression…</span>}
-        </div>
-      )}
 
       {/* Table */}
       {filtered.length === 0 ? (
