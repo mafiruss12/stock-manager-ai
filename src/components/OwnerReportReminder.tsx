@@ -12,6 +12,13 @@ import {
 } from '@/lib/dailyReportGate';
 import { supabase } from '@/lib/supabase';
 
+const OWNER_DISMISS_KEY = (estId: string, day: string) => `mm_owner_report_banner_${estId}_${day}`;
+
+function isAfterReportHour(): boolean {
+  try { return new Date().getHours() >= 22; } catch { return false; }
+}
+
+
 const OWNER_ROLES = ['owner', 'admin', 'super_admin'];
 
 /**
@@ -29,6 +36,15 @@ export default function OwnerReportReminder() {
   const isOwnerView = OWNER_ROLES.includes(role);
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const today = todayISO();
+
+  useEffect(() => {
+    if (!estId) return;
+    if (!isAfterReportHour()) { setDismissed(true); return; }
+    try {
+      if (localStorage.getItem(OWNER_DISMISS_KEY(estId, today)) === '1') setDismissed(true);
+    } catch { /* */ }
+  }, [estId, today]);
+
   const todayMissing = missingDates.includes(today);
   const pastMissing = missingDates.filter((d) => d !== today);
 
@@ -79,7 +95,7 @@ export default function OwnerReportReminder() {
     };
   }, [isOwnerView, estId, member?.user_id, activeEstablishment?.name, location.pathname, today]);
 
-  if (!isOwnerView || loading || dismissed) return null;
+  if (!isOwnerView || loading || dismissed || !isAfterReportHour()) return null;
   if (missingDates.length === 0) return null;
   if (location.pathname.startsWith('/daily-report')) return null;
 
@@ -130,7 +146,10 @@ export default function OwnerReportReminder() {
         <button
           type="button"
           className="text-xs text-sky-200/70 underline ml-auto"
-          onClick={() => setDismissed(true)}
+          onClick={() => {
+            try { if (estId) localStorage.setItem(OWNER_DISMISS_KEY(estId, today), '1'); } catch { /* */ }
+            setDismissed(true);
+          }}
         >
           Masquer pour cette session
         </button>
