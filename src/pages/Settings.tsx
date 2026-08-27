@@ -2,7 +2,8 @@ import { DEFAULT_BRANDING, type BtpBranding } from '@/lib/btp';
 import { isBtp } from '@/lib/businessTypes';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useEffect, useState } from 'react';
-import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield } from 'lucide-react';
+import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield, MapPin, Loader2, Navigation } from 'lucide-react';
+// MapPin used for GPS
 import { requestMicrophone, resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +25,9 @@ export default function SettingsPage() {
   const [pwdSaving, setPwdSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '', avatar_url: '' });
   const [form, setForm] = useState({ name: '', type: 'maquis', address: '', phone: '', logo_url: '', owner_email: '', owner_phone: '' });
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsMsg, setGpsMsg] = useState<string | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number; at?: string } | null>(null);
   const [btpBranding, setBtpBranding] = useState<BtpBranding>({ ...DEFAULT_BRANDING });
   const [brandingSaved, setBrandingSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,13 +59,78 @@ export default function SettingsPage() {
           address: data.address ?? '',
           phone: data.phone ?? '',
           logo_url: (data as any).logo_url ?? '',
+          owner_email: (data as any).owner_email ?? '',
+          owner_phone: (data as any).owner_phone ?? '',
         });
+        if ((data as any).latitude != null && (data as any).longitude != null) {
+          setGpsCoords({
+            lat: Number((data as any).latitude),
+            lng: Number((data as any).longitude),
+            at: (data as any).location_updated_at || undefined,
+          });
+        } else {
+          setGpsCoords(null);
+        }
       }
       setLoading(false);
     })();
   }, [member]);
 
   
+
+  async function captureGps() {
+    if (!est?.id) {
+      setGpsMsg('Crée ou sélectionne d’abord un établissement.');
+      return;
+    }
+    if (!navigator.geolocation) {
+      setGpsMsg('La géolocalisation n’est pas supportée sur cet appareil.');
+      return;
+    }
+    const ok = window.confirm(
+      'Autoriser Stock Manager à enregistrer la position GPS de cet établissement ?\n\n' +
+        'Utilisée uniquement pour que l’administrateur puisse mieux vous assister. Vous pouvez la mettre à jour à tout moment.',
+    );
+    if (!ok) return;
+    setGpsLoading(true);
+    setGpsMsg(null);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const at = new Date().toISOString();
+        const { error: err } = await supabase
+          .from('establishments')
+          .update({
+            latitude: lat,
+            longitude: lng,
+            location_updated_at: at,
+          } as any)
+          .eq('id', est.id);
+        setGpsLoading(false);
+        if (err) {
+          setError(err.message);
+          setGpsMsg(null);
+          return;
+        }
+        setGpsCoords({ lat, lng, at });
+        setGpsMsg('Position enregistrée avec succès.');
+        setEst((prev) => (prev ? { ...prev, latitude: lat, longitude: lng, location_updated_at: at } : prev));
+      },
+      (geoErr) => {
+        setGpsLoading(false);
+        const messages: Record<number, string> = {
+          1: 'Permission refusée. Autorise la localisation dans les paramètres du navigateur / de l’app.',
+          2: 'Position indisponible. Active le GPS et réessaie.',
+          3: 'Délai dépassé. Réessaie à l’extérieur ou avec une meilleure couverture.',
+        };
+        setGpsMsg(messages[geoErr.code] || geoErr.message);
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
+  }
+
   async function saveBtpBranding() {
     if (!est?.id) return;
     setSaving(true);
@@ -571,6 +640,48 @@ async function saveProfile() {
                     </div>
                   </div>
                   <p className="text-[11px] text-stone-500 mt-2">Quand un gérant/caissier verrouille le rapport, vous êtes notifié in-app + e-mail + WhatsApp.</p>
+                </div>
+
+
+                <div className="rounded-xl border border-sky-700/40 bg-sky-950/30 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-sky-300 flex items-center gap-2">
+                    <MapPin size={16} /> Position GPS de l’établissement
+                  </h3>
+                  <p className="text-xs text-stone-400">
+                    Enregistre la position exacte pour que l’équipe Kevin Tech Pro puisse mieux t’assister.
+                    Uniquement l’administrateur voit cette position.
+                  </p>
+                  {gpsCoords && (
+                    <div className="text-xs text-stone-300 space-y-1">
+                      <p className="font-mono">
+                        {gpsCoords.lat.toFixed(5)}, {gpsCoords.lng.toFixed(5)}
+                      </p>
+                      {gpsCoords.at && (
+                        <p className="text-stone-500">Mis à jour : {new Date(gpsCoords.at).toLocaleString('fr-FR')}</p>
+                      )}
+                      <a
+                        className="inline-flex items-center gap-1 text-sky-400 hover:underline"
+                        href={`https://www.google.com/maps?q=${gpsCoords.lat},${gpsCoords.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Navigation size={12} /> Voir sur Maps
+                      </a>
+                    </div>
+                  )}
+                  {gpsMsg && <p className="text-xs text-emerald-400">{gpsMsg}</p>}
+                  <button
+                    type="button"
+                    className="btn-secondary w-full flex items-center justify-center gap-2"
+                    disabled={gpsLoading || !est}
+                    onClick={() => void captureGps()}
+                  >
+                    {gpsLoading ? (
+                      <><Loader2 size={18} className="animate-spin" /> Localisation…</>
+                    ) : (
+                      <><MapPin size={18} /> {gpsCoords ? 'Mettre à jour ma position GPS' : 'Enregistrer ma position GPS'}</>
+                    )}
+                  </button>
                 </div>
 
                   <button onClick={saveEstablishment} disabled={saving || !form.name} className="btn-primary w-full flex items-center justify-center gap-2">
