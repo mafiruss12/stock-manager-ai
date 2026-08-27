@@ -1395,7 +1395,7 @@ export default function Inventaire() {
         ))}
       </div>
 
-      {/* Marques style Makaya */}
+      {/* Marques */}
       {bizType === 'maquis' && brands.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
           {brands.map((b) => (

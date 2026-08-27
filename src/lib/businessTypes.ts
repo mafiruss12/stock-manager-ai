@@ -197,7 +197,7 @@ export const BUSINESS_UI: Record<BusinessType, BusinessUI> = {
     unitDefault: 'bouteille',
     salesLabel: 'Ventes',
     shortcutInventory: 'Boissons',
-    emptyProducts: 'Aucune boisson en stock. Importez le catalogue Makaya ou ajoutez des produits.',
+    emptyProducts: 'Aucune boisson en stock. Importez un catalogue ou ajoutez des produits.',
   },
   magasin: {
     productSingular: 'Produit',

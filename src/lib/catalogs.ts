@@ -191,7 +191,7 @@ export function getSeedCatalog(type: string | null | undefined): SeedProduct[] {
 export function catalogLabel(type: string | null | undefined): string {
   const t = normalizeBusinessType(type);
   const map: Record<BusinessType, string> = {
-    maquis: 'Catalogue maquis / bar (style Makaya)',
+    maquis: 'Importer catalogue',
     magasin: 'Catalogue magasin (épicerie & hygiène)',
     boutique: 'Catalogue boutique (prêt-à-porter)',
     superette: 'Catalogue supérette (rayons)',
