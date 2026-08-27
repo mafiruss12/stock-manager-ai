@@ -32,7 +32,7 @@ export async function seedDefaultStockForEstablishment(
     cost: s.cost,
     price: s.price,
     establishment_id: establishmentId,
-    units_per_package: 12,
+    units_per_package: s.units_per_package ?? 12,
     image_url: lookupCatalogImage(s.name) || null,
   }));
 

@@ -9,6 +9,11 @@ export type SeedProduct = {
   min_stock: number;
   cost: number;
   price: number;
+  /** Marque (Solibra, Brassivoire, Carré d'Or, Autre…) — style Makaya */
+  brand?: string;
+  /** Ex. Casier 24 - Bière blonde */
+  packaging?: string;
+  units_per_package?: number;
 };
 
 /** Uniquement maquis / boissons : logique casiers */
@@ -20,34 +25,88 @@ export function casierSize(type: string | null | undefined): number {
   return usesCasiers(type) ? 24 : 0;
 }
 
-/** Catalogue démarrage maquis / bar — noms exacts facture dépôt (MYJC & similaires). Stock toujours à 0. */
+/** Infère la marque à partir du nom (style Makaya). */
+export function inferBrand(name: string): string {
+  const n = (name || '').toLowerCase();
+  if (/beaufort|bock|castel|youzou|youki|booster|flag|doppel|dopel|sucrerie|ivoire|orangina/.test(n)) return 'Solibra';
+  if (/guinness|heineken|desperados|malta/.test(n)) return 'Brassivoire';
+  if (/\bawa\b|carr[eé]/.test(n)) return "Carré d'Or";
+  return 'Autre';
+}
+
+/**
+ * Catalogue maquis / bar — noms & formats style Makaya + facture dépôt.
+ * Stock toujours à 0 au seed.
+ */
 const MAQUIS: SeedProduct[] = [
-  { name: 'Bock 65', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Bock 100', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Beaufort 50', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Beaufort 33', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Castel 50', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Castel 33', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Vin 50', category: 'Vin', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Vin 100', category: 'Vin', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Racine 50', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Racine Fort', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Dopel 50', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Dopel Energie', category: 'Énergie', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Sucrerie 60', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Sucrerie 30', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Orangina 60', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Orangina 33', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Chill', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Tequilla 50', category: 'Spiritueux', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Guinness 65', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Guinness 33', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Desperados 33', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Heineken 33', category: 'Bière', unit: 'Casier / unité', stock: 0, min_stock: 6, cost: 0, price: 0 },
-  { name: 'Rinoh', category: 'Énergie', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Ivoire', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Kunja', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
-  { name: 'Malta Guinness', category: 'Boisson', unit: 'Casier / unité', stock: 0, min_stock: 12, cost: 0, price: 0 },
+  // —— Bières Solibra ——
+  { name: 'Beaufort 25 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Beaufort 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Beaufort 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 20 - Bière blonde', unit: 'bouteille', units_per_package: 20, stock: 0, min_stock: 20, cost: 0, price: 0 },
+  { name: 'Beaufort canette 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde 5%', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Beaufort canette 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Bock 25 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde 4.8%', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Bock 65 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière blonde', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Bock 100 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière blonde 4.8%', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Bock canette 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde 4.8%', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Castel 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Castel 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 20 - Bière blonde', unit: 'bouteille', units_per_package: 20, stock: 0, min_stock: 20, cost: 0, price: 0 },
+  { name: 'Castel canette 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Carton 24 - Bière blonde', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Flag 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Flag 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 20 - Bière blonde', unit: 'bouteille', units_per_package: 20, stock: 0, min_stock: 20, cost: 0, price: 0 },
+  { name: 'Booster tequila 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 24 - Bière aromatisée', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Booster tequila 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière aromatisée', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Booster tequila canette 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Pack 24 - Bière aromatisée', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Racine 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière locale', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Racine Fort', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière locale', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Dopel 50 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 12 - Bière locale', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  // —— Bières Brassivoire / import ——
+  { name: 'Guinness 33 cl', category: 'Bière', brand: 'Brassivoire', packaging: 'Casier 24 - Stout', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Guinness 65 cl', category: 'Bière', brand: 'Brassivoire', packaging: 'Casier 12 - Stout', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Heineken 33 cl', category: 'Bière', brand: 'Brassivoire', packaging: 'Casier 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Desperados 33 cl', category: 'Bière', brand: 'Brassivoire', packaging: 'Casier 24 - Bière aromatisée', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Budweiser 33 cl', category: 'Bière', brand: 'Solibra', packaging: 'Casier 24 - Bière blonde', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Bavaria 33 cl', category: 'Bière', brand: 'Autre', packaging: 'Carton 6 - Bière sans alcool', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  // —— Sodas Solibra ——
+  { name: 'Youzou 30 cl', category: 'Soda', brand: 'Solibra', packaging: 'Pack 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Youzou 50 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Youzou canette 33 cl', category: 'Soda', brand: 'Solibra', packaging: 'Carton 12 - Boisson gazeuse', unit: 'canette', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Youzou pet 1,5 L', category: 'Soda', brand: 'Solibra', packaging: 'Carton 24 - Boisson gazeuse', unit: 'pet', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Youzou pet 30 cl', category: 'Soda', brand: 'Solibra', packaging: 'Pack 6 - Boisson gazeuse', unit: 'pet', units_per_package: 6, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Youki orange 30 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Youki orange 50 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 12 - Boisson gazeuse', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Youki orange canette 33 cl', category: 'Soda', brand: 'Solibra', packaging: 'Pack 24 - Boisson gazeuse', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Youki orange pet 1,5 L', category: 'Soda', brand: 'Solibra', packaging: 'Pack 12 - Boisson gazeuse', unit: 'pet', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Youki orange pet 30 cl', category: 'Soda', brand: 'Solibra', packaging: 'Pack 24 - Boisson gazeuse', unit: 'pet', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Orangina 33 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Orangina 60 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 12 - Boisson gazeuse', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Sucrerie 30 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Sucrerie 60 cl', category: 'Soda', brand: 'Solibra', packaging: 'Casier 12 - Boisson gazeuse', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Chill', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Ivoire', category: 'Soda', brand: 'Solibra', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Kunja', category: 'Soda', brand: 'Autre', packaging: 'Casier 24 - Boisson gazeuse', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Malta Guinness', category: 'Soda', brand: 'Brassivoire', packaging: 'Casier 24 - Boisson maltée', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  // —— Énergie ——
+  { name: 'Dopel Energie', category: 'Énergie', brand: 'Solibra', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'Rinoh', category: 'Énergie', brand: 'Autre', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: '3X Energy 25 cl', category: 'Énergie', brand: 'Autre', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: '3X Energy 33 cl', category: 'Énergie', brand: 'Autre', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: '3X Energy 50 cl', category: 'Énergie', brand: 'Autre', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  { name: 'BBL Energy Drink 25 cl', category: 'Énergie', brand: 'Autre', packaging: 'Carton 24 - Boisson énergisante', unit: 'canette', units_per_package: 24, stock: 0, min_stock: 24, cost: 0, price: 0 },
+  // —— Eau ——
+  { name: "Akwaba' 45 cl", category: 'Eau', brand: 'Autre', packaging: 'Pack 12 - Eau minérale', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: "Akwaba' 150 cl", category: 'Eau', brand: 'Autre', packaging: 'Pack 6 - Eau minérale', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Awa 25 cl', category: 'Eau', brand: "Carré d'Or", packaging: 'Pack 9 - Eau minérale', unit: 'bouteille', units_per_package: 9, stock: 0, min_stock: 18, cost: 0, price: 0 },
+  { name: 'Awa 50 cl', category: 'Eau', brand: "Carré d'Or", packaging: 'Pack 9 - Eau minérale', unit: 'bouteille', units_per_package: 9, stock: 0, min_stock: 18, cost: 0, price: 0 },
+  { name: 'Awa 150 cl', category: 'Eau', brand: "Carré d'Or", packaging: 'Pack 6 - Eau minérale', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  // —— Vin / spiritueux ——
+  { name: 'Vin 50 cl', category: 'Vin', brand: 'Autre', packaging: 'Casier 12 - Vin', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: 'Vin 100 cl', category: 'Vin', brand: 'Autre', packaging: 'Casier 6 - Vin', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: "Baron d'Arignac 75 cl", category: 'Vin', brand: 'Autre', packaging: 'Carton 6 - Vin blanc 10.5%', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: "Bailey's 70 cl", category: 'Spiritueux', brand: 'Autre', packaging: 'Carton 6 - Irish cream 17%', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 3, cost: 0, price: 0 },
+  { name: 'Ballantines 70 cl', category: 'Spiritueux', brand: 'Autre', packaging: 'Carton 6 - Scotch Whisky 40%', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 3, cost: 0, price: 0 },
+  { name: 'Absolut Vodka Bleu 100 cl', category: 'Spiritueux', brand: 'Autre', packaging: 'Carton 6 - Vodka 40%', unit: 'bouteille', units_per_package: 6, stock: 0, min_stock: 3, cost: 0, price: 0 },
+  { name: 'Tequilla 50 cl', category: 'Spiritueux', brand: 'Solibra', packaging: 'Casier 12 - Spiritueux', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 6, cost: 0, price: 0 },
 ];
 
 const MAGASIN: SeedProduct[] = [
@@ -132,7 +191,7 @@ export function getSeedCatalog(type: string | null | undefined): SeedProduct[] {
 export function catalogLabel(type: string | null | undefined): string {
   const t = normalizeBusinessType(type);
   const map: Record<BusinessType, string> = {
-    maquis: 'Catalogue maquis / bar (désignations dépôt)',
+    maquis: 'Catalogue maquis / bar (style Makaya)',
     magasin: 'Catalogue magasin (épicerie & hygiène)',
     boutique: 'Catalogue boutique (prêt-à-porter)',
     superette: 'Catalogue supérette (rayons)',

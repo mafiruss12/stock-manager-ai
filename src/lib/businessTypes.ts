@@ -193,11 +193,11 @@ export const BUSINESS_UI: Record<BusinessType, BusinessUI> = {
     posTitle: 'Caisse maquis',
     posSubtitle: 'Vente rapide au comptoir',
     stockAlert: 'Boissons en rupture',
-    categories: ['Bière', 'Boisson', 'Eau', 'Vin', 'Spiritueux', 'Grillade', 'Accompagnement', 'Autre'],
+    categories: ['Bière', 'Soda', 'Eau', 'Vin', 'Spiritueux', 'Énergie', 'Grillade', 'Accompagnement', 'Autre'],
     unitDefault: 'bouteille',
     salesLabel: 'Ventes',
     shortcutInventory: 'Boissons',
-    emptyProducts: 'Aucune boisson en stock. Ajoutez bières, sodas, grillades…',
+    emptyProducts: 'Aucune boisson en stock. Importez le catalogue Makaya ou ajoutez des produits.',
   },
   magasin: {
     productSingular: 'Produit',

@@ -10,23 +10,55 @@ import { supabase } from '@/lib/supabase';
 
 type Rule = { keys: string[]; url: string };
 
+/** Images HD style Makaya (photo produit isolée sur fond clair) */
+const IMG = {
+  beerGreen: 'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=256&h=256&fit=crop',
+  beerBottle: 'https://images.unsplash.com/photo-1535958636474-b021ee852bba?w=256&h=256&fit=crop',
+  beerCan: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=256&h=256&fit=crop',
+  heineken: 'https://images.unsplash.com/photo-1618885472179-5e39196df9fe?w=256&h=256&fit=crop',
+  guinness: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=256&h=256&fit=crop',
+  corona: 'https://images.unsplash.com/photo-1615880484746-a134be9a0eaa?w=256&h=256&fit=crop',
+  sodaGreen: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=256&h=256&fit=crop',
+  sodaOrange: 'https://images.unsplash.com/photo-1624517452488-337a51a5a0f0?w=256&h=256&fit=crop',
+  sodaCan: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=256&h=256&fit=crop',
+  water: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=256&h=256&fit=crop',
+  energy: 'https://images.unsplash.com/photo-1622543925917-763c34d1a951?w=256&h=256&fit=crop',
+  wine: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=256&h=256&fit=crop',
+  spirits: 'https://images.unsplash.com/photo-1514362545857-3bc16549766b?w=256&h=256&fit=crop',
+  whiskey: 'https://images.unsplash.com/photo-1527281400683-1aae777175f8?w=256&h=256&fit=crop',
+  vodka: 'https://images.unsplash.com/photo-1618885472179-5e39196df9fe?w=256&h=256&fit=crop',
+};
+
 const RULES: Rule[] = [
-  { keys: ['heineken'], url: 'https://images.unsplash.com/photo-1618885472179-5e39196df9fe?w=128&h=128&fit=crop' },
-  { keys: ['guinness'], url: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=128&h=128&fit=crop' },
-  { keys: ['corona'], url: 'https://images.unsplash.com/photo-1615880484746-a134be9a0eaa?w=128&h=128&fit=crop' },
-  { keys: ['flag', 'castel', 'beaufort', 'beauford', 'bock', 'desperados', 'despe', 'bière', 'biere', 'beer'], url: 'https://images.unsplash.com/photo-1535958636474-b021ee852bba?w=128&h=128&fit=crop' },
-  { keys: ['coca', 'coke', 'wordcola'], url: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=128&h=128&fit=crop' },
-  { keys: ['fanta', 'sprite', 'mirinda', 'soda', 'gazeuse', 'orangina', 'youki'], url: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=128&h=128&fit=crop' },
-  { keys: ['eau', 'water', 'mineral'], url: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=128&h=128&fit=crop' },
-  { keys: ['énergie', 'energie', 'energy', 'boom'], url: 'https://images.unsplash.com/photo-1622543925917-763c34d1a951?w=128&h=128&fit=crop' },
+  { keys: ['heineken'], url: IMG.heineken },
+  { keys: ['guinness', 'malta'], url: IMG.guinness },
+  { keys: ['corona'], url: IMG.corona },
+  { keys: ['desperados', 'despe'], url: IMG.beerCan },
+  { keys: ['beaufort', 'beauford', 'bock', 'castel', 'flag', 'booster', 'racine', 'dopel', 'doppel', 'budweiser', 'bavaria'], url: IMG.beerGreen },
+  { keys: ['youzou', 'youki', 'sucrerie', 'ivoire', 'chill', 'kunja'], url: IMG.sodaGreen },
+  { keys: ['orangina'], url: IMG.sodaOrange },
+  { keys: ['coca', 'coke', 'wordcola'], url: IMG.sodaCan },
+  { keys: ['fanta', 'sprite', 'mirinda', 'soda', 'gazeuse'], url: IMG.sodaGreen },
+  { keys: ['awa', 'akwaba', 'eau', 'water', 'mineral'], url: IMG.water },
+  { keys: ['énergie', 'energie', 'energy', 'boom', 'rinoh', '3x', 'bbl'], url: IMG.energy },
+  { keys: ['ballantine', 'whisky', 'whiskey'], url: IMG.whiskey },
+  { keys: ['absolut', 'vodka'], url: IMG.vodka },
+  { keys: ['bailey', 'tequilla', 'tequila', 'gin', 'bombay'], url: IMG.spirits },
+  { keys: ['vin', 'wine', 'baron', 'arignac'], url: IMG.wine },
+  { keys: ['bière', 'biere', 'beer'], url: IMG.beerBottle },
 ];
 
 const CATEGORY_URL: Record<string, string> = {
-  bière: 'https://images.unsplash.com/photo-1535958636474-b021ee852bba?w=128&h=128&fit=crop',
-  biere: 'https://images.unsplash.com/photo-1535958636474-b021ee852bba?w=128&h=128&fit=crop',
-  alcool: 'https://images.unsplash.com/photo-1514362545857-3bc16549766b?w=128&h=128&fit=crop',
-  soda: 'https://images.unsplash.com/photo-1625772299848-391b6a87d7b3?w=128&h=128&fit=crop',
-  eau: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?w=128&h=128&fit=crop',
+  bière: IMG.beerBottle,
+  biere: IMG.beerBottle,
+  soda: IMG.sodaGreen,
+  boisson: IMG.sodaGreen,
+  eau: IMG.water,
+  énergie: IMG.energy,
+  energie: IMG.energy,
+  vin: IMG.wine,
+  spiritueux: IMG.spirits,
+  alcool: IMG.spirits,
 };
 
 /** Alias facture dépôt → clé catalogue RCO */

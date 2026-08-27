@@ -1,5 +1,5 @@
 import { getBusinessUI, normalizeBusinessType } from '@/lib/businessTypes';
-import { getSeedCatalog, catalogLabel, usesCasiers, casierSize } from '@/lib/catalogs';
+import { getSeedCatalog, catalogLabel, usesCasiers, casierSize, inferBrand } from '@/lib/catalogs';
 import { logAudit, newClientOpId } from '@/lib/audit';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -40,6 +40,8 @@ export default function Inventaire() {
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('Tous');
   const [stockStatus, setStockStatus] = useState<'all' | 'rupture' | 'presque' | 'normal'>('all');
+  const [filterBrand, setFilterBrand] = useState('Tous');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -128,13 +130,20 @@ export default function Inventaire() {
     return ['Tous', ...Array.from(set).sort()];
   }, [products]);
 
+  const brands = useMemo(() => {
+    const set = new Set(products.map((p) => inferBrand(p.name)));
+    return ['Tous', ...Array.from(set).sort()];
+  }, [products]);
+
   const filtered = useMemo(() => {
     return products
       .filter((p) => {
         const q = search.toLowerCase();
         const matchQ = !q || p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
         const matchC = filterCat === 'Tous' || p.category === filterCat;
-        if (!matchQ || !matchC) return false;
+        const brand = inferBrand(p.name);
+        const matchB = filterBrand === 'Tous' || brand === filterBrand;
+        if (!matchQ || !matchC || !matchB) return false;
         const stock = Number(p.stock) || 0;
         const min = Number(p.min_stock) || 0;
         if (stockStatus === 'rupture') return stock <= 0;
@@ -143,7 +152,7 @@ export default function Inventaire() {
         return true;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' }));
-  }, [products, search, filterCat, stockStatus]);
+  }, [products, search, filterCat, filterBrand, stockStatus]);
 
   const totals = useMemo(() => {
     let units = 0;
@@ -756,11 +765,16 @@ export default function Inventaire() {
     setSeeding(true);
     const existing = new Set(products.map((p) => p.name.toLowerCase()));
     const toInsert = getSeedCatalog(bizType).filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
-      ...s,
+      name: s.name,
+      category: s.category,
+      unit: s.unit,
+      min_stock: s.min_stock,
+      cost: s.cost,
+      price: s.price,
       stock: 0,
       establishment_id: estId,
       image_url: lookupCatalogImage(s.name) || null,
-      units_per_package: 12,
+      units_per_package: s.units_per_package ?? 12,
     }));
     if (toInsert.length === 0) {
       alert('Tous les produits du catalogue sont déjà présents.');
@@ -1381,13 +1395,113 @@ export default function Inventaire() {
         ))}
       </div>
 
-      {/* Table */}
+      {/* Marques style Makaya */}
+      {bizType === 'maquis' && brands.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
+          {brands.map((b) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => setFilterBrand(b)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
+                filterBrand === b
+                  ? 'border-amber-500 bg-amber-500/20 text-amber-200'
+                  : 'border-stone-700 text-stone-400'
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setViewMode('cards')}
+          className={`text-xs px-2.5 py-1 rounded-lg border ${viewMode === 'cards' ? 'border-amber-500/50 text-amber-300' : 'border-stone-700 text-stone-500'}`}
+        >
+          Cartes
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('table')}
+          className={`text-xs px-2.5 py-1 rounded-lg border ${viewMode === 'table' ? 'border-amber-500/50 text-amber-300' : 'border-stone-700 text-stone-500'}`}
+        >
+          Tableau
+        </button>
+      </div>
+
+      {/* Liste / Table */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Package size={48} />}
           title="Aucun article"
           message={`Cliquez sur « ${catalogLabel(bizType)} » pour démarrer, ou « Ajouter ».`}
         />
+      ) : viewMode === 'cards' ? (
+        <ul className="rounded-2xl border border-stone-800 bg-stone-900/40 divide-y divide-stone-800/80 overflow-hidden">
+          {filtered.map((p) => {
+            const stock = Number(p.stock) || 0;
+            const min = Number(p.min_stock) || 0;
+            const price = Number(p.price) || 0;
+            const pack = Math.max(1, Number(p.units_per_package) || CASIER);
+            const status = aiStatus(stock, min);
+            const brand = inferBrand(p.name);
+            const packaging =
+              pack >= 12
+                ? `${p.unit === 'canette' ? 'Carton' : 'Casier'} ${pack} · ${p.category}`
+                : `${p.unit || 'unité'} · ${p.category}`;
+            return (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-3 hover:bg-stone-800/40">
+                {canEditStock && (
+                  <input
+                    type="checkbox"
+                    className="rounded border-stone-600 shrink-0"
+                    checked={selectedIds.has(p.id)}
+                    onChange={() => toggleSelect(p.id)}
+                  />
+                )}
+                <ProductThumb
+                  name={p.name}
+                  category={p.category}
+                  imageUrl={(p as { image_url?: string }).image_url}
+                  size={56}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-stone-100 truncate">{p.name}</p>
+                  <p className="text-[11px] text-stone-500 flex flex-wrap items-center gap-1.5 mt-0.5">
+                    <span className="text-amber-400/90 font-medium">{brand}</span>
+                    <span>·</span>
+                    <span>{packaging}</span>
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge color={status.color === 'error' ? 'error' : status.color === 'warning' ? 'warning' : 'success'}>
+                      {status.label}
+                    </Badge>
+                    <span className="text-xs text-stone-400">Stock {stock}</span>
+                    {price > 0 && (
+                      <span className="text-xs font-medium text-amber-300">
+                        {price.toLocaleString('fr-FR')} F
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {canEditStock && (
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <div className="inline-flex items-center gap-1">
+                      <button type="button" onClick={() => quickStock(p, -1)} className="w-8 h-8 rounded-lg bg-stone-800 text-stone-300">−</button>
+                      <button type="button" onClick={() => quickStock(p, 1)} className="w-8 h-8 rounded-lg bg-stone-800 text-stone-300">+</button>
+                    </div>
+                    <button type="button" onClick={() => openEdit(p)} className="text-[10px] text-stone-500 hover:text-amber-400">
+                      Modifier
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-stone-800 bg-stone-900/50">
           <table className="w-full text-sm min-w-[900px]">
@@ -1446,23 +1560,20 @@ export default function Inventaire() {
                     )}
                     <td className="px-3 py-2.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        p.category === 'Alcool' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'
+                        p.category === 'Alcool' || p.category === 'Bière' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'
                       }`}>
                         {p.category}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-medium text-stone-100">
                       <span className="inline-flex items-center gap-2 min-w-0">
-                        <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={44} />
-                        <span className="inline-flex items-center gap-1.5 min-w-0">
-                          {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
-                          <span className="truncate">{p.name}</span>
-                          {(Number(p.empty_bottles) > 0 || Number(p.consigne_unit) > 0) && (
-                            <span className="text-[10px] text-sky-400/90 block">
-                              {Number(p.consigne_unit) > 0 ? `Consigne ${p.consigne_unit}F` : ''}
-                              {Number(p.empty_bottles) > 0 ? ` · ${p.empty_bottles} vides` : ''}
-                            </span>
-                          )}
+                        <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={48} />
+                        <span className="inline-flex flex-col items-start gap-0.5 min-w-0">
+                          <span className="truncate flex items-center gap-1">
+                            {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] text-amber-400/80">{inferBrand(p.name)}</span>
                         </span>
                       </span>
                     </td>
