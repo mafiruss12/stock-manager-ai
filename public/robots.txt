@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://stock-manager-ktp.vercel.app/sitemap.xml
+Sitemap: https://maquis-mananger.vercel.app/sitemap.xml
+Sitemap: https://ktp-immobilier.vercel.app/sitemap.xml
