@@ -35,6 +35,8 @@ export default function Inventaire() {
   const isStaffOnly = ['employee', 'cashier', 'manager'].includes(roleNow) && !canEditStock;
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('Tous');
   const [loading, setLoading] = useState(true);
@@ -291,9 +293,109 @@ export default function Inventaire() {
     } else {
       await queueAdd('products', 'delete', { _client_op_id: opId }, { id: p.id });
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(p.id);
+        return n;
+      });
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((prev) => {
+      const ids = filtered.map((p) => p.id);
+      const allOn = ids.length > 0 && ids.every((id) => prev.has(id));
+      if (allOn) {
+        const n = new Set(prev);
+        ids.forEach((id) => n.delete(id));
+        return n;
+      }
+      const n = new Set(prev);
+      ids.forEach((id) => n.add(id));
+      return n;
+    });
+  }
+
+  /** Supprime les produits sélectionnés (ou tout le stock visible / total) */
+  async function removeMany(mode: 'selected' | 'filtered' | 'all') {
+    if (!canEditStock) {
+      alert('Suppression réservée au propriétaire / gérant.');
+      return;
+    }
+    if (!estId) return;
+    let targets: Product[] = [];
+    if (mode === 'selected') {
+      targets = products.filter((p) => selectedIds.has(p.id));
+    } else if (mode === 'filtered') {
+      targets = filtered;
+    } else {
+      targets = products;
+    }
+    if (targets.length === 0) {
+      alert('Aucun produit à supprimer.');
+      return;
+    }
+    const label =
+      mode === 'all'
+        ? `TOUT le stock (${targets.length} boissons / produits)`
+        : mode === 'filtered'
+          ? `les ${targets.length} produit(s) affiché(s) (filtre actuel)`
+          : `les ${targets.length} produit(s) sélectionné(s)`;
+    if (
+      !confirm(
+        `Supprimer définitivement ${label} ?\n\nCette action est irréversible.`,
+      )
+    ) {
+      return;
+    }
+    if (mode === 'all' && !confirm('Dernière confirmation : tout supprimer vraiment ?')) return;
+
+    setBulkBusy(true);
+    try {
+      if (isOnline()) {
+        const ids = targets.map((p) => p.id);
+        // batch par paquets de 50
+        for (let i = 0; i < ids.length; i += 50) {
+          const chunk = ids.slice(i, i + 50);
+          const { error } = await supabase.from('products').delete().in('id', chunk);
+          if (error) throw error;
+        }
+        await logAudit({
+          establishment_id: estId,
+          actor_id: member?.user_id,
+          actor_name: member?.full_name || member?.email,
+          action: 'product.bulk_delete',
+          entity_type: 'product',
+          entity_id: null,
+          entity_label: `${targets.length} produits`,
+          old_value: { names: targets.slice(0, 30).map((p) => p.name), mode },
+          client_op_id: newClientOpId(),
+        });
+        await loadProducts();
+        setSelectedIds(new Set());
+      } else {
+        for (const p of targets) {
+          await queueAdd('products', 'delete', { _client_op_id: newClientOpId() }, { id: p.id });
+        }
+        const del = new Set(targets.map((p) => p.id));
+        setProducts((prev) => prev.filter((x) => !del.has(x.id)));
+        setSelectedIds(new Set());
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Erreur suppression');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function sendCatalogToTeam() {
     if (!member?.establishment_id || !member.user_id) return;
@@ -1191,6 +1293,49 @@ export default function Inventaire() {
         </div>
       </div>
 
+      {/* Actions bulk suppression */}
+      {canEditStock && products.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-stone-700/80 bg-stone-900/70">
+          <button
+            type="button"
+            className="btn-secondary text-xs"
+            onClick={() => toggleSelectAllFiltered()}
+            disabled={bulkBusy || filtered.length === 0}
+          >
+            {filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id))
+              ? 'Tout désélectionner'
+              : 'Tout sélectionner (liste)'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-xs text-red-300 border-red-800/50"
+            disabled={bulkBusy || selectedIds.size === 0}
+            onClick={() => void removeMany('selected')}
+          >
+            <Trash2 size={14} className="inline mr-1" />
+            Supprimer sélection ({selectedIds.size})
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-xs text-red-300"
+            disabled={bulkBusy || filtered.length === 0}
+            onClick={() => void removeMany('filtered')}
+          >
+            Supprimer la liste filtrée ({filtered.length})
+          </button>
+          <button
+            type="button"
+            className="btn-primary text-xs bg-red-700 hover:bg-red-600 border-0"
+            disabled={bulkBusy || products.length === 0}
+            onClick={() => void removeMany('all')}
+          >
+            <Trash2 size={14} className="inline mr-1" />
+            Supprimer TOUT le stock ({products.length})
+          </button>
+          {bulkBusy && <span className="text-xs text-stone-400">Suppression…</span>}
+        </div>
+      )}
+
       {/* Table */}
       {filtered.length === 0 ? (
         <EmptyState
@@ -1203,6 +1348,17 @@ export default function Inventaire() {
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-stone-800/80 text-stone-300 text-left">
+                {canEditStock && (
+                  <th className="px-2 py-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      className="rounded border-stone-600"
+                      checked={filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id))}
+                      onChange={() => toggleSelectAllFiltered()}
+                      title="Tout sélectionner"
+                    />
+                  </th>
+                )}
                 <th className="px-3 py-3 font-medium">Catégorie</th>
                 <th className="px-3 py-3 font-medium">Produit / Marque</th>
                 <th className="px-3 py-3 font-medium">Format</th>
@@ -1232,7 +1388,17 @@ export default function Inventaire() {
                 const low = stock <= min;
 
                 return (
-                  <tr key={p.id} className="border-t border-stone-800 hover:bg-stone-800/40">
+                  <tr key={p.id} className={`border-t border-stone-800 hover:bg-stone-800/40 ${selectedIds.has(p.id) ? 'bg-red-950/20' : ''}`}>
+                    {canEditStock && (
+                      <td className="px-2 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-stone-600"
+                          checked={selectedIds.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-2.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         p.category === 'Alcool' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'

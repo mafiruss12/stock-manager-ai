@@ -46,18 +46,26 @@ export async function ensureProductImageCatalog(): Promise<void> {
   if (catalogPromise) return catalogPromise;
   catalogPromise = (async () => {
     try {
-      const { data: est } = await supabase.from('establishments').select('id').ilike('name', '%GBAISSA%').limit(5);
-      const gbaissaiIds = (est || []).map((e: { id: string }) => e.id);
-      const { data } = await supabase.from('products').select('name, image_url, establishment_id').not('image_url', 'is', null);
-      const rows = (data || []) as { name: string; image_url: string; establishment_id: string }[];
-      const sorted = [
-        ...rows.filter((r) => !gbaissaiIds.includes(r.establishment_id)),
-        ...rows.filter((r) => gbaissaiIds.includes(r.establishment_id)),
-      ];
-      for (const r of sorted) {
+      // 1) Catalogue global (images AU GBAISSAI CHEZ RCO) — visible par tous les maquis
+      const { data: defaults } = await supabase
+        .from('product_image_defaults')
+        .select('name_key, name, image_url');
+      for (const r of defaults || []) {
+        if (!isValidImageSrc(r.image_url)) continue;
+        const key = (r.name_key || normalizeProductKey(r.name)).toLowerCase();
+        if (key.length >= 3) globalCatalog.set(key, r.image_url);
+      }
+      // 2) Compléter avec images visibles de mon établissement (RLS)
+      const { data } = await supabase
+        .from('products')
+        .select('name, image_url')
+        .not('image_url', 'is', null);
+      for (const r of data || []) {
         if (!isValidImageSrc(r.image_url)) continue;
         const key = normalizeProductKey(r.name);
-        if (key.length >= 3) globalCatalog.set(key, r.image_url);
+        // ne pas écraser le catalogue RCO sauf si le produit a déjà sa propre image locale
+        // (lors de l'affichage resolveProductImage priorise image_url produit)
+        if (key.length >= 3 && !globalCatalog.has(key)) globalCatalog.set(key, r.image_url);
       }
     } catch {
       /* */
@@ -65,6 +73,17 @@ export async function ensureProductImageCatalog(): Promise<void> {
     catalogLoaded = true;
   })();
   return catalogPromise;
+}
+
+/** Applique les images catalogue aux produits sans image_url (optionnel, côté client) */
+export function applyDefaultImagesToProducts<T extends { name: string; image_url?: string | null }>(
+  products: T[],
+): T[] {
+  return products.map((p) => {
+    if (isValidImageSrc(p.image_url)) return p;
+    const url = lookupCatalogImage(p.name);
+    return url ? { ...p, image_url: url } : p;
+  });
 }
 
 export function lookupCatalogImage(name?: string | null): string | null {
