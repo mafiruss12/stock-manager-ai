@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { categoryEmoji, resolveProductImage, ensureProductImageCatalog } from '@/lib/productImages';
 
 export default function ProductThumb({
@@ -12,19 +12,32 @@ export default function ProductThumb({
   imageUrl?: string | null;
   size?: number;
 }) {
-  const [, setTick] = useState(0);
+  const [catalogReady, setCatalogReady] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+
   useEffect(() => {
-    void ensureProductImageCatalog().then(() => setTick((t) => t + 1));
+    void ensureProductImageCatalog().then(() => setCatalogReady(true));
   }, []);
 
-  const src = resolveProductImage({ name, category, image_url: imageUrl });
-  const [err, setErr] = useState(false);
+  useEffect(() => {
+    setFailed(null);
+  }, [name, category, imageUrl]);
+
+  const src = useMemo(() => {
+    const primary = resolveProductImage({ name, category, image_url: imageUrl });
+    if (primary && primary !== failed) return primary;
+    // 2e tentative sans image_url produit (catalogue / règles)
+    const fallback = resolveProductImage({ name, category, image_url: null });
+    if (fallback && fallback !== failed) return fallback;
+    return null;
+  }, [name, category, imageUrl, catalogReady, failed]);
+
   const emoji = categoryEmoji(category, name || '');
 
-  if (!src || err) {
+  if (!src) {
     return (
       <span
-        className="inline-flex items-center justify-center rounded-xl bg-stone-800 border border-stone-700 shrink-0 text-lg"
+        className="inline-flex items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/25 shrink-0 text-lg"
         style={{ width: size, height: size }}
         title={name || ''}
       >
@@ -40,9 +53,11 @@ export default function ProductThumb({
       width={size}
       height={size}
       loading="lazy"
+      decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setErr(true)}
-      className="rounded-xl object-cover shrink-0 border border-stone-700 bg-stone-800"
+      onError={() => setFailed(src)}
+      className="rounded-xl object-cover shrink-0 border border-amber-500/20 bg-stone-800"
+      style={{ width: size, height: size }}
     />
   );
 }

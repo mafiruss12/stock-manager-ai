@@ -230,5 +230,12 @@ export function resolveProductImage(opts: {
   for (const [k, url] of Object.entries(CATEGORY_URL)) {
     if (cat.includes(k)) return url;
   }
-  return null;
+  // Dernier recours : image générique boisson (stock initial visible)
+  if (/bière|biere|beer|bock|castel|beaufort|flag|guinness|heineken/.test(name + ' ' + cat)) {
+    return IMG.beerBottle;
+  }
+  if (/soda|boisson|jus|eau|énergie|energie/.test(name + ' ' + cat)) {
+    return IMG.sodaGreen;
+  }
+  return IMG.beerBottle;
 }

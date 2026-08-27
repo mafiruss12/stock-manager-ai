@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
-import { ensureProductImageCatalog, registerCatalogImage, lookupCatalogImage } from '@/lib/productImages';
+import { ensureProductImageCatalog, registerCatalogImage, lookupCatalogImage, applyDefaultImagesToProducts, resolveProductImage } from '@/lib/productImages';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 import { speakFrench, playTone } from '@/lib/a11yVoice';
 
@@ -78,8 +78,10 @@ export default function Inventaire() {
         .order('name', { ascending: true });
       return (res.data ?? []) as Product[];
     });
+    await ensureProductImageCatalog();
+    const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
     setProducts(
-      [...(data ?? [])].sort((a, b) =>
+      withImages.sort((a, b) =>
         (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
       )
     );
@@ -773,7 +775,7 @@ export default function Inventaire() {
       price: s.price,
       stock: 0,
       establishment_id: estId,
-      image_url: lookupCatalogImage(s.name) || null,
+      image_url: resolveProductImage({ name: s.name, category: s.category, image_url: lookupCatalogImage(s.name) }) || null,
       units_per_package: s.units_per_package ?? 12,
     }));
     if (toInsert.length === 0) {
