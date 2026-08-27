@@ -226,11 +226,11 @@ export default function StartupGuide({ compact = false }: { compact?: boolean })
 
   return (
     <div
-      className={`rounded-2xl border border-stone-800 bg-stone-900/70 ${compact ? 'mb-6 p-4' : 'p-5'}`}
+      className={`rounded-2xl border border-amber-500/30 bg-stone-900/70 startup-guide-card ${compact ? 'mb-6 p-4' : 'p-5'}`}
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: theme.primary }}>
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--color-accent, #E89B2D)' }}>
             Guide de démarrage · {BUSINESS_LABELS[bizType]}
           </p>
           <h2 className="text-lg font-bold text-stone-100 mt-0.5">
@@ -258,7 +258,7 @@ export default function StartupGuide({ compact = false }: { compact?: boolean })
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${steps.length ? (doneCount / steps.length) * 100 : 0}%`,
-            background: theme.primary,
+            background: 'var(--color-accent, #E89B2D)',
           }}
         />
       </div>

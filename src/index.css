@@ -718,3 +718,53 @@ html.theme-light .auth-logo-center {
     padding: 12mm !important;
   }
 }
+
+
+/* —— Calendrier des points + Guide démarrage (mode jour Crème & Ambre) —— */
+html.theme-light .cal-points-card,
+html[data-theme='light'] .cal-points-card {
+  background: #ffffff !important;
+  border-color: #E8DFD0 !important;
+  box-shadow: 0 2px 8px rgba(44, 36, 22, 0.06);
+}
+html.theme-light .cal-points-card h2,
+html.theme-light .cal-points-card .text-stone-100,
+html.theme-light .cal-points-card .text-stone-200 {
+  color: #2C2416 !important;
+}
+html.theme-light .cal-points-card .text-amber-400,
+html.theme-light .cal-points-card .text-amber-200 {
+  color: #C47A12 !important;
+}
+html.theme-light .cal-day-ok {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #6ee7b7 !important;
+}
+html.theme-light .cal-day-miss {
+  background-color: #fef2f2 !important;
+  color: #b91c1c !important;
+  border-color: #fca5a5 !important;
+}
+html.theme-light .cal-day-future {
+  background-color: #F7F0E6 !important;
+  color: #8A7B6B !important;
+}
+
+html.theme-light .startup-guide-card,
+html[data-theme='light'] .startup-guide-card {
+  background: linear-gradient(145deg, #ffffff, #FBF7F0) !important;
+  border-color: #E89B2D !important;
+  box-shadow: 0 2px 10px rgba(196, 122, 18, 0.08);
+}
+html.theme-light .startup-guide-card h2,
+html.theme-light .startup-guide-card .text-stone-100 {
+  color: #2C2416 !important;
+}
+html.theme-light .startup-guide-card .text-stone-400 {
+  color: #6B5E4F !important;
+}
+html.theme-light .startup-guide-card .bg-stone-800,
+html.theme-light .startup-guide-card .bg-stone-950\/40 {
+  background-color: #F7F0E6 !important;
+}

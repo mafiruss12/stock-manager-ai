@@ -46,10 +46,10 @@ export const BUSINESS_THEMES: Record<
   { primary: string; primarySoft: string; accent: string; label: string; gradient: string }
 > = {
   maquis: {
-    primary: '#f59e0b',
-    primarySoft: 'rgba(245, 158, 11, 0.15)',
-    accent: '#d97706',
-    label: 'Ambre',
+    primary: '#E89B2D',
+    primarySoft: 'rgba(232, 155, 45, 0.18)',
+    accent: '#C47A12',
+    label: 'Crème & Ambre',
     gradient: 'from-amber-500/20 to-orange-600/5',
   },
   magasin: {

@@ -127,11 +127,11 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
   }
 
   return (
-    <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-4 theme-card-light">
+    <div className="mb-6 rounded-2xl border border-amber-500/25 bg-stone-900/60 p-4 space-y-4 theme-card-light cal-points-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold text-stone-100 flex items-center gap-2">
-            <ClipboardList className="text-sky-400" size={20} />
+            <ClipboardList className="text-amber-400" size={20} />
             Calendrier des points (rapports)
           </h2>
           <p className="text-xs text-stone-600 dark:text-stone-400">
@@ -139,11 +139,11 @@ export default function OwnerReportCalendar({ establishmentId }: { establishment
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={prevMonth} className="p-2 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700">
+          <button type="button" onClick={prevMonth} className="p-2 rounded-lg bg-amber-500/10 text-amber-200 border border-amber-500/20 hover:bg-amber-500/20">
             <ChevronLeft size={18} />
           </button>
           <span className="text-sm text-stone-200 capitalize min-w-[140px] text-center">{monthLabel}</span>
-          <button type="button" onClick={nextMonth} className="p-2 rounded-lg bg-stone-800 text-stone-300 hover:bg-stone-700">
+          <button type="button" onClick={nextMonth} className="p-2 rounded-lg bg-amber-500/10 text-amber-200 border border-amber-500/20 hover:bg-amber-500/20">
             <ChevronRight size={18} />
           </button>
         </div>
