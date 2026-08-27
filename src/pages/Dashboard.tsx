@@ -25,10 +25,6 @@ import {
   type BeveragePeriodReport,
 } from '@/lib/beverageProfit';
 import OwnerReportCalendar from '@/components/OwnerReportCalendar';
-import QuickActions from '@/components/QuickActions';
-import WorkDayBanner from '@/components/WorkDayBanner';
-import StartupGuide from '@/components/StartupGuide';
-import SectorNews from '@/components/SectorNews';
 
 function DashLink({ to, children, className = '' }: { to: string; children: ReactNode; className?: string }) {
   return (
@@ -317,11 +313,6 @@ export default function Dashboard() {
           7 jours
         </div>
       </div>
-
-      <WorkDayBanner />
-      <QuickActions businessType={activeEstablishment?.type} />
-      <StartupGuide compact />
-      <SectorNews businessType={activeEstablishment?.type} />
 
 {canSeeFinance && (activeEstablishment?.id || member?.establishment_id) && (
         <OwnerReportCalendar establishmentId={(activeEstablishment?.id || member?.establishment_id)!} />

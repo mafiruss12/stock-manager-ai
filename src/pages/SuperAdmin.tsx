@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity, Megaphone, MapPin } from 'lucide-react';
+import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
@@ -10,10 +10,8 @@ import {
   PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
   getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink } from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
-import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
-import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 
-type Tab = 'requests' | 'members' | 'establishments' | 'map' | 'subscriptions' | 'activity' | 'pubs';
+type Tab = 'requests' | 'members' | 'establishments' | 'subscriptions' | 'activity' | 'pubs';
 
 export default function SuperAdmin() {
   const { member } = useAuth();
@@ -295,24 +293,19 @@ export default function SuperAdmin() {
     if (!estForm.name || !member) return;
     const trialEnd = new Date();
     trialEnd.setDate(trialEnd.getDate() + 30);
-    const { data: created, error: err } = await supabase.from('establishments').insert({
+    const { error: err } = await supabase.from('establishments').insert({
       name: estForm.name,
       type: estForm.type,
       address: estForm.address || null,
       phone: estForm.phone || null,
       created_by: member.user_id,
       subscription_status: 'trial',
-      trial_ends_at: trialEnd.toISOString() }).select('id, type').single();
+      trial_ends_at: trialEnd.toISOString() });
     if (err) setError(err.message);
     else {
-      if (created?.id) {
-        try {
-          await seedDefaultStockForEstablishment(created.id, created.type || estForm.type);
-        } catch { /* ignore */ }
-      }
       setEstModal(false);
       setEstForm({ name: '', type: 'maquis', address: '', phone: '' });
-      flash('Établissement créé (catalogue démarrage stock à 0)');
+      flash('Établissement créé');
       await loadData();
     }
   }
@@ -507,7 +500,6 @@ export default function SuperAdmin() {
             ['requests', <Clock size={16} key="c" />, 'Demandes'],
             ['members', <Users size={16} key="u" />, 'Membres'],
             ['establishments', <Building2 size={16} key="b" />, 'Établissements'],
-            ['map', <MapPin size={16} key="m" />, 'Carte GPS'],
             ['subscriptions', <KeyRound size={16} key="s" />, 'Abonnements'],
             ['activity', <Activity size={16} key="a" />, 'Activité'],
             ['pubs', <Megaphone size={16} key="p" />, 'Publicités'],
@@ -515,7 +507,7 @@ export default function SuperAdmin() {
         ).map(([id, icon, label]) => (
           <button
             key={id}
-            onClick={() => setTab(id as Tab)}
+            onClick={() => setTab(id)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${
               tab === id ? 'bg-primary-500/15 text-primary-300' : 'text-stone-400 hover:bg-stone-800'
             }`}
@@ -600,20 +592,6 @@ export default function SuperAdmin() {
               })}
             </div>
           )}
-        </div>
-      )}
-
-      {tab === 'map' && (
-        <div className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-stone-100 flex items-center gap-2">
-              Carte des établissements
-            </h2>
-            <p className="text-sm text-stone-500 mt-1">
-              Positions GPS partagées par les propriétaires (consentement). Clique un marqueur pour ouvrir Maps.
-            </p>
-          </div>
-          <AdminEstablishmentsMap establishments={establishments} />
         </div>
       )}
 

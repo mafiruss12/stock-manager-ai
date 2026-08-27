@@ -1,56 +1,18 @@
 import BrandFooter from '@/components/BrandFooter';
 import AdMarquee from '@/components/AdMarquee';
 import { useState, useEffect } from 'react';
-import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2, Package, TrendingUp, WifiOff, Shield, Bot, Users, ClipboardList, Sparkles } from 'lucide-react';
+import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toAuthEmail } from '@/lib/login';
 import { supabase } from '@/lib/supabase';
 
 const MARQUEE_MESSAGES = [
-  'Stock Manager AI — la solution complète pour maquis, bars & restaurants',
-  'Pourquoi Stock Manager ? Zéro perte de stock invisible',
-  'Rapport du jour, inventaire, caisse et équipe au même endroit',
-  'Fonctionne hors ligne · synchronise dès le retour du réseau',
-  'Images boissons, casiers, Mobile Money · Powered by Kevin Tech Pro',
-  'Propriétaire et gérant : chacun son rôle, un seul tableau de bord',
-];
-
-const AUTH_HIGHLIGHTS = [
-  {
-    icon: Package,
-    title: 'Stock sous contrôle',
-    text: 'Suivez chaque boisson, casier et arrivage. Fini les « ça a disparu » sans trace.',
-  },
-  {
-    icon: ClipboardList,
-    title: 'Rapport du jour clair',
-    text: 'Point du soir en quelques minutes : vendu, en caisse, Mobile Money, commentaire au propriétaire.',
-  },
-  {
-    icon: TrendingUp,
-    title: 'Voir sa rentabilité',
-    text: 'Ventes, dépenses et alertes rupture pour décider vite, même sans être sur place.',
-  },
-  {
-    icon: WifiOff,
-    title: 'Marche hors ligne',
-    text: 'L’app mobile garde les données ; dès qu’il y a internet, tout se synchronise.',
-  },
-  {
-    icon: Users,
-    title: 'Équipe & rôles',
-    text: 'Propriétaire, gérant, employés : chacun voit seulement ce qu’il doit gérer.',
-  },
-  {
-    icon: Bot,
-    title: 'Assistance IA',
-    text: 'Aide à l’inventaire, suggestions et guidance pour le personnel, même débutant.',
-  },
-  {
-    icon: Shield,
-    title: 'Sécurisé',
-    text: 'Comptes protégés, historique des mouvements, contrôle admin pour accompagner les établissements.',
-  },
+  'Stock Manager AI — gestion intelligente',
+  'Caisse, stock, IA et Mobile Money',
+  'Fonctionne hors ligne · Powered by Kevin Tech Pro',
+  'Suivez vos ventes et bénéfices',
+  'Clôture quotidienne sécurisée',
+  'Contrôle total des accès',
 ];
 
 type Mode = 'signin' | 'signup' | 'forgot' | 'recovery' | 'mfa';
@@ -95,15 +57,7 @@ export default function AuthPage() {
   const [mfaCode, setMfaCode] = useState('');
   const [pendingMfaUserId, setPendingMfaUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
-  const [highlightIdx, setHighlightIdx] = useState(0);
   const [password, setPassword] = useState('');
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setHighlightIdx((i) => (i + 1) % AUTH_HIGHLIGHTS.length);
-    }, 4200);
-    return () => window.clearInterval(id);
-  }, []);
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -395,91 +349,8 @@ async function resendConfirmation() {
         />
       </div>
 
-      <div className="relative z-10 w-full max-w-6xl mt-12 mb-8 px-2 grid lg:grid-cols-2 gap-6 lg:gap-10 items-center">
-        {/* Panneau avantages animé */}
-        <aside className="order-2 lg:order-1 space-y-5 auth-showcase">
-          <div className="space-y-2">
-            <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400/90">
-              <Sparkles size={14} className="auth-pulse" /> Pourquoi Stock Manager AI ?
-            </p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-stone-50 leading-tight font-display">
-              La solution qui fait gagner du temps
-              <span className="block text-amber-400">et de l’argent à votre établissement</span>
-            </h2>
-            <p className="text-sm text-stone-400 max-w-lg leading-relaxed">
-              Inventaire, caisse, rapport du jour, équipe et suivi propriétaire — une seule app pensée
-              pour les maquis, bars, restaurants et commerces en Afrique de l’Ouest.
-            </p>
-          </div>
-
-          {/* Carte mise en avant (rotation) */}
-          <div className="auth-feature-hero relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/50 via-stone-900/80 to-stone-950 p-5 shadow-xl">
-            <div className="auth-feature-shine pointer-events-none" />
-            {(() => {
-              const h = AUTH_HIGHLIGHTS[highlightIdx];
-              const Icon = h.icon;
-              return (
-                <div key={highlightIdx} className="auth-feature-swap flex gap-4 items-start">
-                  <div className="shrink-0 w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
-                    <Icon size={24} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-amber-400/80 mb-1">
-                      Avantage {highlightIdx + 1} / {AUTH_HIGHLIGHTS.length}
-                    </p>
-                    <h3 className="text-lg font-semibold text-stone-100">{h.title}</h3>
-                    <p className="text-sm text-stone-400 mt-1 leading-relaxed">{h.text}</p>
-                  </div>
-                </div>
-              );
-            })()}
-            <div className="flex gap-1.5 mt-4">
-              {AUTH_HIGHLIGHTS.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={`Avantage ${i + 1}`}
-                  onClick={() => setHighlightIdx(i)}
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === highlightIdx ? 'w-6 bg-amber-400' : 'w-1.5 bg-stone-600 hover:bg-stone-500'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Grille avantages */}
-          <div className="grid sm:grid-cols-2 gap-3">
-            {AUTH_HIGHLIGHTS.slice(0, 4).map((h, i) => {
-              const Icon = h.icon;
-              return (
-                <div
-                  key={h.title}
-                  className="auth-feature-card rounded-xl border border-stone-700/60 bg-stone-900/60 backdrop-blur-sm p-3.5 flex gap-3"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                >
-                  <div className="shrink-0 w-9 h-9 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center">
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-stone-100">{h.title}</p>
-                    <p className="text-[11px] text-stone-500 leading-snug mt-0.5">{h.text}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="text-xs text-stone-500 flex flex-wrap gap-x-3 gap-y-1">
-            <span className="text-stone-400">✓ Multi-établissements</span>
-            <span className="text-stone-400">✓ WhatsApp & rapports</span>
-            <span className="text-stone-400">✓ Kevin Tech Pro</span>
-          </p>
-        </aside>
-
-        {/* Formulaire connexion */}
-        <div className="order-1 lg:order-2 w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-        <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl auth-form-card">
+      <div className="relative z-10 w-full max-w-md mt-10">
+        <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-6">
             <img src="/logo-full.png" alt="Stock Manager AI" className="h-16 w-auto max-w-[280px] object-contain mb-3" />
             <h1 className="text-3xl font-bold font-display text-stone-100">Stock Manager AI</h1>
@@ -677,7 +548,6 @@ async function resendConfirmation() {
               </p>
             </>
           )}
-        </div>
         </div>
       </div>
     </div>

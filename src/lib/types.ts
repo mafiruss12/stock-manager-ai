@@ -19,10 +19,6 @@ export interface Establishment {
   trial_ends_at?: string | null;
   subscription_ends_at?: string | null;
   last_payment_at?: string | null;
-  /** GPS — position partagée avec consentement */
-  latitude?: number | null;
-  longitude?: number | null;
-  location_updated_at?: string | null;
 }
 
 export interface Member {
