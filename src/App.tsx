@@ -43,6 +43,8 @@ import ChatPage from '@/pages/Chat';
 import SuiviGerant from '@/pages/SuiviGerant';
 import TeamPage from '@/pages/Team';
 import MesEmployes from '@/pages/MesEmployes';
+import PointManuel from '@/pages/PointManuel';
+import GuidePage from '@/pages/Guide';
 import RentDashboard from '@/pages/rent/Dashboard';
 import RentEquipment from '@/pages/rent/Equipment';
 import RentClients from '@/pages/rent/Clients';
@@ -157,6 +159,8 @@ function ProtectedRoutes() {
         <Route path="/inventory" element={<Inventaire />} />
         <Route path="/inventory/scan" element={<ScanInventaire />} />
         <Route path="/inventaire" element={<Navigate to="/inventory" replace />} />
+        <Route path="/point-manuel" element={<PointManuel />} />
+        <Route path="/guide" element={<GuidePage />} />
         <Route path="/tables" element={<Tables />} />
         <Route path="/mes-employes" element={<MesEmployes />} />
         <Route path="/employees" element={<Navigate to="/mes-employes" replace />} />

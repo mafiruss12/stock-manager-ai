@@ -39,6 +39,7 @@ export default function Inventaire() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('Tous');
+  const [stockStatus, setStockStatus] = useState<'all' | 'rupture' | 'presque' | 'normal'>('all');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -133,10 +134,16 @@ export default function Inventaire() {
         const q = search.toLowerCase();
         const matchQ = !q || p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
         const matchC = filterCat === 'Tous' || p.category === filterCat;
-        return matchQ && matchC;
+        if (!matchQ || !matchC) return false;
+        const stock = Number(p.stock) || 0;
+        const min = Number(p.min_stock) || 0;
+        if (stockStatus === 'rupture') return stock <= 0;
+        if (stockStatus === 'presque') return stock > 0 && stock <= min;
+        if (stockStatus === 'normal') return stock > min;
+        return true;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' }));
-  }, [products, search, filterCat]);
+  }, [products, search, filterCat, stockStatus]);
 
   const totals = useMemo(() => {
     let units = 0;
@@ -1349,6 +1356,29 @@ export default function Inventaire() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Stock status filters — Épuisé / Presque / Normal */}
+      <div className="flex flex-wrap gap-2 mt-3 mb-4">
+        {(
+          [
+            { id: 'all' as const, label: 'Tous', count: products.length, cls: 'border-stone-600 text-stone-300' },
+            { id: 'rupture' as const, label: 'Épuisé', count: totals.rupture, cls: 'border-red-500/50 text-red-300 bg-red-500/10' },
+            { id: 'presque' as const, label: 'Presque épuisé', count: totals.commander, cls: 'border-amber-500/50 text-amber-300 bg-amber-500/10' },
+            { id: 'normal' as const, label: 'Normal', count: totals.ok, cls: 'border-emerald-500/50 text-emerald-300 bg-emerald-500/10' },
+          ] as const
+        ).map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setStockStatus(f.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+              stockStatus === f.id ? f.cls + ' ring-2 ring-offset-1 ring-offset-stone-950 ring-current' : 'border-stone-700 text-stone-500 hover:border-stone-600'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
       </div>
 
       {/* Table */}
