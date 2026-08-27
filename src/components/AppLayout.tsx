@@ -16,6 +16,7 @@ import type { Role } from '@/lib/types';
 import OfflineBanner from '@/components/OfflineBanner';
 import BrandFooter from '@/components/BrandFooter';
 import UpdateBanner from '@/components/UpdateBanner';
+import BiometricGate from '@/components/BiometricGate';
 import { displayLogin } from '@/lib/login';
 import TypePicker from '@/components/TypePicker';
 import {
@@ -40,14 +41,19 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/patron', label: 'Mode patron', icon: <Crown size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/point-manuel', label: 'Point manuel', icon: <ClipboardList size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/orders', label: 'Commandes', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/kitchen', label: 'Cuisine / Bar', icon: <UtensilsCrossed size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'employee'] },
+      { to: '/guide', label: 'Guide démarrage', icon: <Sparkles size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
     ] },
   {
     label: 'Gestion',
     items: [
       { to: '/inventory', label: 'Inventaire', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
-      { to: '/tables', label: 'Tables', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
+      { to: '/kits', label: 'Kits & Promos', icon: <Sparkles size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/menu-qr', label: 'QR / Menu en ligne', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/stock-transfer', label: 'Transfert stock', icon: <Truck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/tables', label: 'Tables & serveurs', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
       { to: '/mes-employes', label: 'Mes employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/calendar', label: 'Planning', icon: <Calendar size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/customers', label: 'Clients', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
@@ -342,6 +348,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   void knownTypes;
 
   return (
+    <BiometricGate>
     <div className="min-h-screen bg-stone-950 flex">
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -609,5 +616,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </button>
       )}
     </div>
+    </BiometricGate>
   );
 }

@@ -1,5 +1,5 @@
 import { getBusinessUI, normalizeBusinessType } from '@/lib/businessTypes';
-import { getSeedCatalog, catalogLabel, usesCasiers, casierSize } from '@/lib/catalogs';
+import { getSeedCatalog, catalogLabel, usesCasiers, casierSize, inferBrand } from '@/lib/catalogs';
 import { logAudit, newClientOpId } from '@/lib/audit';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -35,8 +35,13 @@ export default function Inventaire() {
   const isStaffOnly = ['employee', 'cashier', 'manager'].includes(roleNow) && !canEditStock;
   const CASIER = 24;
   const [products, setProducts] = useState<Product[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCat, setFilterCat] = useState('Tous');
+  const [stockStatus, setStockStatus] = useState<'all' | 'rupture' | 'presque' | 'normal'>('all');
+  const [filterBrand, setFilterBrand] = useState('Tous');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -125,16 +130,29 @@ export default function Inventaire() {
     return ['Tous', ...Array.from(set).sort()];
   }, [products]);
 
+  const brands = useMemo(() => {
+    const set = new Set(products.map((p) => inferBrand(p.name)));
+    return ['Tous', ...Array.from(set).sort()];
+  }, [products]);
+
   const filtered = useMemo(() => {
     return products
       .filter((p) => {
         const q = search.toLowerCase();
         const matchQ = !q || p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q);
         const matchC = filterCat === 'Tous' || p.category === filterCat;
-        return matchQ && matchC;
+        const brand = inferBrand(p.name);
+        const matchB = filterBrand === 'Tous' || brand === filterBrand;
+        if (!matchQ || !matchC || !matchB) return false;
+        const stock = Number(p.stock) || 0;
+        const min = Number(p.min_stock) || 0;
+        if (stockStatus === 'rupture') return stock <= 0;
+        if (stockStatus === 'presque') return stock > 0 && stock <= min;
+        if (stockStatus === 'normal') return stock > min;
+        return true;
       })
       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' }));
-  }, [products, search, filterCat]);
+  }, [products, search, filterCat, filterBrand, stockStatus]);
 
   const totals = useMemo(() => {
     let units = 0;
@@ -291,9 +309,109 @@ export default function Inventaire() {
     } else {
       await queueAdd('products', 'delete', { _client_op_id: opId }, { id: p.id });
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(p.id);
+        return n;
+      });
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((prev) => {
+      const ids = filtered.map((p) => p.id);
+      const allOn = ids.length > 0 && ids.every((id) => prev.has(id));
+      if (allOn) {
+        const n = new Set(prev);
+        ids.forEach((id) => n.delete(id));
+        return n;
+      }
+      const n = new Set(prev);
+      ids.forEach((id) => n.add(id));
+      return n;
+    });
+  }
+
+  /** Supprime les produits sélectionnés (ou tout le stock visible / total) */
+  async function removeMany(mode: 'selected' | 'filtered' | 'all') {
+    if (!canEditStock) {
+      alert('Suppression réservée au propriétaire / gérant.');
+      return;
+    }
+    if (!estId) return;
+    let targets: Product[] = [];
+    if (mode === 'selected') {
+      targets = products.filter((p) => selectedIds.has(p.id));
+    } else if (mode === 'filtered') {
+      targets = filtered;
+    } else {
+      targets = products;
+    }
+    if (targets.length === 0) {
+      alert('Aucun produit à supprimer.');
+      return;
+    }
+    const label =
+      mode === 'all'
+        ? `TOUT le stock (${targets.length} boissons / produits)`
+        : mode === 'filtered'
+          ? `les ${targets.length} produit(s) affiché(s) (filtre actuel)`
+          : `les ${targets.length} produit(s) sélectionné(s)`;
+    if (
+      !confirm(
+        `Supprimer définitivement ${label} ?\n\nCette action est irréversible.`,
+      )
+    ) {
+      return;
+    }
+    if (mode === 'all' && !confirm('Dernière confirmation : tout supprimer vraiment ?')) return;
+
+    setBulkBusy(true);
+    try {
+      if (isOnline()) {
+        const ids = targets.map((p) => p.id);
+        // batch par paquets de 50
+        for (let i = 0; i < ids.length; i += 50) {
+          const chunk = ids.slice(i, i + 50);
+          const { error } = await supabase.from('products').delete().in('id', chunk);
+          if (error) throw error;
+        }
+        await logAudit({
+          establishment_id: estId,
+          actor_id: member?.user_id,
+          actor_name: member?.full_name || member?.email,
+          action: 'product.bulk_delete',
+          entity_type: 'product',
+          entity_id: null,
+          entity_label: `${targets.length} produits`,
+          old_value: { names: targets.slice(0, 30).map((p) => p.name), mode },
+          client_op_id: newClientOpId(),
+        });
+        await loadProducts();
+        setSelectedIds(new Set());
+      } else {
+        for (const p of targets) {
+          await queueAdd('products', 'delete', { _client_op_id: newClientOpId() }, { id: p.id });
+        }
+        const del = new Set(targets.map((p) => p.id));
+        setProducts((prev) => prev.filter((x) => !del.has(x.id)));
+        setSelectedIds(new Set());
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Erreur suppression');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function sendCatalogToTeam() {
     if (!member?.establishment_id || !member.user_id) return;
@@ -647,8 +765,16 @@ export default function Inventaire() {
     setSeeding(true);
     const existing = new Set(products.map((p) => p.name.toLowerCase()));
     const toInsert = getSeedCatalog(bizType).filter((s) => !existing.has(s.name.toLowerCase())).map((s) => ({
-      ...s,
+      name: s.name,
+      category: s.category,
+      unit: s.unit,
+      min_stock: s.min_stock,
+      cost: s.cost,
+      price: s.price,
+      stock: 0,
       establishment_id: estId,
+      image_url: lookupCatalogImage(s.name) || null,
+      units_per_package: s.units_per_package ?? 12,
     }));
     if (toInsert.length === 0) {
       alert('Tous les produits du catalogue sont déjà présents.');
@@ -1069,6 +1195,61 @@ export default function Inventaire() {
               )}
             </div>
           </div>
+          <div className="card border border-red-900/40 bg-red-950/20">
+            <h2 className="font-semibold text-stone-100 mb-2 flex items-center gap-2">
+              <Trash2 size={18} className="text-red-400" /> Suppression de boissons / produits
+            </h2>
+            <p className="text-xs text-stone-400 mb-3">
+              Coche les produits dans l’onglet <strong className="text-stone-300">Voir mon stock</strong>,
+              puis reviens ici pour supprimer. Tu peux aussi tout vider d’un coup.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm"
+                onClick={() => {
+                  setTab('stock');
+                  setTimeout(() => toggleSelectAllFiltered(), 50);
+                }}
+                disabled={bulkBusy || products.length === 0}
+              >
+                Sélectionner tout le stock affiché
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm text-red-300 border-red-800/50"
+                disabled={bulkBusy || selectedIds.size === 0}
+                onClick={() => void removeMany('selected')}
+              >
+                <Trash2 size={16} />
+                Supprimer la sélection ({selectedIds.size})
+              </button>
+              <button
+                type="button"
+                className="btn-secondary flex items-center gap-2 justify-center text-sm text-red-300"
+                disabled={bulkBusy || filtered.length === 0}
+                onClick={() => void removeMany('filtered')}
+              >
+                Supprimer la liste filtrée ({filtered.length})
+              </button>
+              <button
+                type="button"
+                className="btn-primary flex items-center gap-2 justify-center text-sm bg-red-700 hover:bg-red-600 border-0"
+                disabled={bulkBusy || products.length === 0}
+                onClick={() => void removeMany('all')}
+              >
+                <Trash2 size={16} />
+                Supprimer TOUT le stock ({products.length})
+              </button>
+            </div>
+            {selectedIds.size > 0 && (
+              <p className="text-xs text-amber-300/90 mt-3">
+                {selectedIds.size} produit(s) coché(s). Va dans « Voir mon stock » pour cocher / décocher ligne par ligne.
+              </p>
+            )}
+            {bulkBusy && <p className="text-xs text-stone-400 mt-2">Suppression en cours…</p>}
+          </div>
+
           <div className="card">
             <h2 className="font-semibold text-stone-100 mb-2 flex items-center gap-2">
               <History size={18} className="text-amber-400" /> Historique des mouvements
@@ -1191,18 +1372,152 @@ export default function Inventaire() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Stock status filters — Épuisé / Presque / Normal */}
+      <div className="flex flex-wrap gap-2 mt-3 mb-4">
+        {(
+          [
+            { id: 'all' as const, label: 'Tous', count: products.length, cls: 'border-stone-600 text-stone-300' },
+            { id: 'rupture' as const, label: 'Épuisé', count: totals.rupture, cls: 'border-red-500/50 text-red-300 bg-red-500/10' },
+            { id: 'presque' as const, label: 'Presque épuisé', count: totals.commander, cls: 'border-amber-500/50 text-amber-300 bg-amber-500/10' },
+            { id: 'normal' as const, label: 'Normal', count: totals.ok, cls: 'border-emerald-500/50 text-emerald-300 bg-emerald-500/10' },
+          ] as const
+        ).map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setStockStatus(f.id)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+              stockStatus === f.id ? f.cls + ' ring-2 ring-offset-1 ring-offset-stone-950 ring-current' : 'border-stone-700 text-stone-500 hover:border-stone-600'
+            }`}
+          >
+            {f.label} ({f.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Marques style Makaya */}
+      {bizType === 'maquis' && brands.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-2 scrollbar-none">
+          {brands.map((b) => (
+            <button
+              key={b}
+              type="button"
+              onClick={() => setFilterBrand(b)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold border transition ${
+                filterBrand === b
+                  ? 'border-amber-500 bg-amber-500/20 text-amber-200'
+                  : 'border-stone-700 text-stone-400'
+              }`}
+            >
+              {b}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 mb-3">
+        <button
+          type="button"
+          onClick={() => setViewMode('cards')}
+          className={`text-xs px-2.5 py-1 rounded-lg border ${viewMode === 'cards' ? 'border-amber-500/50 text-amber-300' : 'border-stone-700 text-stone-500'}`}
+        >
+          Cartes
+        </button>
+        <button
+          type="button"
+          onClick={() => setViewMode('table')}
+          className={`text-xs px-2.5 py-1 rounded-lg border ${viewMode === 'table' ? 'border-amber-500/50 text-amber-300' : 'border-stone-700 text-stone-500'}`}
+        >
+          Tableau
+        </button>
+      </div>
+
+      {/* Liste / Table */}
       {filtered.length === 0 ? (
         <EmptyState
           icon={<Package size={48} />}
           title="Aucun article"
           message={`Cliquez sur « ${catalogLabel(bizType)} » pour démarrer, ou « Ajouter ».`}
         />
+      ) : viewMode === 'cards' ? (
+        <ul className="rounded-2xl border border-stone-800 bg-stone-900/40 divide-y divide-stone-800/80 overflow-hidden">
+          {filtered.map((p) => {
+            const stock = Number(p.stock) || 0;
+            const min = Number(p.min_stock) || 0;
+            const price = Number(p.price) || 0;
+            const pack = Math.max(1, Number(p.units_per_package) || CASIER);
+            const status = aiStatus(stock, min);
+            const brand = inferBrand(p.name);
+            const packaging =
+              pack >= 12
+                ? `${p.unit === 'canette' ? 'Carton' : 'Casier'} ${pack} · ${p.category}`
+                : `${p.unit || 'unité'} · ${p.category}`;
+            return (
+              <li key={p.id} className="flex items-center gap-3 px-3 py-3 hover:bg-stone-800/40">
+                {canEditStock && (
+                  <input
+                    type="checkbox"
+                    className="rounded border-stone-600 shrink-0"
+                    checked={selectedIds.has(p.id)}
+                    onChange={() => toggleSelect(p.id)}
+                  />
+                )}
+                <ProductThumb
+                  name={p.name}
+                  category={p.category}
+                  imageUrl={(p as { image_url?: string }).image_url}
+                  size={56}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-stone-100 truncate">{p.name}</p>
+                  <p className="text-[11px] text-stone-500 flex flex-wrap items-center gap-1.5 mt-0.5">
+                    <span className="text-amber-400/90 font-medium">{brand}</span>
+                    <span>·</span>
+                    <span>{packaging}</span>
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge color={status.color === 'error' ? 'error' : status.color === 'warning' ? 'warning' : 'success'}>
+                      {status.label}
+                    </Badge>
+                    <span className="text-xs text-stone-400">Stock {stock}</span>
+                    {price > 0 && (
+                      <span className="text-xs font-medium text-amber-300">
+                        {price.toLocaleString('fr-FR')} F
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {canEditStock && (
+                  <div className="flex flex-col gap-1 shrink-0">
+                    <div className="inline-flex items-center gap-1">
+                      <button type="button" onClick={() => quickStock(p, -1)} className="w-8 h-8 rounded-lg bg-stone-800 text-stone-300">−</button>
+                      <button type="button" onClick={() => quickStock(p, 1)} className="w-8 h-8 rounded-lg bg-stone-800 text-stone-300">+</button>
+                    </div>
+                    <button type="button" onClick={() => openEdit(p)} className="text-[10px] text-stone-500 hover:text-amber-400">
+                      Modifier
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-stone-800 bg-stone-900/50">
           <table className="w-full text-sm min-w-[900px]">
             <thead>
               <tr className="bg-stone-800/80 text-stone-300 text-left">
+                {canEditStock && (
+                  <th className="px-2 py-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      className="rounded border-stone-600"
+                      checked={filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id))}
+                      onChange={() => toggleSelectAllFiltered()}
+                      title="Tout sélectionner"
+                    />
+                  </th>
+                )}
                 <th className="px-3 py-3 font-medium">Catégorie</th>
                 <th className="px-3 py-3 font-medium">Produit / Marque</th>
                 <th className="px-3 py-3 font-medium">Format</th>
@@ -1232,26 +1547,33 @@ export default function Inventaire() {
                 const low = stock <= min;
 
                 return (
-                  <tr key={p.id} className="border-t border-stone-800 hover:bg-stone-800/40">
+                  <tr key={p.id} className={`border-t border-stone-800 hover:bg-stone-800/40 ${selectedIds.has(p.id) ? 'bg-red-950/20' : ''}`}>
+                    {canEditStock && (
+                      <td className="px-2 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-stone-600"
+                          checked={selectedIds.has(p.id)}
+                          onChange={() => toggleSelect(p.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-2.5">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        p.category === 'Alcool' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'
+                        p.category === 'Alcool' || p.category === 'Bière' ? 'bg-amber-500/15 text-amber-300' : 'bg-sky-500/15 text-sky-300'
                       }`}>
                         {p.category}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 font-medium text-stone-100">
                       <span className="inline-flex items-center gap-2 min-w-0">
-                        <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={44} />
-                        <span className="inline-flex items-center gap-1.5 min-w-0">
-                          {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
-                          <span className="truncate">{p.name}</span>
-                          {(Number(p.empty_bottles) > 0 || Number(p.consigne_unit) > 0) && (
-                            <span className="text-[10px] text-sky-400/90 block">
-                              {Number(p.consigne_unit) > 0 ? `Consigne ${p.consigne_unit}F` : ''}
-                              {Number(p.empty_bottles) > 0 ? ` · ${p.empty_bottles} vides` : ''}
-                            </span>
-                          )}
+                        <ProductThumb name={p.name} category={p.category} imageUrl={(p as { image_url?: string }).image_url} size={48} />
+                        <span className="inline-flex flex-col items-start gap-0.5 min-w-0">
+                          <span className="truncate flex items-center gap-1">
+                            {low && <AlertTriangle size={14} className="text-amber-400 shrink-0" />}
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] text-amber-400/80">{inferBrand(p.name)}</span>
                         </span>
                       </span>
                     </td>
