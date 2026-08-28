@@ -45,6 +45,7 @@ import TeamPage from '@/pages/Team';
 import MesEmployes from '@/pages/MesEmployes';
 import PointManuel from '@/pages/PointManuel';
 import GuidePage from '@/pages/Guide';
+import SubscriptionPage from '@/pages/Subscription';
 import KitsPromos from '@/pages/KitsPromos';
 import MenuQR from '@/pages/MenuQR';
 import PublicMenu from '@/pages/PublicMenu';
@@ -165,6 +166,7 @@ function ProtectedRoutes() {
         <Route path="/inventaire" element={<Navigate to="/inventory" replace />} />
         <Route path="/point-manuel" element={<PointManuel />} />
         <Route path="/guide" element={<GuidePage />} />
+        <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/kits" element={<KitsPromos />} />
         <Route path="/menu-qr" element={<MenuQR />} />
         <Route path="/stock-transfer" element={<StockTransfer />} />
