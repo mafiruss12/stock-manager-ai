@@ -1,31 +1,23 @@
 /**
- * Paiements abonnement — Mobile Money CI
- * - WhatsApp gratuit (immédiat, sans clé)
- * - CinetPay / PayDunya (clés côté Vercel, jamais en clair dans le repo)
+ * Paiements abonnement — CinetPay (Mobile Money CI) + WhatsApp secours
  */
-
 import { PLAN, priceForMonths, paymentWhatsAppLink, SUB_PERIODS } from '@/lib/subscription';
 
-export type PaymentProvider = 'whatsapp' | 'cinetpay' | 'paydunya';
+export type PaymentProvider = 'whatsapp' | 'cinetpay';
 
 export const PAYMENT_METHODS = [
-  { id: 'wave' as const, label: 'Wave', icon: '🌊' },
-  { id: 'orange_money' as const, label: 'Orange Money', icon: '🟠' },
-  { id: 'mtn_money' as const, label: 'MTN Money', icon: '🟡' },
-  { id: 'moov_money' as const, label: 'Moov Money', icon: '🔵' },
+  { id: 'cinetpay' as const, label: 'Mobile Money (CinetPay)', icon: '💳' },
+  { id: 'wave' as const, label: 'Wave via CinetPay', icon: '🌊' },
+  { id: 'orange_money' as const, label: 'Orange Money via CinetPay', icon: '🟠' },
+  { id: 'mtn_money' as const, label: 'MTN Money via CinetPay', icon: '🟡' },
+  { id: 'moov_money' as const, label: 'Moov Money via CinetPay', icon: '🔵' },
   { id: 'whatsapp' as const, label: 'WhatsApp (validation manuelle)', icon: '💬' },
 ];
 
-/** Clés publiques uniquement (si exposées) — secrets restent serveur */
-export function getCinetPayPublic(): { siteId?: string; apiKey?: string; enabled: boolean } {
-  const siteId = (import.meta.env.VITE_CINETPAY_SITE_ID as string | undefined)?.trim();
-  const apiKey = (import.meta.env.VITE_CINETPAY_API_KEY as string | undefined)?.trim();
-  return { siteId, apiKey, enabled: Boolean(siteId && apiKey) };
-}
-
-export function getPayDunyaPublic(): { publicKey?: string; enabled: boolean } {
-  const publicKey = (import.meta.env.VITE_PAYDUNYA_PUBLIC_KEY as string | undefined)?.trim();
-  return { publicKey, enabled: Boolean(publicKey) };
+export function isCinetPayConfigured(): boolean {
+  // Le front appelle /api/cinetpay/init — la config réelle est serveur.
+  // On considère dispo si pas forcé désactivé.
+  return import.meta.env.VITE_CINETPAY_DISABLED !== '1';
 }
 
 export function buildSubscriptionWhatsAppMessage(opts: {
@@ -59,29 +51,45 @@ export function openSubscriptionWhatsApp(opts: {
 }
 
 /**
- * Init paiement CinetPay (checkout).
- * Sans clés → retourne null (utiliser WhatsApp).
- * Doc : https://docs.cinetpay.com
+ * Init CinetPay via API serveur sécurisée
  */
 export async function initCinetPayCheckout(opts: {
   amount: number;
-  transactionId: string;
+  transactionId?: string;
   description: string;
   customerName?: string;
+  customerEmail?: string;
   customerPhone?: string;
-  returnUrl: string;
-  notifyUrl?: string;
-}): Promise<{ paymentUrl?: string; error?: string }> {
-  const cfg = getCinetPayPublic();
-  if (!cfg.enabled) {
-    return { error: 'CinetPay non configuré — utilisez WhatsApp ou ajoutez VITE_CINETPAY_SITE_ID / VITE_CINETPAY_API_KEY' };
+  returnUrl?: string;
+  metadata?: string;
+}): Promise<{ paymentUrl?: string; transactionId?: string; error?: string }> {
+  try {
+    const res = await fetch('/api/cinetpay/init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: opts.amount,
+        transactionId: opts.transactionId || `SM-${Date.now()}`,
+        description: opts.description,
+        customerName: opts.customerName,
+        customerEmail: opts.customerEmail,
+        customerPhone: opts.customerPhone,
+        returnUrl: opts.returnUrl || `${window.location.origin}/subscription?paid=1`,
+        notifyUrl: `${window.location.origin}/api/cinetpay/notify`,
+        metadata: opts.metadata || '',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      return { error: data.error || data.hint || 'Échec CinetPay' };
+    }
+    return {
+      paymentUrl: data.paymentUrl,
+      transactionId: data.transactionId,
+    };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Réseau indisponible' };
   }
-  // Le checkout réel doit passer par une Edge Function (secret API).
-  // Ici : redirection manuelle vers le tableau de bord marchand / WhatsApp en secours.
-  return {
-    error:
-      'Branchez une fonction serveur /api/cinetpay pour démarrer le paiement sécurisé. En attendant, payez via WhatsApp.',
-  };
 }
 
 export function listPeriods() {

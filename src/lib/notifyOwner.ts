@@ -1,3 +1,4 @@
+import { sendWhatsAppCloud } from '@/lib/whatsappCloud';
 import { supabase } from '@/lib/supabase';
 import { openWhatsApp } from '@/lib/integrations';
 

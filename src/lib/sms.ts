@@ -1,44 +1,36 @@
 /**
- * SMS Afrique — prêt pour Africa’s Talking (ou équivalent)
- * Sans clés : pas d’envoi, message d’aide clair.
- * Secrets uniquement en variables d’environnement serveur.
+ * SMS via Africa’s Talking — POST /api/sms/send
  */
 
-export function isSmsConfigured(): boolean {
-  return Boolean(
-    (import.meta.env.VITE_AT_USERNAME as string | undefined)?.trim() &&
-      (import.meta.env.VITE_AT_API_KEY as string | undefined)?.trim(),
-  );
-}
-
-/**
- * Envoi SMS (à brancher via Edge Function en prod).
- * Frontend ne doit jamais contenir la clé secrète complète.
- */
-export async function sendSmsPlaceholder(opts: {
-  to: string;
+export async function sendSms(opts: {
+  to: string | string[];
   message: string;
-}): Promise<{ ok: boolean; detail: string }> {
-  if (!isSmsConfigured()) {
-    return {
-      ok: false,
-      detail:
-        'SMS non configuré. Ajoutez VITE_AT_USERNAME + fonction serveur Africa’s Talking, ou utilisez WhatsApp (gratuit).',
-    };
+}): Promise<{ ok: boolean; detail: string; data?: unknown }> {
+  try {
+    const res = await fetch('/api/sms/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(opts),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      return {
+        ok: false,
+        detail: data.error || data.hint || `HTTP ${res.status}`,
+        data,
+      };
+    }
+    return { ok: true, detail: 'SMS envoyé', data: data.data };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : 'Erreur réseau' };
   }
-  // Appel futur : POST /api/sms
-  return {
-    ok: false,
-    detail: `SMS prêt pour ${opts.to} — branchez /api/sms (Africa’s Talking). Message: ${opts.message.slice(0, 40)}…`,
-  };
 }
 
 export function smsHelpText(): string {
   return [
-    'SMS Afrique (optionnel) :',
-    '1. Compte Africa’s Talking',
-    '2. Clés en variables Vercel (serveur)',
-    '3. Endpoint /api/sms',
-    'En attendant : rappels via WhatsApp wa.me (gratuit).',
+    'Africa’s Talking (SMS) :',
+    '1. Compte https://account.africastalking.com',
+    '2. Vercel → AT_USERNAME + AT_API_KEY (+ AT_FROM optionnel)',
+    '3. Endpoint actif : POST /api/sms/send',
   ].join('\n');
 }
