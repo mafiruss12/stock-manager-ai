@@ -10,6 +10,7 @@ import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
 import { ensureProductImageCatalog, registerCatalogImage, lookupCatalogImage, applyDefaultImagesToProducts, resolveProductImage } from '@/lib/productImages';
+import { qrCodeImageUrl } from '@/lib/exchangeRates';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 import { speakFrench, playTone } from '@/lib/a11yVoice';
 
