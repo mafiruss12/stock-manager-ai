@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { formatFCFA, todayISO } from '@/lib/format';
+import { loadBeverageProfitForRange, loadBeverageProfitFromReports, loadFondsCommerce, mondayOfISO, dateDaysAgo, monthStartISO } from '@/lib/beverageProfit';
 import { StatCard, EmptyState } from '@/components/ui';
 import { BarChart, Sparkline } from '@/components/MiniChart';
 import {
@@ -23,7 +24,6 @@ import {
   dateDaysAgo,
   monthStartISO,
   type BeveragePeriodReport,
-} from '@/lib/beverageProfit';
 import OwnerReportCalendar from '@/components/OwnerReportCalendar';
 import QuickActions from '@/components/QuickActions';
 import WorkDayBanner from '@/components/WorkDayBanner';
@@ -140,16 +140,20 @@ export default function Dashboard() {
         (s, p) => s + (Number(p.stock) || 0) * (Number(p.cost) || 0),
         0
       );
-      const monthProfit = monthSales - monthExpenses - monthPurchases;
-      const todayCogs = 0;
-
-      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-      const [weekExpRes, weekPurchRes] = await Promise.all([
-        supabase.from('expenses').select('amount').eq('establishment_id', estId).gte('created_at', weekAgo),
-        supabase.from('purchases').select('total').eq('establishment_id', estId).gte('created_at', weekAgo),
+      // Bénéfice = marge rapports (pas ventes − achats)
+      const mon = mondayOfISO(today);
+      const [todayProfitRep, weekProfitRep, monthProfitRep, fonds] = await Promise.all([
+        loadBeverageProfitForRange(estId, today, today),
+        loadBeverageProfitForRange(estId, mon, today),
+        loadBeverageProfitForRange(estId, monthStart.toISOString().slice(0, 10), today),
+        loadFondsCommerce(estId),
       ]);
-      const weekExpenses = (weekExpRes.data ?? []).reduce((s, x) => s + Number(x.amount || 0), 0);
-      const weekPurchases = (weekPurchRes.data ?? []).reduce((s, x) => s + Number(x.total || 0), 0);
+      const monthProfit = monthProfitRep.totalProfit;
+      const todayCogs = todayProfitRep.totalCost;
+      const weekProfitMargin = weekProfitRep.totalProfit;
+      const weekPurchases = monthPurchases; // conservé pour affichage séparément
+      const weekExpenses = 0;
+      const stockValueFonds = fonds.stockValueAtCost;
 
       const products = productsRes.data ?? [];
       const lowStockItems = products.filter((p) => Number(p.stock) <= Number(p.min_stock));
@@ -181,7 +185,7 @@ export default function Dashboard() {
         weekValues.push(sum);
       }
       const weekSalesTotal = weekValues.reduce((a, b) => a + b, 0);
-      const weekProfit = weekSalesTotal - weekExpenses - weekPurchases;
+      const weekProfit = weekProfitMargin;
 
       const aiAlerts: string[] = [];
       for (const p of lowStockItems.slice(0, 5)) {
@@ -214,7 +218,7 @@ export default function Dashboard() {
         ]);
 
         setData({
-          todaySales, todayExpenses, todayProfit: todaySales - todayExpenses,
+          todaySales, todayExpenses, todayProfit: todayProfitRep.totalProfit,
           weekSalesTotal, lowStockCount: lowStock,
           employeeCount: employeesRes.data?.length ?? 0, activeOrders: ordersRes.data?.length ?? 0,
           freeTables, occupiedTables, weeklyData, weekValues,
@@ -226,8 +230,8 @@ export default function Dashboard() {
           monthSales,
           monthExpenses,
           monthPurchases,
-          monthProfit,
-          stockValue,
+          monthProfit: monthProfitRep.totalProfit,
+          stockValue: stockValueFonds,
           todayCogs,
           weekExpenses,
           weekPurchases,
@@ -353,7 +357,7 @@ export default function Dashboard() {
         </div>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <DashLink to="/accounting" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-            <p className="text-emerald-200/80 text-xs uppercase tracking-wide">Bénéfice net — semaine (7 j) →</p>
+            <p className="text-emerald-200/80 text-xs uppercase tracking-wide">Bénéfice (marge) — semaine (7 j) →</p>
             <p className={`text-2xl font-bold mt-1 ${(data.weekProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {formatFCFA(data.weekProfit ?? 0)}
             </p>
@@ -362,7 +366,7 @@ export default function Dashboard() {
             </p>
           </DashLink>
           <DashLink to="/accounting" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-            <p className="text-amber-200/80 text-xs uppercase tracking-wide">Bénéfice net — mois →</p>
+            <p className="text-amber-200/80 text-xs uppercase tracking-wide">Bénéfice (marge) — mois →</p>
             <p className={`text-2xl font-bold mt-1 ${(data.monthProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {formatFCFA(data.monthProfit ?? 0)}
             </p>
