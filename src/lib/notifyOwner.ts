@@ -96,13 +96,9 @@ export function openOwnerWhatsApp() {
 }
 
 
-/** Ouvre les canaux gratuits (WhatsApp + mailto) après envoi du rapport — sans API payante */
+/** Ouvre WhatsApp propriétaire uniquement (pas de mailto / e-mail) */
 export function openOwnerChannelsAfterReport() {
   try {
     openOwnerWhatsApp();
-  } catch { /* */ }
-  try {
-    // mailto en second (peut être bloqué si WA a pris le focus)
-    setTimeout(() => openOwnerMail(), 600);
   } catch { /* */ }
 }

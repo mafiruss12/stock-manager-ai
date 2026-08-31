@@ -18,7 +18,7 @@ import { EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
 import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
-import { notifyOwnerOnReport, getOwnerContacts, openOwnerChannelsAfterReport } from '@/lib/notifyOwner';
+import { notifyOwnerOnReport, getOwnerContacts } from '@/lib/notifyOwner';
 import { ROLE_LABELS } from '@/lib/types';
 import { loadDayOpsSummary } from '@/lib/opsHub';
 import { Link } from 'react-router-dom';
@@ -960,6 +960,127 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+
+  /** Image récap du rapport (partage WhatsApp) */
+  async function buildReportImageBlob(): Promise<Blob | null> {
+    try {
+      const W = 720;
+      const lineH = 28;
+      const lines = [
+        activeEstablishment?.name || 'Maquis',
+        `Rapport du jour — ${date}`,
+        `Par: ${member?.full_name || member?.email || 'Équipe'}`,
+        '',
+        ...soldLines.slice(0, 12).map((l) => `${l.name}  x${l.qty}  ${formatFCFA(l.qty * l.price)}`),
+        soldLines.length > 12 ? `… +${soldLines.length - 12} autres` : '',
+        '',
+        `Total théorique: ${formatFCFA(theoretical)}`,
+        `Espèces: ${formatFCFA(Number(cashCounted) || 0)} · Mobile: ${formatFCFA(Number(mobileCounted) || 0)}`,
+        match ? 'Caisse: OK' : `Écart: ${formatFCFA(diff)}`,
+        '',
+        'Stock Manager AI',
+      ].filter((x) => x !== undefined);
+      const H = Math.max(480, 40 + lines.length * lineH + 40);
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      // fond
+      ctx.fillStyle = '#0c0a09';
+      ctx.fillRect(0, 0, W, H);
+      // bandeau
+      ctx.fillStyle = '#E89B2D';
+      ctx.fillRect(0, 0, W, 8);
+      ctx.fillStyle = '#fafaf9';
+      ctx.font = 'bold 22px system-ui,sans-serif';
+      let y = 48;
+      for (let i = 0; i < lines.length; i++) {
+        const t = lines[i];
+        if (i === 0) {
+          ctx.font = 'bold 26px system-ui,sans-serif';
+          ctx.fillStyle = '#fbbf24';
+        } else if (i === 1) {
+          ctx.font = '600 20px system-ui,sans-serif';
+          ctx.fillStyle = '#e7e5e4';
+        } else if (t.startsWith('Total') || t.startsWith('Caisse') || t.startsWith('Écart')) {
+          ctx.font = 'bold 20px system-ui,sans-serif';
+          ctx.fillStyle = t.startsWith('Écart') ? '#fbbf24' : '#6ee7b7';
+        } else {
+          ctx.font = '18px system-ui,sans-serif';
+          ctx.fillStyle = '#d6d3d1';
+        }
+        if (t) ctx.fillText(t, 28, y);
+        y += lineH;
+      }
+      return await new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9));
+    } catch {
+      return null;
+    }
+  }
+
+  async function shareReportToWhatsApp() {
+    const msg =
+      reportText() +
+      '\n\n📎 Rapport du jour — Stock Manager AI\n(Joindre l’image / fichier si le partage l’a proposé)';
+    const imageBlob = await buildReportImageBlob();
+    const html = buildReportHtml();
+    const htmlFile = new File([html], `rapport-${date}.html`, { type: 'text/html' });
+    const files: File[] = [];
+    if (imageBlob) {
+      files.push(new File([imageBlob], `rapport-${date}.jpg`, { type: 'image/jpeg' }));
+    }
+    files.push(htmlFile);
+
+    // 1) Partage natif (Android : souvent WhatsApp avec image)
+    try {
+      if (navigator.share && files.length) {
+        const payload: ShareData = {
+          title: `Rapport ${date}`,
+          text: msg,
+          files,
+        };
+        if (!navigator.canShare || navigator.canShare(payload)) {
+          await navigator.share(payload);
+          return true;
+        }
+        // essai image seule
+        if (files[0] && (!navigator.canShare || navigator.canShare({ files: [files[0]] }))) {
+          await navigator.share({ title: `Rapport ${date}`, text: msg, files: [files[0]] });
+          return true;
+        }
+      }
+    } catch (e) {
+      // utilisateur a annulé ou non supporté
+      if (e instanceof Error && e.name === 'AbortError') return true;
+    }
+
+    // 2) Télécharger l’image pour joindre manuellement + ouvrir WhatsApp texte
+    if (imageBlob) {
+      try {
+        const url = URL.createObjectURL(imageBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rapport-${date}.jpg`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch { /* */ }
+    }
+
+    const link = buildWhatsAppLink(ownerPhone, msg);
+    if (link) {
+      window.open(link, '_blank', 'noopener,noreferrer');
+      return true;
+    }
+    try {
+      await navigator.clipboard.writeText(msg);
+      alert('Message copié. Ouvrez WhatsApp et collez-le au propriétaire. (Renseignez le téléphone du propriétaire dans Paramètres.)');
+    } catch {
+      alert('Rapport enregistré. Ouvrez WhatsApp pour prévenir le propriétaire.');
+    }
+    return false;
+  }
+
   async function sendReport() {
     if (!estId) return;
     if (soldLines.length === 0) {
@@ -993,7 +1114,7 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
         reportSummary: reportText(),
         reportDate: date,
       });
-      openOwnerChannelsAfterReport();
+      // Pas de mailto — WhatsApp géré après génération du fichier
     } catch {
       // fallback notifications basiques
       try {
@@ -1029,36 +1150,15 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
     setSaving(false);
     await loadHistory();
 
-    // 4) Afficher le rapport (facture du jour) IN-APP — pas de page blanche
+    // 4) Aperçu in-app
     openPrintPdf();
-    try {
-      downloadReportFile();
-    } catch {
-      /* */
-    }
 
-    // 5) WhatsApp après un court délai pour laisser voir le PDF
-    const msg =
-      reportText() +
-      '\n\n📎 Rapport du jour généré dans Stock Manager — Imprimer → Enregistrer en PDF pour joindre.';
-    const link = buildWhatsAppLink(ownerPhone, msg);
-    if (link) {
-      setTimeout(() => {
-        try {
-          window.open(link, '_blank', 'noopener,noreferrer');
-        } catch {
-          /* */
-        }
-      }, 1200);
-    } else {
-      try {
-        await navigator.clipboard.writeText(msg);
-        alert(
-          'Rapport enregistré + stock mis à jour. Message copié. Collez-le dans WhatsApp. (Téléphone établissement dans Paramètres pour envoi direct.)'
-        );
-      } catch {
-        alert('Rapport enregistré. Stock mis à jour.');
-      }
+    // 5) WhatsApp propriétaire + image/fichier du rapport (pas d'e-mail)
+    try {
+      await shareReportToWhatsApp();
+    } catch {
+      const link = buildWhatsAppLink(ownerPhone, reportText());
+      if (link) window.open(link, '_blank', 'noopener,noreferrer');
     }
   }
 
@@ -1594,8 +1694,8 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
           </div>
 
           <p className="text-xs text-stone-500">
-            Envoi = sauvegarde datée + notification propriétaire + déduction stock + fichier + PDF + WhatsApp.
-            WhatsApp ne permet pas de joindre un PDF automatiquement depuis le navigateur : le fichier est
+            Envoi = sauvegarde + déduction stock + ouverture WhatsApp propriétaire avec image du rapport.
+            Sur Android, choisissez WhatsApp dans le menu de partage pour joindre l’image. Sinon l’image est téléchargée et WhatsApp s’ouvre avec le texte.
             téléchargé pour que vous le joigniez, et le message texte est prérempli.
           </p>
         </div>
