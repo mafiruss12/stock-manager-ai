@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save, Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw, History, PackageMinus, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
+import { ClipboardCheck, Calendar, DollarSign, Smartphone, Loader2, Send, Save, Beer, CheckCircle2, AlertTriangle, MessageCircle, FileText, RefreshCw, History, PackageMinus, Volume2, VolumeX, Mic, MicOff, Camera, ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import {
+  uploadProofImage,
+  createProofPhoto,
+  listProofPhotos,
+  deleteProofPhoto,
+  pickPhotoFromDevice,
+  type StockProofPhoto,
+} from '@/lib/proofPhotos';
 import { isOnline, queueAdd, cacheSet, cacheGet } from '@/lib/offline';
 import { useAuth } from '@/lib/auth';
 import { useEstId } from '@/lib/useEstId';
@@ -76,7 +84,9 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
   const [sent, setSent] = useState(false);
   const [stockDeducted, setStockDeducted] = useState(false);
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [reportProofs, setReportProofs] = useState<StockProofPhoto[]>([]);
+  const [proofBusy, setProofBusy] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [dictatingId, setDictatingId] = useState<string | null>(null);
@@ -286,7 +296,7 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
             setMobileCounted(String(parsed.mobile_counted ?? (existing as any).mobile_money ?? ''));
             setComment(parsed.comment || '');
             setStockDeducted(Boolean(parsed.stock_deducted));
-            if ((parsed.items || []).some((i) => i.qty > 0)) setStep(2);
+            if ((parsed.items || []).some((i) => i.qty > 0)) setStep(1); // rester sur boissons, l'utilisateur enchaîne
           } else {
             setComment(raw);
             setCashCounted(String(existing.cash ?? ''));
@@ -351,6 +361,50 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
       stock_deducted: stockDeducted,
       ...extra,
     };
+  }
+
+  
+  async function loadReportProofs() {
+    if (!estId) return;
+    const all = await listProofPhotos(estId);
+    const day = date;
+    // Preuves du jour liées à la vente
+    const filtered = all.filter((p) => {
+      const t = (p.taken_at || p.created_at || '').slice(0, 10);
+      return t === day && (p.kind === 'sale' || p.kind === 'other');
+    });
+    setReportProofs(filtered);
+  }
+
+  async function captureReportProof(fromGallery: boolean) {
+    if (!estId) return;
+    const file = await pickPhotoFromDevice(!fromGallery);
+    if (!file) return;
+    setProofBusy(true);
+    try {
+      const { url } = await uploadProofImage(estId, file);
+      const names = soldLines.slice(0, 4).map((l) => `${l.name}×${l.qty}`).join(', ');
+      const r = await createProofPhoto({
+        establishmentId: estId,
+        productId: soldLines[0]?.product_id || null,
+        kind: 'sale',
+        imageUrl: url,
+        note: `Point ${date} — ${names}${soldLines.length > 4 ? '…' : ''}`,
+        userId: member?.user_id || null,
+      });
+      if (!r.ok) alert(r.error || 'Enregistrement photo impossible');
+      else await loadReportProofs();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur photo');
+    }
+    setProofBusy(false);
+  }
+
+  async function removeReportProof(id: string) {
+    if (!confirm('Supprimer cette photo ?')) return;
+    const r = await deleteProofPhoto(id);
+    if (!r.ok) alert(r.error || 'Suppression impossible');
+    else await loadReportProofs();
   }
 
   async function saveReport(markSent: boolean, payloadOverride?: SavedPayload) {
@@ -1089,8 +1143,9 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
       <div className="flex gap-2 text-xs">
         {[
           { n: 1 as const, label: 'Boissons vendues' },
-          { n: 2 as const, label: 'Caisse / Mobile Money' },
-          { n: 3 as const, label: 'Envoi' },
+          { n: 2 as const, label: 'Preuve photo' },
+          { n: 3 as const, label: 'Caisse / Mobile Money' },
+          { n: 4 as const, label: 'Envoi' },
         ].map((s) => (
           <button
             key={s.n}
@@ -1186,14 +1241,98 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
                 return;
               }
               setStep(2);
+              void loadReportProofs();
             }}
           >
-            Continuer → Caisse
+            Continuer → Preuve photo
           </button>
         </div>
       )}
 
+      
       {step === 2 && (
+        <div className="space-y-4">
+          <div className="card space-y-2">
+            <p className="text-sm font-medium text-stone-200 flex items-center gap-2">
+              <Camera className="text-amber-400" size={18} /> Preuve des boissons vendues
+            </p>
+            <p className="text-xs text-stone-400">
+              Prenez une ou plusieurs photos comme preuve (casiers, bouteilles sorties, ticket…). Le propriétaire pourra les voir.
+            </p>
+            <div className="text-xs text-stone-500 space-y-1 max-h-28 overflow-y-auto">
+              {soldLines.map((l) => (
+                <div key={l.product_id} className="flex justify-between">
+                  <span>{l.name}</span>
+                  <span className="text-amber-200/90">× {l.qty}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={proofBusy}
+              className="btn-primary flex items-center gap-2 min-h-[48px]"
+              onClick={() => void captureReportProof(false)}
+            >
+              <Camera size={18} /> {proofBusy ? 'Envoi…' : 'Prendre une photo'}
+            </button>
+            <button
+              type="button"
+              disabled={proofBusy}
+              className="btn-secondary flex items-center gap-2 min-h-[48px]"
+              onClick={() => void captureReportProof(true)}
+            >
+              <ImageIcon size={18} /> Galerie
+            </button>
+          </div>
+
+          {reportProofs.length === 0 ? (
+            <p className="text-sm text-amber-200/80 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
+              Aucune photo pour l’instant. Ajoutez au moins une preuve avant d’envoyer le rapport (recommandé).
+            </p>
+          ) : (
+            <ul className="grid grid-cols-2 gap-2">
+              {reportProofs.map((ph) => (
+                <li key={ph.id} className="relative rounded-xl overflow-hidden border border-stone-800">
+                  <img src={ph.image_url} alt="" className="w-full h-28 object-cover" />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 rounded-lg bg-black/70 text-red-300 text-[10px] px-2 py-1"
+                    onClick={() => void removeReportProof(ph.id)}
+                  >
+                    Suppr.
+                  </button>
+                  {ph.note && <p className="text-[10px] text-stone-400 p-1 truncate">{ph.note}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex gap-2">
+            <button type="button" className="btn-secondary min-h-[48px]" onClick={() => setStep(1)}>
+              ← Boissons
+            </button>
+            <button
+              type="button"
+              className="btn-primary flex-1 min-h-[48px] text-base"
+              onClick={() => {
+                if (reportProofs.length === 0) {
+                  const ok = confirm('Aucune photo de preuve. Continuer quand même vers la caisse ?');
+                  if (!ok) return;
+                }
+                setStep(3);
+              }}
+            >
+              Continuer → Caisse
+            </button>
+          </div>
+        </div>
+      )}
+
+
+      {step === 3 && (
         <div className="space-y-4">
           <div className="card space-y-2">
             <p className="text-sm text-stone-400">Récap ventes</p>
@@ -1277,17 +1416,17 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
           </button>
 
           <div className="flex gap-2">
-            <button type="button" className="btn-secondary min-h-[48px]" onClick={() => setStep(1)}>
-              ← Boissons
+            <button type="button" className="btn-secondary min-h-[48px]" onClick={() => setStep(2)}>
+              ← Preuve photo
             </button>
-            <button type="button" className="btn-primary flex-1 min-h-[48px] text-base" onClick={() => { playTone(match ? 'ok' : 'warn'); setStep(3); }}>
+            <button type="button" className="btn-primary flex-1 min-h-[48px] text-base" onClick={() => { playTone(match ? 'ok' : 'warn'); setStep(4); }}>
               Continuer → Envoi
             </button>
           </div>
         </div>
       )}
 
-      {step === 3 && (
+      {step === 4 && (
         <div className="space-y-4">
           <div className="card space-y-3">
             <div className="flex justify-between text-sm">
@@ -1392,7 +1531,7 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
             >
               <Mic size={16} /> {recordingVoice ? `Vocal… ${recordLeft}s` : 'Vocal WhatsApp (12s)'}
             </button>
-            <button type="button" className="btn-ghost text-stone-500" onClick={() => setStep(2)}>
+            <button type="button" className="btn-ghost text-stone-500" onClick={() => setStep(3)}>
               ← Retour caisse
             </button>
           </div>
