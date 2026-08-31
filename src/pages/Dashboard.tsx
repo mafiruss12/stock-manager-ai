@@ -19,11 +19,7 @@ import {
   getBusinessUI,
 } from '@/lib/businessTypes';
 import type { Sale, Order } from '@/lib/types';
-import {
-  loadBeverageProfitFromReports,
-  dateDaysAgo,
-  monthStartISO,
-  type BeveragePeriodReport,
+import type { BeveragePeriodReport } from '@/lib/beverageProfit';
 import OwnerReportCalendar from '@/components/OwnerReportCalendar';
 import QuickActions from '@/components/QuickActions';
 import WorkDayBanner from '@/components/WorkDayBanner';
