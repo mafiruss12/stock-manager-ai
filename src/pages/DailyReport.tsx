@@ -368,10 +368,12 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
     if (!estId) return;
     const all = await listProofPhotos(estId);
     const day = date;
-    // Preuves du jour liées à la vente
+    // Lier au rapport sélectionné (date du point), pas seulement taken_at serveur
     const filtered = all.filter((p) => {
+      const note = String(p.note || '');
+      if (note.includes(`report_date:${day}`) || note.includes(`Point ${day}`)) return true;
       const t = (p.taken_at || p.created_at || '').slice(0, 10);
-      return t === day && (p.kind === 'sale' || p.kind === 'other');
+      return t === day && (p.kind === 'sale' || p.kind === 'other' || p.kind === 'stock');
     });
     setReportProofs(filtered);
   }
@@ -385,15 +387,35 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
     setProofBusy(true);
     try {
       const names = soldLines.slice(0, 4).map((l) => `${l.name}×${l.qty}`).join(', ');
+      const note = `report_date:${date} | Point ${date} — ${names}${soldLines.length > 4 ? '…' : ''}`;
       const { processPickedFile } = await import('@/lib/proofPhotos');
       const r = await processPickedFile(estId, file, {
         productId: soldLines[0]?.product_id || null,
         kind: 'sale',
-        note: `Point ${date} — ${names}${soldLines.length > 4 ? '…' : ''}`,
+        note,
         userId: member?.user_id || null,
       });
-      if (!r.ok) alert(r.error || 'Enregistrement photo impossible. Réessayez.');
-      else await loadReportProofs();
+      if (!r.ok) {
+        alert(r.error || 'Enregistrement photo impossible. Réessayez.');
+      } else {
+        // Affichage immédiat (évite filtre date / latence)
+        const localPreview = r.url || URL.createObjectURL(file);
+        setReportProofs((prev) => [
+          {
+            id: r.id || `local-${Date.now()}`,
+            establishment_id: estId,
+            product_id: soldLines[0]?.product_id || null,
+            kind: 'sale',
+            image_url: localPreview,
+            note,
+            taken_at: new Date().toISOString(),
+            taken_by: member?.user_id || null,
+            created_at: new Date().toISOString(),
+          },
+          ...prev.filter((x) => x.id !== r.id),
+        ]);
+        await loadReportProofs();
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erreur photo');
     }
@@ -1325,7 +1347,7 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
 
           {reportProofs.length === 0 ? (
             <p className="text-sm text-amber-200/80 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
-              Aucune photo pour l’instant. Ajoutez au moins une preuve avant d’envoyer le rapport (recommandé).
+              Photo obligatoire : prenez au moins une photo des boissons vendues pour continuer.
             </p>
           ) : (
             <ul className="grid grid-cols-2 gap-2">
@@ -1354,8 +1376,8 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
               className="btn-primary flex-1 min-h-[48px] text-base"
               onClick={() => {
                 if (reportProofs.length === 0) {
-                  const ok = confirm('Aucune photo de preuve. Continuer quand même vers la caisse ?');
-                  if (!ok) return;
+                  alert('Photo obligatoire : prenez au moins une photo des boissons vendues avant de continuer.');
+                  return;
                 }
                 setStep(3);
               }}
