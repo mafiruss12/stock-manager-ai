@@ -376,28 +376,47 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
     setReportProofs(filtered);
   }
 
-  async function captureReportProof(fromGallery: boolean) {
-    if (!estId) return;
-    const file = await pickPhotoFromDevice(!fromGallery);
+  async function handleProofFile(file: File | null | undefined) {
+    if (!estId) {
+      alert('Établissement introuvable.');
+      return;
+    }
     if (!file) return;
     setProofBusy(true);
     try {
-      const { url } = await uploadProofImage(estId, file);
       const names = soldLines.slice(0, 4).map((l) => `${l.name}×${l.qty}`).join(', ');
-      const r = await createProofPhoto({
-        establishmentId: estId,
+      const { processPickedFile } = await import('@/lib/proofPhotos');
+      const r = await processPickedFile(estId, file, {
         productId: soldLines[0]?.product_id || null,
         kind: 'sale',
-        imageUrl: url,
         note: `Point ${date} — ${names}${soldLines.length > 4 ? '…' : ''}`,
         userId: member?.user_id || null,
       });
-      if (!r.ok) alert(r.error || 'Enregistrement photo impossible');
+      if (!r.ok) alert(r.error || 'Enregistrement photo impossible. Réessayez.');
       else await loadReportProofs();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erreur photo');
     }
     setProofBusy(false);
+  }
+
+  async function captureReportProof(fromGallery: boolean) {
+    if (!estId) {
+      alert('Établissement introuvable.');
+      return;
+    }
+    setProofBusy(true);
+    try {
+      const file = await pickPhotoFromDevice(!fromGallery);
+      if (!file) {
+        setProofBusy(false);
+        return;
+      }
+      await handleProofFile(file);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible d\'ouvrir la caméra / galerie');
+      setProofBusy(false);
+    }
   }
 
   async function removeReportProof(id: string) {
@@ -1269,23 +1288,39 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={proofBusy}
-              className="btn-primary flex items-center gap-2 min-h-[48px]"
-              onClick={() => void captureReportProof(false)}
-            >
+          <div className="flex flex-col gap-2">
+            <label className={`btn-primary flex items-center justify-center gap-2 min-h-[52px] cursor-pointer ${proofBusy ? 'opacity-60 pointer-events-none' : ''}`}>
               <Camera size={18} /> {proofBusy ? 'Envoi…' : 'Prendre une photo'}
-            </button>
-            <button
-              type="button"
-              disabled={proofBusy}
-              className="btn-secondary flex items-center gap-2 min-h-[48px]"
-              onClick={() => void captureReportProof(true)}
-            >
-              <ImageIcon size={18} /> Galerie
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                disabled={proofBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  void handleProofFile(f);
+                }}
+              />
+            </label>
+            <label className={`btn-secondary flex items-center justify-center gap-2 min-h-[52px] cursor-pointer ${proofBusy ? 'opacity-60 pointer-events-none' : ''}`}>
+              <ImageIcon size={18} /> Choisir dans la galerie
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                disabled={proofBusy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = '';
+                  void handleProofFile(f);
+                }}
+              />
+            </label>
+            <p className="text-[11px] text-stone-500 text-center">
+              Autorisez l&apos;accès caméra / photos si le téléphone le demande.
+            </p>
           </div>
 
           {reportProofs.length === 0 ? (
