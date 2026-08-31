@@ -3,13 +3,23 @@ import { getSeedCatalog, catalogLabel, usesCasiers, casierSize, inferBrand } fro
 import { logAudit, newClientOpId } from '@/lib/audit';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, Plus, Pencil, Trash2, Search, AlertTriangle, Sparkles, Download, Upload, Calculator, Camera, Printer, Truck, MoreHorizontal, History, RefreshCw, Volume2 } from 'lucide-react';
+import { Package, Plus, Pencil, Trash2, Search, AlertTriangle, Sparkles, Download, Upload, Calculator, Camera, Printer, Truck, MoreHorizontal, History, RefreshCw, Volume2, ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
 import { ensureProductImageCatalog, registerCatalogImage, lookupCatalogImage, applyDefaultImagesToProducts, resolveProductImage } from '@/lib/productImages';
+import {
+  listProofPhotos,
+  createProofPhoto,
+  updateProofPhoto,
+  deleteProofPhoto,
+  uploadProofImage,
+  pickPhotoFromDevice,
+  type StockProofPhoto,
+  type ProofKind,
+} from '@/lib/proofPhotos';
 import { qrCodeImageUrl } from '@/lib/exchangeRates';
 import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
 import { speakFrench, playTone } from '@/lib/a11yVoice';
@@ -50,11 +60,16 @@ export default function Inventaire() {
   const [shareBusy, setShareBusy] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [seeding, setSeeding] = useState(false);
-  const [tab, setTab] = useState<'stock' | 'arrivage' | 'options'>('stock');
+  const [tab, setTab] = useState<'stock' | 'arrivage' | 'options' | 'preuves'>('stock');
+  const [proofs, setProofs] = useState<StockProofPhoto[]>([]);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [proofBusy, setProofBusy] = useState(false);
+  const [proofForm, setProofForm] = useState<{ productId: string; kind: ProofKind; note: string }>({ productId: '', kind: 'sale', note: '' });
+  const [editingProof, setEditingProof] = useState<StockProofPhoto | null>(null);
 
   useEffect(() => { void ensureProductImageCatalog(); }, []);
   useEffect(() => {
-    if (!canEditStock && tab !== 'stock') setTab('stock');
+    if (!canEditStock && tab !== 'stock' && tab !== 'preuves') setTab('stock');
   }, [canEditStock, tab]);
 
   const [auditRows, setAuditRows] = useState<any[]>([]);
@@ -89,6 +104,14 @@ export default function Inventaire() {
     setLoading(false);
   }
 
+  async function loadProofs() {
+    if (!estId) return;
+    setProofLoading(true);
+    const rows = await listProofPhotos(estId);
+    setProofs(rows);
+    setProofLoading(false);
+  }
+
   async function loadAudit() {
     if (!estId) return;
     const { data } = await supabase
@@ -102,6 +125,7 @@ export default function Inventaire() {
 
   useEffect(() => {
     loadProducts();
+    void loadProofs();
     loadAudit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member, estId]);
@@ -117,6 +141,7 @@ export default function Inventaire() {
         () => {
           setLiveNote('Stock mis à jour (équipe)');
           loadProducts();
+    void loadProofs();
           loadAudit();
           setTimeout(() => setLiveNote(''), 2500);
         }
@@ -275,6 +300,7 @@ export default function Inventaire() {
         });
       }
       await loadProducts();
+    void loadProofs();
     } else {
       if (editing) {
         await queueAdd('products', 'update', { ...payload, _client_op_id: opId }, { id: editing.id });
@@ -309,6 +335,7 @@ export default function Inventaire() {
         client_op_id: opId,
       });
       await loadProducts();
+    void loadProofs();
     } else {
       await queueAdd('products', 'delete', { _client_op_id: opId }, { id: p.id });
       setProducts((prev) => prev.filter((x) => x.id !== p.id));
@@ -400,6 +427,7 @@ export default function Inventaire() {
           client_op_id: newClientOpId(),
         });
         await loadProducts();
+    void loadProofs();
         setSelectedIds(new Set());
       } else {
         for (const p of targets) {
@@ -469,6 +497,7 @@ export default function Inventaire() {
       return;
     }
     await loadProducts();
+    void loadProofs();
     alert(`Stock remis à zéro (${(data as any)?.products_updated ?? '?'} produits).`);
   }
 
@@ -647,6 +676,7 @@ export default function Inventaire() {
       }
     }
     await loadProducts();
+    void loadProofs();
     setShareModalOpen(false);
     setImportText('');
     alert(added + ' produit(s) importé(s). ' + (rows.length - added) + ' ignoré(s).');
@@ -759,6 +789,7 @@ export default function Inventaire() {
       }
     }
     await loadProducts();
+    void loadProofs();
     alert(`${added} produit(s) importé(s). ${rows.length - added} ignoré(s) (déjà présents ou erreur).`);
   }
 
@@ -788,6 +819,7 @@ export default function Inventaire() {
       const { error } = await supabase.from('products').insert(toInsert);
       if (error) alert('Erreur: ' + error.message);
       else await loadProducts();
+    void loadProofs();
     } else {
       for (const row of toInsert) await queueAdd('products', 'insert', row);
       alert('Import mis en file hors-ligne. Reconnectez-vous pour synchroniser.');
@@ -824,6 +856,79 @@ export default function Inventaire() {
     }
   }
 
+
+  
+  async function captureProofPhoto(fromGallery = false) {
+    if (!estId) return;
+    const file = await pickPhotoFromDevice(!fromGallery);
+    if (!file) return;
+    setProofBusy(true);
+    try {
+      const { url } = await uploadProofImage(estId, file);
+      const r = await createProofPhoto({
+        establishmentId: estId,
+        productId: proofForm.productId || null,
+        kind: proofForm.kind,
+        imageUrl: url,
+        note: proofForm.note || undefined,
+        userId: member?.user_id || null,
+      });
+      if (!r.ok) {
+        alert(r.error || 'Enregistrement impossible');
+      } else {
+        setProofForm({ productId: '', kind: 'sale', note: '' });
+        await loadProofs();
+        alert('Photo de preuve enregistrée');
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur photo');
+    }
+    setProofBusy(false);
+  }
+
+  async function saveProofEdit() {
+    if (!editingProof) return;
+    if (!confirm('Enregistrer les modifications de cette preuve ?')) return;
+    setProofBusy(true);
+    const r = await updateProofPhoto(editingProof.id, {
+      note: editingProof.note || '',
+      product_id: editingProof.product_id,
+      kind: editingProof.kind,
+      image_url: editingProof.image_url,
+    });
+    setProofBusy(false);
+    if (!r.ok) alert(r.error || 'Erreur');
+    else {
+      setEditingProof(null);
+      await loadProofs();
+    }
+  }
+
+  async function removeProof(id: string) {
+    if (!confirm('Supprimer cette photo de preuve ?')) return;
+    const r = await deleteProofPhoto(id);
+    if (!r.ok) alert(r.error || 'Suppression impossible');
+    else await loadProofs();
+  }
+
+  async function replaceProofImage(proof: StockProofPhoto) {
+    if (!estId) return;
+    const file = await pickPhotoFromDevice(false);
+    if (!file) return;
+    setProofBusy(true);
+    try {
+      const { url } = await uploadProofImage(estId, file);
+      const r = await updateProofPhoto(proof.id, { image_url: url });
+      if (!r.ok) alert(r.error || 'Erreur');
+      else {
+        setEditingProof(null);
+        await loadProofs();
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Erreur');
+    }
+    setProofBusy(false);
+  }
 
   async function receiveArrivage() {
     if (!canEditStock) { alert('Arrivage réservé au propriétaire / gérant.'); return; }
@@ -898,6 +1003,7 @@ export default function Inventaire() {
         console.error(e);
       }
       await loadProducts();
+    void loadProofs();
       await loadAudit();
     } else {
       await queueAdd('products', 'update', { stock: next, _prev_stock: Number(p.stock) || 0 }, { id: p.id });
@@ -1060,7 +1166,8 @@ export default function Inventaire() {
         </div>
         <button
           type="button"
-          onClick={() => { loadProducts(); loadAudit(); }}
+          onClick={() => { loadProducts();
+    void loadProofs(); loadAudit(); }}
           className="btn-secondary flex items-center gap-2 text-sm"
         >
           <RefreshCw size={16} /> Actualiser
@@ -1097,6 +1204,16 @@ export default function Inventaire() {
         >
           <MoreHorizontal size={16} className="inline mr-1" /> Plus d&apos;options
         </button>
+        <button
+          type="button"
+          onClick={() => { setTab('preuves'); void loadProofs(); }}
+          className={`px-3 py-2 rounded-xl text-sm font-medium transition ${
+            tab === 'preuves' ? 'bg-amber-500/20 text-amber-200 border border-amber-500/40' : 'text-stone-400 hover:text-stone-200'
+          }`}
+        >
+          Preuves photo
+        </button>
+
       </div>
       ) : (
       <div className="rounded-2xl bg-stone-900 border border-stone-800 px-3 py-2.5 text-sm text-stone-400">
@@ -1303,6 +1420,152 @@ export default function Inventaire() {
           </div>
         </div>
       )}
+
+      
+      {tab === 'preuves' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-amber-500/30 bg-stone-900/70 p-4 space-y-3">
+            <h2 className="font-semibold text-stone-100 flex items-center gap-2">
+              <Camera size={18} className="text-amber-400" /> Preuve photo — boissons vendues
+            </h2>
+            <p className="text-xs text-stone-400">
+              Prenez une photo comme preuve de vente ou de stock. Le propriétaire peut consulter, modifier et supprimer.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs text-stone-400 block">
+                Produit (optionnel)
+                <select
+                  className="input mt-1 w-full"
+                  value={proofForm.productId}
+                  onChange={(e) => setProofForm({ ...proofForm, productId: e.target.value })}
+                >
+                  <option value="">— Non précisé —</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-stone-400 block">
+                Type
+                <select
+                  className="input mt-1 w-full"
+                  value={proofForm.kind}
+                  onChange={(e) => setProofForm({ ...proofForm, kind: e.target.value as ProofKind })}
+                >
+                  <option value="sale">Vente</option>
+                  <option value="stock">Stock / inventaire</option>
+                  <option value="arrivage">Arrivage</option>
+                  <option value="other">Autre</option>
+                </select>
+              </label>
+            </div>
+            <label className="text-xs text-stone-400 block">
+              Note
+              <input
+                className="input mt-1 w-full"
+                value={proofForm.note}
+                onChange={(e) => setProofForm({ ...proofForm, note: e.target.value })}
+                placeholder="Ex. 10 Bock 66 vendus ce soir"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={proofBusy} onClick={() => void captureProofPhoto(false)} className="btn-primary flex items-center gap-2">
+                <Camera size={16} /> {proofBusy ? 'Envoi…' : 'Prendre une photo'}
+              </button>
+              <button type="button" disabled={proofBusy} onClick={() => void captureProofPhoto(true)} className="btn-secondary flex items-center gap-2">
+                <ImageIcon size={16} /> Galerie
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-stone-300">Photos enregistrées ({proofs.length})</h3>
+            <button type="button" className="text-xs text-amber-400" onClick={() => void loadProofs()}>Actualiser</button>
+          </div>
+
+          {proofLoading ? (
+            <p className="text-stone-500 text-sm">Chargement…</p>
+          ) : proofs.length === 0 ? (
+            <p className="text-stone-500 text-sm">Aucune preuve photo pour le moment.</p>
+          ) : (
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {proofs.map((ph) => (
+                <li key={ph.id} className="rounded-2xl border border-stone-800 bg-stone-900/50 overflow-hidden">
+                  <img src={ph.image_url} alt={ph.note || 'preuve'} className="w-full h-40 object-cover bg-stone-800" />
+                  <div className="p-3 space-y-1">
+                    <p className="text-sm font-medium text-stone-100">
+                      {(ph as any).product?.name || 'Produit non précisé'} · {ph.kind}
+                    </p>
+                    <p className="text-xs text-stone-500">
+                      {new Date(ph.taken_at).toLocaleString('fr-FR')}
+                    </p>
+                    {ph.note && <p className="text-xs text-stone-400">{ph.note}</p>}
+                    {(canEditStock || ['super_admin', 'admin', 'owner'].includes(roleNow)) && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button type="button" className="text-xs text-amber-300 flex items-center gap-1" onClick={() => setEditingProof(ph)}>
+                          <Pencil size={12} /> Modifier
+                        </button>
+                        <button type="button" className="text-xs text-red-400 flex items-center gap-1" onClick={() => void removeProof(ph.id)}>
+                          <Trash2 size={12} /> Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {editingProof && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-md rounded-2xl border border-stone-700 bg-stone-900 p-4 space-y-3">
+                <h3 className="font-semibold text-stone-100">Modifier la preuve</h3>
+                <img src={editingProof.image_url} alt="" className="w-full h-36 object-cover rounded-xl" />
+                <label className="text-xs text-stone-400 block">
+                  Produit
+                  <select
+                    className="input mt-1 w-full"
+                    value={editingProof.product_id || ''}
+                    onChange={(e) => setEditingProof({ ...editingProof, product_id: e.target.value || null })}
+                  >
+                    <option value="">— Non précisé —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs text-stone-400 block">
+                  Type
+                  <select
+                    className="input mt-1 w-full"
+                    value={editingProof.kind}
+                    onChange={(e) => setEditingProof({ ...editingProof, kind: e.target.value as ProofKind })}
+                  >
+                    <option value="sale">Vente</option>
+                    <option value="stock">Stock</option>
+                    <option value="arrivage">Arrivage</option>
+                    <option value="other">Autre</option>
+                  </select>
+                </label>
+                <label className="text-xs text-stone-400 block">
+                  Note
+                  <input
+                    className="input mt-1 w-full"
+                    value={editingProof.note || ''}
+                    onChange={(e) => setEditingProof({ ...editingProof, note: e.target.value })}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" disabled={proofBusy} className="btn-primary" onClick={() => void saveProofEdit()}>Enregistrer</button>
+                  <button type="button" className="btn-secondary" onClick={() => void replaceProofImage(editingProof)}>Changer la photo</button>
+                  <button type="button" className="btn-secondary" onClick={() => setEditingProof(null)}>Annuler</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {tab === 'stock' && (
         <div className={!canEditStock ? 'opacity-95 space-y-4' : 'space-y-4'}>
