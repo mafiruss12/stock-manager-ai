@@ -26,6 +26,7 @@ import WorkDayBanner from '@/components/WorkDayBanner';
 import StartupGuide from '@/components/StartupGuide';
 import ExchangeRatesCard from '@/components/ExchangeRatesCard';
 import SectorNews from '@/components/SectorNews';
+import OwnerSitesBar from '@/components/OwnerSitesBar';
 
 function DashLink({ to, children, className = '' }: { to: string; children: ReactNode; className?: string }) {
   return (
@@ -85,14 +86,14 @@ export default function Dashboard() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!member?.establishment_id) {
+      const estId = activeEstablishment?.id || member?.establishment_id || null;
+      if (!estId) {
         setData(null);
         setLoading(false);
         return;
       }
       setLoading(true);
       setError(null);
-      const estId = member.establishment_id;
       try {
       const today = todayISO();
 
@@ -253,10 +254,10 @@ export default function Dashboard() {
       }
     })();
     return () => { cancelled = true; };
-  }, [member?.establishment_id]);
+  }, [activeEstablishment?.id, member?.establishment_id]);
 
   if (loading) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
-  if (!member?.establishment_id) {
+  if (!(activeEstablishment?.id || member?.establishment_id)) {
     return <EmptyState icon={<LayoutDashboard size={48} />} title="Aucun établissement" message="Créez votre activité dans Paramètres." />;
   }
   if (!data) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement du tableau de bord…</div>;
@@ -302,6 +303,7 @@ export default function Dashboard() {
   return (
     <div>
       <AdMarquee className="mb-4" />
+      <OwnerSitesBar />
       {error && (
         <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200 mb-3">
           {error}

@@ -449,7 +449,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </label>
             <select
               className="input-field text-sm py-2 mt-1"
-              value={member?.establishment_id ?? ''}
+              value={activeEstablishment?.id || member?.establishment_id || ''}
               onChange={async (e) => {
                 if (e.target.value) await switchEstablishment(e.target.value);
               }}
