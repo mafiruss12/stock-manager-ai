@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import AuthPage from '@/pages/AuthPage';
+import PublicHome from '@/pages/PublicHome';
 import PendingAccessPage from '@/pages/PendingAccessPage';
 import Dashboard from '@/pages/Dashboard';
 import Documents from '@/pages/Documents';
@@ -141,7 +142,14 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!effectiveUser) return <AuthPage />;
+  // Accueil public (vitrine) — login en panneau sur PublicHome
+  if (!effectiveUser) return <PublicHome />;
+  // Visiteur connecté : reste sur l'espace public
+  try {
+    const acct = (effectiveUser as any)?.user_metadata?.account_type;
+    if (acct === 'visitor') return <PublicHome />;
+  } catch { /* */ }
+
   if (needsAccess && !member && !effectiveUser) return <PendingAccessPage />;
 
   return (
