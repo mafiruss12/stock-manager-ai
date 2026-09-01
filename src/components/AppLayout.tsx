@@ -87,7 +87,6 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/btp/documents', label: 'Devis & factures', icon: <FileText size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/btp/clients', label: 'Clients chantier', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/btp/materials', label: 'Matériaux BTP', icon: <Package size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
-      { to: '/admin', label: 'Administration', icon: <UserCog size={20} />, roles: ['super_admin'] },
     ] },
 ];
 

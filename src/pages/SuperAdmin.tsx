@@ -528,7 +528,7 @@ export default function SuperAdmin() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Administration</h1>
+      <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Tableau de bord</h1>
       <p className="text-stone-400 text-sm mb-4">
         Cliquez sur un membre ou un établissement pour le modifier
       </p>
@@ -1710,7 +1710,7 @@ function DirectAccessForm({ establishments, onDone }: { establishments: Establis
           onClick={async () => {
             // Recharge la page pour restaurer proprement la session Super Admin
             onDone();
-            window.location.href = '/admin';
+            window.location.href = '/dashboard';
           }}
           className="btn-primary w-full"
         >
