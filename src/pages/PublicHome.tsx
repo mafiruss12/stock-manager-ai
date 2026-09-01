@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import PublicLayout from '@/components/public/PublicLayout';
 import AuthModal, { AuthMode } from '@/components/public/AuthModal';
+import { slugify } from '@/lib/publicEstablishment';
 
 type PubEst = {
   id: string;
@@ -279,7 +280,7 @@ export default function PublicHome() {
                         Voir le menu
                       </Link>
                       <Link
-                        to={`/m/${est.id}`}
+                        to={`/e/${slugify(est.name, est.id)}`}
                         className="flex-1 text-center h-9 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold flex items-center justify-center hover:bg-slate-200"
                       >
                         Découvrir

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import PublicLayout from '@/components/public/PublicLayout';
 import AuthModal, { AuthMode } from '@/components/public/AuthModal';
+import { slugify } from '@/lib/publicEstablishment';
 
 type PubEst = {
   id: string;
@@ -83,7 +84,7 @@ export default function PublicEstablishments() {
         ) : (
           <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {list.map((est) => (
-              <Link key={est.id} to={`/m/${est.id}`} className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition">
+              <Link key={est.id} to={`/e/${slugify(est.name, est.id)}`} className="rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition">
                 <div className="h-36 bg-slate-100 flex items-center justify-center">
                   {est.logo_url ? <img src={est.logo_url} alt="" className="w-full h-full object-cover" /> : <UtensilsCrossed className="text-slate-300" size={32} />}
                 </div>

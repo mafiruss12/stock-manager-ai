@@ -25,6 +25,16 @@ export default function MenuQR() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [description, setDescription] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [showStock, setShowStock] = useState(true);
+  const [profileUrl, setProfileUrl] = useState('');
+  const [evTitle, setEvTitle] = useState('');
+  const [evWhen, setEvWhen] = useState('');
+  const [evVenue, setEvVenue] = useState('');
+  const [evDesc, setEvDesc] = useState('');
+  const [evSaving, setEvSaving] = useState(false);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
 
   const menuUrl =
     typeof window !== 'undefined' && estId
@@ -45,11 +55,20 @@ export default function MenuQR() {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('establishments')
-      .select('public_menu')
+      .select('public_menu, description, cover_url, public_show_stock, name, slug')
       .eq('id', estId)
       .maybeSingle();
     if (err) setError(err.message);
-    setEnabled(Boolean((data as { public_menu?: boolean } | null)?.public_menu));
+    const row = data as any;
+    setEnabled(Boolean(row?.public_menu));
+    setDescription(row?.description || '');
+    setCoverUrl(row?.cover_url || '');
+    setShowStock(row?.public_show_stock !== false);
+    if (typeof window !== 'undefined' && row) {
+      const { slugify } = await import('@/lib/publicEstablishment');
+      const slug = row.slug || slugify(String(row.name || 'etablissement'), estId);
+      setProfileUrl(`${window.location.origin}/e/${slug}`);
+    }
     setLoading(false);
   }, [estId]);
 
@@ -169,6 +188,9 @@ export default function MenuQR() {
                 />
               )}
               <p className="text-xs text-stone-500 break-all px-2">{menuUrl}</p>
+              {profileUrl && (
+                <p className="text-xs text-emerald-400/90 break-all px-2">Fiche publique : {profileUrl}</p>
+              )}
               <div className="flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
@@ -187,10 +209,128 @@ export default function MenuQR() {
                 >
                   <ExternalLink size={16} /> Ouvrir le menu
                 </a>
+                {profileUrl && (
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-stone-600 px-3 py-2 text-sm text-stone-200"
+                  >
+                    Voir la fiche
+                  </a>
+                )}
               </div>
               <p className="text-[11px] text-stone-500">
                 Imprimez le QR et placez-le sur les tables ou à l’entrée.
               </p>
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="mt-5 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
+              <p className="font-medium text-stone-100">Vitrine publique</p>
+              <textarea
+                className="input-field min-h-[80px] text-sm"
+                placeholder="Description visible par les visiteurs"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+              <input
+                className="input-field text-sm"
+                placeholder="URL photo de couverture (optionnel)"
+                value={coverUrl}
+                onChange={(e) => setCoverUrl(e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-sm text-stone-300">
+                <input
+                  type="checkbox"
+                  checked={showStock}
+                  onChange={(e) => setShowStock(e.target.checked)}
+                />
+                Afficher les quantités disponibles sur le menu public
+              </label>
+              <button
+                type="button"
+                className="btn-primary w-full text-sm"
+                disabled={saving}
+                onClick={async () => {
+                  if (!estId) return;
+                  setSaving(true);
+                  setError(null);
+                  setOkMsg(null);
+                  const { slugify } = await import('@/lib/publicEstablishment');
+                  const name = activeEstablishment?.name || 'etablissement';
+                  const slug = slugify(name, estId);
+                  const { error: err } = await supabase
+                    .from('establishments')
+                    .update({
+                      description: description.trim() || null,
+                      cover_url: coverUrl.trim() || null,
+                      public_show_stock: showStock,
+                      slug,
+                    })
+                    .eq('id', estId);
+                  if (err) {
+                    setError(
+                      err.message.includes('description') || err.message.includes('slug')
+                        ? 'Colonnes vitrine absentes — appliquez la migration public_platform sur Supabase.'
+                        : err.message
+                    );
+                  } else {
+                    setOkMsg('Vitrine enregistrée');
+                    setProfileUrl(`${window.location.origin}/e/${slug}`);
+                  }
+                  setSaving(false);
+                }}
+              >
+                Enregistrer la vitrine
+              </button>
+              {okMsg && <p className="text-xs text-emerald-400">{okMsg}</p>}
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="mt-5 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
+              <p className="font-medium text-stone-100">Publier un événement</p>
+              <input className="input-field text-sm" placeholder="Titre (ex. Afrobeat Night)" value={evTitle} onChange={(e) => setEvTitle(e.target.value)} />
+              <input className="input-field text-sm" type="datetime-local" value={evWhen} onChange={(e) => setEvWhen(e.target.value)} />
+              <input className="input-field text-sm" placeholder="Lieu" value={evVenue} onChange={(e) => setEvVenue(e.target.value)} />
+              <textarea className="input-field text-sm min-h-[60px]" placeholder="Description" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} />
+              <button
+                type="button"
+                className="btn-secondary w-full text-sm"
+                disabled={evSaving || !evTitle.trim() || !evWhen}
+                onClick={async () => {
+                  if (!estId) return;
+                  setEvSaving(true);
+                  setError(null);
+                  const { error: err } = await supabase.from('public_events').insert({
+                    establishment_id: estId,
+                    title: evTitle.trim(),
+                    description: evDesc.trim() || null,
+                    venue: evVenue.trim() || null,
+                    starts_at: new Date(evWhen).toISOString(),
+                    is_published: true,
+                    created_by: member?.user_id || null,
+                  });
+                  if (err) {
+                    setError(
+                      err.message.includes('public_events')
+                        ? 'Table public_events absente — appliquez la migration sur Supabase.'
+                        : err.message
+                    );
+                  } else {
+                    setOkMsg('Événement publié');
+                    setEvTitle('');
+                    setEvWhen('');
+                    setEvVenue('');
+                    setEvDesc('');
+                  }
+                  setEvSaving(false);
+                }}
+              >
+                {evSaving ? 'Publication…' : 'Publier l’événement'}
+              </button>
             </div>
           )}
         </>
