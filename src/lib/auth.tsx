@@ -709,7 +709,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signInWithGoogle() {
     const origin = window.location.origin;
-    const redirectTo = `${origin}/`;
+    const redirectTo = `${origin.replace(/\/$/, '')}/`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

@@ -23,6 +23,6 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     // storageKey: défaut Supabase (évite de couper les sessions existantes)
     // implicit = plus fiable que PKCE sur mobile / redirections
-    flowType: 'pkce',
+    flowType: 'implicit',
   },
 });

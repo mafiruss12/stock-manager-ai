@@ -36,7 +36,10 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (!selected || !member || !user) return;
+    if (!selected || !user) {
+      setError(!user ? 'Session expirée. Reconnectez-vous.' : 'Choisissez un type.');
+      return;
+    }
     if (mode === 'create' && !name.trim()) {
       setError('Indiquez le nom de l’établissement');
       return;
@@ -59,7 +62,7 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
         if (e1 || !est) throw new Error(e1?.message || 'Création impossible');
 
         // Lier le membre à l'établissement (owner si employé sans établissement)
-        const nextRole = ['employee', 'cashier'].includes(member.role) ? 'owner' : member.role;
+        const nextRole = member && ['employee', 'cashier'].includes(member.role) ? 'owner' : (member?.role || 'owner');
         const { error: eMember } = await supabase
           .from('members')
           .update({ establishment_id: est.id, role: nextRole })

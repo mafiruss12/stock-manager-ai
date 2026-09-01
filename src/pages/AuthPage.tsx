@@ -340,8 +340,19 @@ async function resendConfirmation() {
         return;
       }
       setSuccess("Compte créé ! Ouverture de l'application…");
-      // Laisse le temps d'écrire la session
-      await new Promise((r) => setTimeout(r, 250));
+      for (let i = 0; i < 8; i++) {
+        const { data: s } = await supabase.auth.getSession();
+        if (s.session?.user) break;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      const { data: s2 } = await supabase.auth.getSession();
+      if (!s2.session?.user) {
+        setSuccess(null);
+        setError("Compte créé, mais la session n'est pas encore active. Connectez-vous avec le même identifiant.");
+        setMode('signin');
+        setLoading(false);
+        return;
+      }
       window.location.replace('/dashboard');
     } catch (ex: any) {
       setError(ex?.message || 'Erreur inattendue. Réessayez.');
@@ -592,7 +603,7 @@ async function resendConfirmation() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="input-field pl-10"
-                    minLength={8}
+                    minLength={6}
                   />
                 </div>
               </div>
