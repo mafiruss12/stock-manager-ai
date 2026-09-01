@@ -8,6 +8,7 @@ import PublicEvents from '@/pages/public/PublicEvents';
 import PublicServices from '@/pages/public/PublicServices';
 import PublicDiscover from '@/pages/public/PublicDiscover';
 import PublicEstablishmentProfile from '@/pages/public/PublicEstablishmentProfile';
+import PublicCategory from '@/pages/public/PublicCategory';
 import PendingAccessPage from '@/pages/PendingAccessPage';
 import Dashboard from '@/pages/Dashboard';
 import Documents from '@/pages/Documents';
@@ -263,7 +264,10 @@ function PublicOrApp() {
       <Route path="/" element={<PublicHome />} />
       <Route path="/discover" element={<PublicDiscover />} />
       <Route path="/establishments" element={<PublicEstablishments />} />
-      <Route path="/events" element={<PublicEvents />} />
+      <Route path="/restaurants" element={<PublicCategory />} />
+      <Route path="/maquis" element={<PublicCategory />} />
+      <Route path="/bars" element={<PublicCategory />} />
+            <Route path="/events" element={<PublicEvents />} />
       <Route path="/services" element={<PublicServices />} />
       <Route path="/m/:estId" element={<PublicMenu />} />
       <Route path="/e/:slugOrId" element={<PublicEstablishmentProfile />} />

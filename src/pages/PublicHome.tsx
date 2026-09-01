@@ -19,6 +19,7 @@ type PubEst = {
   logo_url?: string | null;
   public_menu?: boolean;
   opening_hours?: OpeningHours | null;
+  is_sponsored?: boolean | null;
 };
 
 type Ann = {
@@ -46,6 +47,7 @@ const CATEGORIES = [
 ];
 
 export default function PublicHome() {
+  useEffect(() => { document.title = 'Stock Manager — Découvrir et gérer les établissements'; }, []);
   const { user, signOut } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
@@ -63,7 +65,7 @@ export default function PublicHome() {
       const [eRes, aRes] = await Promise.all([
         supabase
           .from('establishments')
-          .select('id, name, type, address, phone, logo_url, public_menu, opening_hours')
+          .select('id, name, type, address, phone, logo_url, public_menu, opening_hours, is_sponsored')
           .eq('public_menu', true)
           .order('name')
           .limit(48),
@@ -120,7 +122,7 @@ export default function PublicHome() {
     if (w) {
       list = list.filter((e) => String(e.address || '').toLowerCase().includes(w));
     }
-    return list;
+    return [...list].sort((a, b) => Number(!!b.is_sponsored) - Number(!!a.is_sponsored));
   }, [ests, q, where]);
 
   function openAuth(mode: AuthMode) {
@@ -314,6 +316,7 @@ export default function PublicHome() {
                     )}
                     <span className="absolute top-3 left-3 text-[11px] font-semibold bg-white/95 text-slate-800 px-2 py-1 rounded-full capitalize shadow-sm">
                       {est.type || 'Établissement'}
+                      {est.is_sponsored ? ' · Sponsorisé' : ''}
                     </span>
                     {(() => {
                       const o = isOpenNow(est.opening_hours);

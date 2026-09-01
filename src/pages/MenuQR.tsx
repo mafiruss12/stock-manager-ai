@@ -11,6 +11,7 @@ import {
 } from '@/lib/businessTypes';
 import { EmptyState } from '@/components/ui';
 import { DAY_LABELS, type OpeningHours } from '@/lib/publicEstablishment';
+import { uploadVitrineImage } from '@/lib/publicMedia';
 
 export default function MenuQR() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
@@ -37,6 +38,7 @@ export default function MenuQR() {
   const [evSaving, setEvSaving] = useState(false);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [stats, setStats] = useState<{ profile_views: number; menu_views: number; whatsapp_clicks: number; phone_clicks: number } | null>(null);
+  const [uploading, setUploading] = useState<'cover' | 'logo' | null>(null);
   const [hours, setHours] = useState<OpeningHours>({
     mon: { open: '09:00', close: '23:00' },
     tue: { open: '09:00', close: '23:00' },
@@ -271,6 +273,63 @@ export default function MenuQR() {
                 value={coverUrl}
                 onChange={(e) => setCoverUrl(e.target.value)}
               />
+              <div className="flex flex-wrap gap-2">
+                <label className="flex-1 text-center text-xs font-semibold rounded-xl border border-stone-600 bg-stone-800 px-3 py-2.5 text-stone-200 cursor-pointer">
+                  {uploading === 'cover' ? 'Envoi…' : '📷 Upload couverture'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={!!uploading}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!f || !estId) return;
+                      setUploading('cover');
+                      setError(null);
+                      try {
+                        const { url } = await uploadVitrineImage(estId, f, 'cover');
+                        setCoverUrl(url);
+                        setOkMsg('Couverture prête — enregistrez la vitrine');
+                      } catch (ex: any) {
+                        setError(ex?.message || 'Upload impossible');
+                      }
+                      setUploading(null);
+                    }}
+                  />
+                </label>
+                <label className="flex-1 text-center text-xs font-semibold rounded-xl border border-stone-600 bg-stone-800 px-3 py-2.5 text-stone-200 cursor-pointer">
+                  {uploading === 'logo' ? 'Envoi…' : '🖼️ Upload logo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={!!uploading}
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!f || !estId) return;
+                      setUploading('logo');
+                      setError(null);
+                      try {
+                        const { url } = await uploadVitrineImage(estId, f, 'logo');
+                        const { error: err } = await supabase
+                          .from('establishments')
+                          .update({ logo_url: url })
+                          .eq('id', estId);
+                        if (err) setError(err.message);
+                        else setOkMsg('Logo mis à jour');
+                      } catch (ex: any) {
+                        setError(ex?.message || 'Upload logo impossible');
+                      }
+                      setUploading(null);
+                    }}
+                  />
+                </label>
+              </div>
+              {coverUrl && (
+                <img src={coverUrl} alt="" className="w-full h-28 object-cover rounded-xl border border-stone-700" />
+              )}
               <label className="flex items-center gap-2 text-sm text-stone-300">
                 <input
                   type="checkbox"
