@@ -644,28 +644,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: window.location.origin,
         },
       });
-      if (error) {
-        setLoading(false);
-        return { error: safeErrorMessage(error, error.message) };
-      }
 
-      let session = data.session;
-      let user = data.user;
-      if (!session || !user) {
-        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInErr) {
-          setLoading(false);
-          return {
-            error: signInErr.message.toLowerCase().includes('confirm')
-              ? 'Compte créé. Confirmez votre e-mail puis connectez-vous.'
-              : safeErrorMessage(signInErr, 'Compte créé. Connectez-vous avec le même identifiant.'),
-          };
-        }
+      // Toujours tenter sign-in après (session souvent absente au signup)
+      let session = data?.session ?? null;
+      let user = data?.user ?? null;
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInData?.session) {
         session = signInData.session;
         user = signInData.user;
+      }
+
+      if (!session || !user) {
+        setLoading(false);
+        if (error && /already|registered|exists/i.test(error.message || '')) {
+          return { error: 'Cet identifiant existe déjà. Utilisez « Se connecter ».' };
+        }
+        if (signInErr) {
+          const m = (signInErr.message || '').toLowerCase();
+          return {
+            error: m.includes('confirm')
+              ? 'Compte créé. Confirmez votre e-mail puis connectez-vous.'
+              : safeErrorMessage(signInErr, error?.message || 'Inscription incomplète. Réessayez ou connectez-vous.'),
+          };
+        }
+        if (error) {
+          return { error: safeErrorMessage(error, error.message) };
+        }
+        return { error: 'Compte créé. Connectez-vous avec le même identifiant.' };
       }
 
       if (session) setSession(session);

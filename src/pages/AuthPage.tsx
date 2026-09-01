@@ -564,6 +564,29 @@ async function resendConfirmation() {
           </div>
           <AdMarquee className="mb-4 mx-1" />
         <form onSubmit={handleSubmit} className="space-y-4">
+            {(mode === 'signin' || mode === 'signup') && (
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-stone-800/80 border border-stone-700 mb-1">
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}
+                  className={`py-2.5 rounded-lg text-sm font-semibold transition ${
+                    mode === 'signin' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                >
+                  Se connecter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setError(null); setSuccess(null); }}
+                  className={`py-2.5 rounded-lg text-sm font-semibold transition ${
+                    mode === 'signup' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
+                  }`}
+                >
+                  S&apos;inscrire
+                </button>
+              </div>
+            )}
+
             {mode === 'signup' && (
               <div>
                 <label className="label">Nom complet</label>
