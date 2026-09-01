@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity, Megaphone, MapPin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { UserCog, Building2, Users, Plus, Check, X, Loader2, Ban, KeyRound, Trash2, Clock, Mail, RefreshCw, Copy, CheckCircle2, Pencil, Activity, Megaphone, MapPin, LayoutDashboard, AlertTriangle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { Member, Establishment, AccessRequest, Role } from '@/lib/types';
@@ -13,11 +13,12 @@ import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 
-type Tab = 'requests' | 'members' | 'establishments' | 'map' | 'subscriptions' | 'activity' | 'pubs';
+type Tab = 'overview' | 'requests' | 'members' | 'establishments' | 'map' | 'subscriptions' | 'activity' | 'pubs';
 
 export default function SuperAdmin() {
   const { member } = useAuth();
-  const [tab, setTab] = useState<Tab>('members');
+  const [tab, setTab] = useState<Tab>('overview');
+  const [reportsToday, setReportsToday] = useState(0);
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -60,16 +61,19 @@ export default function SuperAdmin() {
 
   async function loadData() {
     setLoading(true);
-    const [reqRes, memRes, estRes, pubRes] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [reqRes, memRes, estRes, pubRes, repRes] = await Promise.all([
       supabase.from('access_requests').select('*').eq('status', 'pending').order('created_at', { ascending: false }),
       supabase.from('members').select('*').order('created_at', { ascending: false }),
       supabase.from('establishments').select('*').order('created_at', { ascending: false }),
       supabase.from('app_announcements').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false }),
+      supabase.from('daily_reports').select('id', { count: 'exact', head: true }).or(`report_date.eq.${today},date.eq.${today}`),
     ]);
     setRequests((reqRes.data ?? []) as AccessRequest[]);
     setMembers((memRes.data ?? []) as Member[]);
     setEstablishments((estRes.data ?? []) as Establishment[]);
     setPubList((pubRes.data ?? []) as typeof pubList);
+    setReportsToday(repRes.count ?? 0);
     const errs = [reqRes.error?.message, memRes.error?.message, estRes.error?.message].filter(Boolean);
     if (errs.length) setError(errs.join(' · '));
     else setError(null);
@@ -81,6 +85,41 @@ export default function SuperAdmin() {
     const id = window.setInterval(() => { void loadData(); }, 60_000);
     return () => window.clearInterval(id);
   }, []);
+
+
+  const adminStats = useMemo(() => {
+    const owners = members.filter((m) => ['owner', 'admin', 'super_admin'].includes(String(m.role))).length;
+    const staff = members.filter((m) => ['manager', 'cashier', 'employee'].includes(String(m.role))).length;
+    const activeMembers = members.filter((m) => m.status === 'active').length;
+    const suspended = members.filter((m) => m.status === 'suspended').length;
+    let trial = 0, activeSub = 0, expired = 0;
+    const expiring: { est: Establishment; label: string; days: number }[] = [];
+    for (const est of establishments) {
+      const st = getSubscriptionState(est as any);
+      if (st.status === 'suspended' || (st as any).status === 'expired') expired += 1;
+      else if (st.status === 'trial') trial += 1;
+      else activeSub += 1;
+      if (st.daysLeft != null && st.daysLeft >= 0 && st.daysLeft <= 7) {
+        expiring.push({ est, label: st.label || st.status, days: st.daysLeft });
+      }
+    }
+    expiring.sort((a, b) => a.days - b.days);
+    const recentMembers = [...members].slice(0, 8);
+    return {
+      owners,
+      staff,
+      activeMembers,
+      suspended,
+      trial,
+      activeSub,
+      expired,
+      expiring,
+      recentMembers,
+      pending: requests.length,
+      estTotal: establishments.length,
+      reportsToday,
+    };
+  }, [members, establishments, requests, reportsToday]);
 
   function flash(msg: string) {
     setSuccess(msg);
@@ -504,6 +543,7 @@ export default function SuperAdmin() {
       <div className="flex gap-2 mb-6 overflow-x-auto">
         {(
           [
+            ['overview', <LayoutDashboard size={16} key="o" />, 'Pilotage'],
             ['requests', <Clock size={16} key="c" />, 'Demandes'],
             ['members', <Users size={16} key="u" />, 'Membres'],
             ['establishments', <Building2 size={16} key="b" />, 'Établissements'],
@@ -522,9 +562,154 @@ export default function SuperAdmin() {
           >
             {icon} {label}
             {id === 'requests' && pendingCount > 0 && <Badge color="warning">{pendingCount}</Badge>}
+            {id === 'subscriptions' && adminStats.expired > 0 && <Badge color="error">{adminStats.expired}</Badge>}
           </button>
         ))}
       </div>
+
+
+      {tab === 'overview' && (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-stone-100 mb-1">Pilotage plateforme</h2>
+            <p className="text-sm text-stone-500">Vue globale — cartes = indicateurs, tableaux = détail actionnable</p>
+          </div>
+
+          {/* CARTES KPI */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label: 'Établissements', value: adminStats.estTotal, sub: `${adminStats.trial} essai · ${adminStats.activeSub} payés · ${adminStats.expired} expirés`, color: 'text-amber-300', go: 'establishments' as Tab },
+              { label: 'Membres actifs', value: adminStats.activeMembers, sub: `${adminStats.owners} propriétaires · ${adminStats.staff} équipe`, color: 'text-emerald-300', go: 'members' as Tab },
+              { label: 'Demandes en attente', value: adminStats.pending, sub: 'À approuver', color: 'text-sky-300', go: 'requests' as Tab },
+              { label: 'Points du jour', value: adminStats.reportsToday, sub: "Rapports envoyés aujourd'hui", color: 'text-violet-300', go: 'activity' as Tab },
+            ].map((k) => (
+              <button
+                key={k.label}
+                type="button"
+                onClick={() => setTab(k.go)}
+                className="text-left rounded-2xl border border-stone-700 bg-stone-900/70 p-4 hover:border-amber-500/40 transition"
+              >
+                <p className="text-[11px] uppercase tracking-wide text-stone-500">{k.label}</p>
+                <p className={`text-3xl font-bold mt-1 ${k.color}`}>{k.value}</p>
+                <p className="text-[11px] text-stone-500 mt-1">{k.sub}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="rounded-2xl border border-stone-700 bg-stone-900/50 p-3">
+              <p className="text-xs text-stone-500">Essais en cours</p>
+              <p className="text-xl font-bold text-amber-200">{adminStats.trial}</p>
+            </div>
+            <div className="rounded-2xl border border-stone-700 bg-stone-900/50 p-3">
+              <p className="text-xs text-stone-500">Abonnements actifs</p>
+              <p className="text-xl font-bold text-emerald-200">{adminStats.activeSub}</p>
+            </div>
+            <div className="rounded-2xl border border-stone-700 bg-stone-900/50 p-3">
+              <p className="text-xs text-stone-500">Expirés</p>
+              <p className="text-xl font-bold text-red-300">{adminStats.expired}</p>
+            </div>
+            <div className="rounded-2xl border border-stone-700 bg-stone-900/50 p-3">
+              <p className="text-xs text-stone-500">Comptes suspendus</p>
+              <p className="text-xl font-bold text-stone-300">{adminStats.suspended}</p>
+            </div>
+          </div>
+
+          {/* TABLEAU alertes abonnements */}
+          <div className="rounded-2xl border border-amber-500/30 bg-stone-900/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-800 flex items-center justify-between gap-2">
+              <p className="font-semibold text-stone-100 flex items-center gap-2">
+                <AlertTriangle size={16} className="text-amber-400" /> À relancer (≤ 7 jours)
+              </p>
+              <button type="button" className="text-xs text-amber-300" onClick={() => setTab('subscriptions')}>
+                Voir abonnements →
+              </button>
+            </div>
+            {adminStats.expiring.length === 0 ? (
+              <p className="p-4 text-sm text-stone-500">Aucune échéance proche.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-stone-500 border-b border-stone-800">
+                      <th className="px-4 py-2 font-medium">Établissement</th>
+                      <th className="px-4 py-2 font-medium">Statut</th>
+                      <th className="px-4 py-2 font-medium">Jours restants</th>
+                      <th className="px-4 py-2 font-medium">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminStats.expiring.map(({ est, label, days }) => (
+                      <tr key={est.id} className="border-b border-stone-800/80">
+                        <td className="px-4 py-2.5 text-stone-100 font-medium">{est.name}</td>
+                        <td className="px-4 py-2.5 text-stone-400">{label}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={days <= 2 ? 'text-red-300 font-semibold' : 'text-amber-200'}>{days} j</span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <button type="button" className="text-xs text-emerald-400 hover:underline" onClick={() => setTab('subscriptions')}>
+                            Gérer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* TABLEAU derniers membres */}
+          <div className="rounded-2xl border border-stone-700 bg-stone-900/60 overflow-hidden">
+            <div className="px-4 py-3 border-b border-stone-800 flex items-center justify-between">
+              <p className="font-semibold text-stone-100 flex items-center gap-2">
+                <Users size={16} /> Derniers membres
+              </p>
+              <button type="button" className="text-xs text-amber-300" onClick={() => setTab('members')}>
+                Tous les membres →
+              </button>
+            </div>
+            {adminStats.recentMembers.length === 0 ? (
+              <p className="p-4 text-sm text-stone-500">Aucun membre chargé.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-stone-500 border-b border-stone-800">
+                      <th className="px-4 py-2 font-medium">Nom</th>
+                      <th className="px-4 py-2 font-medium">Login</th>
+                      <th className="px-4 py-2 font-medium">Rôle</th>
+                      <th className="px-4 py-2 font-medium">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminStats.recentMembers.map((m) => (
+                      <tr key={m.user_id || m.id} className="border-b border-stone-800/80">
+                        <td className="px-4 py-2.5 text-stone-100">{m.full_name || '—'}</td>
+                        <td className="px-4 py-2.5 text-stone-400">{displayLogin(m.email)}</td>
+                        <td className="px-4 py-2.5 text-stone-300">{ROLE_LABELS[m.role as Role] || m.role}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={m.status === 'active' ? 'text-emerald-400' : 'text-red-300'}>{m.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Raccourcis */}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-primary text-sm" onClick={() => setTab('subscriptions')}>Abonnements</button>
+            <button type="button" className="btn-secondary text-sm" onClick={() => setTab('establishments')}>Établissements</button>
+            <button type="button" className="btn-secondary text-sm" onClick={() => setMemberModal(true)}>Créer un accès</button>
+            <button type="button" className="btn-secondary text-sm" onClick={() => void loadData()}>
+              <RefreshCw size={14} className="inline mr-1" /> Actualiser
+            </button>
+          </div>
+        </div>
+      )}
 
       {tab === 'requests' && (
         <div>
