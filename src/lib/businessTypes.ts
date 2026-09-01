@@ -2,6 +2,7 @@ import type { Role } from './types';
 
 export type BusinessType =
   | 'maquis'
+  | 'restaurant'
   | 'magasin'
   | 'boutique'
   | 'superette'
@@ -12,6 +13,7 @@ export type BusinessType =
 
 export const BUSINESS_TYPES: BusinessType[] = [
   'maquis',
+  'restaurant',
   'magasin',
   'boutique',
   'superette',
@@ -23,6 +25,7 @@ export const BUSINESS_TYPES: BusinessType[] = [
 
 export const BUSINESS_LABELS: Record<BusinessType, string> = {
   maquis: 'Maquis',
+  restaurant: 'Restaurant',
   magasin: 'Magasin',
   boutique: 'Boutique',
   superette: 'Supérette',
@@ -33,6 +36,7 @@ export const BUSINESS_LABELS: Record<BusinessType, string> = {
 
 export const BUSINESS_DESCRIPTIONS: Record<BusinessType, string> = {
   maquis: 'Boissons, grills et gestion de caisse au quotidien',
+  restaurant: 'Salle, commandes cuisine, carte et caisse',
   magasin: 'Stock produits, achats, marge et vente au détail',
   boutique: 'Articles, collections et vente au détail',
   superette: 'Épicerie, stock rapide et rayons',
@@ -51,6 +55,13 @@ export const BUSINESS_THEMES: Record<
     accent: '#C47A12',
     label: 'Crème & Ambre',
     gradient: 'from-amber-500/20 to-orange-600/5',
+  },
+  restaurant: {
+    primary: '#ef4444',
+    primarySoft: 'rgba(239, 68, 68, 0.16)',
+    accent: '#b91c1c',
+    label: 'Rouge resto',
+    gradient: 'from-red-500/20 to-orange-600/5',
   },
   magasin: {
     primary: '#06b6d4',
@@ -98,6 +109,13 @@ export const BUSINESS_THEMES: Record<
 
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
+    '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/point-manuel', '/guide',
+    '/kits', '/menu-qr', '/stock-transfer', '/orders', '/tables', '/kitchen', '/purchases', '/suppliers', '/customers',
+    '/expenses', '/mes-employes', '/calendar', '/daily-report', '/cloture', '/patron',
+    '/statistics', '/reports', '/accounting', '/ai', '/ai-train', '/chat',
+    '/notifications', '/settings',
+  ],
+  restaurant: [
     '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/point-manuel', '/guide',
     '/kits', '/menu-qr', '/stock-transfer', '/orders', '/tables', '/kitchen', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/calendar', '/daily-report', '/cloture', '/patron',
@@ -198,6 +216,20 @@ export const BUSINESS_UI: Record<BusinessType, BusinessUI> = {
     salesLabel: 'Ventes',
     shortcutInventory: 'Boissons',
     emptyProducts: 'Aucune boisson en stock. Importez un catalogue ou ajoutez des produits.',
+  },
+  restaurant: {
+    productSingular: 'Plat / boisson',
+    productPlural: 'Carte & boissons',
+    inventoryTitle: 'Inventaire restaurant',
+    inventorySubtitle: 'Plats, accompagnements et boissons',
+    posTitle: 'Caisse restaurant',
+    posSubtitle: 'Encaissement table / comptoir',
+    stockAlert: 'Rupture cuisine ou bar',
+    categories: ['Entrée', 'Plat', 'Grillade', 'Accompagnement', 'Dessert', 'Bière', 'Soda', 'Eau', 'Vin', 'Autre'],
+    unitDefault: 'portion',
+    salesLabel: 'Ventes',
+    shortcutInventory: 'Carte',
+    emptyProducts: 'Aucun plat ni boisson. Importez la carte ou ajoutez des produits.',
   },
   magasin: {
     productSingular: 'Produit',
@@ -304,9 +336,10 @@ export function menuLabelFor(path: string, type: BusinessType): string | null {
 export function normalizeBusinessType(raw: string | null | undefined): BusinessType {
   const v = (raw || '').toLowerCase().trim();
   // Anciens types retirés → maquis
-  if (v in { bar: 1, restaurant: 1, pharmacie: 1, commerce: 1, cafe: 1 }) return 'maquis';
+  if (v in { bar: 1, pharmacie: 1, commerce: 1, cafe: 1 }) return 'maquis';
+  if (v === 'resto' || v === 'restauration') return 'restaurant';
   const allowed: BusinessType[] = [
-    'maquis', 'magasin', 'boutique', 'superette', 'quincaillerie', 'location_event', 'btp',
+    'maquis', 'restaurant', 'magasin', 'boutique', 'superette', 'quincaillerie', 'location_event', 'btp',
   ];
   if ((allowed as string[]).includes(v)) return v as BusinessType;
   if (v === 'store' || v === 'shop') return 'magasin';

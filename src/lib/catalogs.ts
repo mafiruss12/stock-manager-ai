@@ -18,6 +18,7 @@ export type SeedProduct = {
 
 /** Uniquement maquis / boissons : logique casiers */
 export function usesCasiers(type: string | null | undefined): boolean {
+  // restaurant : casiers seulement si besoin bar — par défaut portions
   return normalizeBusinessType(type) === 'maquis';
 }
 
@@ -174,8 +175,24 @@ const LOCATION: SeedProduct[] = [
   { name: 'Assiettes (lot 50)', category: 'Décoration', unit: 'Lot', stock: 0, min_stock: 10, cost: 5000, price: 3000 },
 ];
 
+
+const RESTAURANT: SeedProduct[] = [
+  { name: 'Alloco', category: 'Accompagnement', brand: '', packaging: 'Portion', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 10, cost: 0, price: 0 },
+  { name: 'Attiéké', category: 'Accompagnement', brand: '', packaging: 'Portion', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 10, cost: 0, price: 0 },
+  { name: 'Riz gras', category: 'Plat', brand: '', packaging: 'Assiette', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 8, cost: 0, price: 0 },
+  { name: 'Poulet braisé', category: 'Grillade', brand: '', packaging: 'Assiette', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: 'Poisson braisé', category: 'Grillade', brand: '', packaging: 'Assiette', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: 'Kedjenou', category: 'Plat', brand: '', packaging: 'Assiette', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 6, cost: 0, price: 0 },
+  { name: 'Salade', category: 'Entrée', brand: '', packaging: 'Assiette', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 8, cost: 0, price: 0 },
+  { name: 'Frites', category: 'Accompagnement', brand: '', packaging: 'Portion', unit: 'portion', units_per_package: 1, stock: 0, min_stock: 10, cost: 0, price: 0 },
+  { name: 'Eau minérale 50 cl', category: 'Eau', brand: '', packaging: 'Bouteille', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Coca 33 cl', category: 'Soda', brand: '', packaging: 'Canette / verre', unit: 'bouteille', units_per_package: 24, stock: 0, min_stock: 12, cost: 0, price: 0 },
+  { name: 'Bock 66', category: 'Bière', brand: 'Solibra', packaging: 'Bouteille', unit: 'bouteille', units_per_package: 12, stock: 0, min_stock: 12, cost: 0, price: 0 },
+];
+
 const BY_TYPE: Record<BusinessType, SeedProduct[]> = {
   maquis: MAQUIS,
+  restaurant: RESTAURANT,
   magasin: MAGASIN,
   boutique: BOUTIQUE,
   superette: SUPERETTE,
@@ -192,11 +209,13 @@ export function catalogLabel(type: string | null | undefined): string {
   const t = normalizeBusinessType(type);
   const map: Record<BusinessType, string> = {
     maquis: 'Importer catalogue',
+    restaurant: 'Importer carte restaurant',
     magasin: 'Catalogue magasin (épicerie & hygiène)',
     boutique: 'Catalogue boutique (prêt-à-porter)',
     superette: 'Catalogue supérette (rayons)',
     quincaillerie: 'Catalogue quincaillerie (outils & matériaux)',
     location_event: 'Parc type location (chaises, tables, sono)',
+    btp: 'Catalogue matériaux BTP',
   };
   return map[t] || 'Catalogue de démarrage';
 }

@@ -339,8 +339,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   // Type inconnu : ne pas bloquer toute l'app — fallback type "maquis"
   const knownTypes = new Set([
-    'maquis', 'magasin', 'boutique', 'superette',
-    'quincaillerie', 'location_event',
+    'maquis', 'restaurant', 'magasin', 'boutique', 'superette',
+    'quincaillerie', 'location_event', 'btp',
   ]);
   const rawType = (activeEstablishment?.type || cachedEstPayload?.type || '').toLowerCase().trim();
   // Ancien écran "choose-type" désactivé pour éviter le spam récursif chez tous les users
@@ -581,6 +581,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 { to: '/rent/clients', label: 'Clients', icon: <Users size={22} /> },
                 { to: '/rent/equipment', label: 'Matériel', icon: <Package size={22} /> },
                 { to: '/rent/calendar', label: 'Agenda', icon: <Calendar size={22} /> },
+              ]
+            : bizType === 'restaurant'
+            ? [
+                { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+                { to: '/orders', label: 'Commandes', icon: <Receipt size={22} /> },
+                { to: '/tables', label: 'Tables', icon: <UtensilsCrossed size={22} /> },
+                { to: '/kitchen', label: 'Cuisine', icon: <Package size={22} /> },
+                { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
               ]
             : [
                 { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
