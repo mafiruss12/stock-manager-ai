@@ -662,6 +662,7 @@ async function saveProfile() {
                   disabled={!canManageEst && !!est}
                 >
                   <option value="maquis">Maquis</option>
+                  <option value="restaurant">Restaurant</option>
                                                       <option value="magasin">Magasin</option>
                   <option value="boutique">Boutique</option>
                   <option value="superette">Supérette</option>
