@@ -39,9 +39,9 @@ const SERVICES = [
 ];
 
 const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1200&q=80',
   'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
-  'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0d?auto=format&fit=crop&w=1200&q=80',
 ];
 
 export default function PublicHome() {
