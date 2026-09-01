@@ -632,13 +632,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const strength = isStrongEnoughPassword(password);
     if (!strength.ok) return { error: strength.reason };
-    try {
-      if (await isPasswordBreached(password)) {
-        return { error: 'Ce mot de passe apparaît dans des fuites connues. Choisissez-en un autre.' };
-      }
-    } catch {
-      /* HIBP inaccessible : ne bloque pas l'inscription */
-    }
+    // HIBP désactivé à l'inscription (réseau lent / bloqué = écran figé)
     const email = toAuthEmail(login);
     setLoading(true);
     try {

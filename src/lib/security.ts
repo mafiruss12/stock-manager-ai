@@ -80,9 +80,13 @@ export async function isPasswordBreached(password: string): Promise<boolean> {
       .toUpperCase();
     const prefix = hash.slice(0, 5);
     const suffix = hash.slice(5);
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const t = ctrl ? window.setTimeout(() => ctrl.abort(), 2500) : 0;
     const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
       headers: { 'Add-Padding': 'true' },
+      signal: ctrl?.signal,
     });
+    if (t) window.clearTimeout(t);
     if (!res.ok) return false;
     const text = await res.text();
     return text.split('\n').some((line) => line.split(':')[0]?.trim() === suffix);

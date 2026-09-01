@@ -327,33 +327,55 @@ async function resendConfirmation() {
         return;
       }
 
-      // signup
+      // signup (mode explicite)
+      if (mode !== 'signup') {
+        setError('Choisissez « Créer un compte » puis réessayez.');
+        setLoading(false);
+        return;
+      }
       if (!fullName.trim()) {
         setError('Nom complet requis');
         setLoading(false);
         return;
       }
-      const { error: err } = await signUp(login, password, fullName.trim());
+      if (password.length < 6) {
+        setError('Mot de passe : minimum 6 caractères');
+        setLoading(false);
+        return;
+      }
+      let err: string | null = null;
+      try {
+        const r = await Promise.race([
+          signUp(login, password, fullName.trim()),
+          new Promise<{ error: string }>((resolve) =>
+            setTimeout(() => resolve({ error: 'Délai dépassé. Vérifiez Internet et réessayez.' }), 20000)
+          ),
+        ]);
+        err = r.error;
+      } catch (ex: any) {
+        err = ex?.message || 'Inscription impossible';
+      }
       if (err) {
         setError(mapAuthError(err, 'signup'));
         setLoading(false);
         return;
       }
       setSuccess("Compte créé ! Ouverture de l'application…");
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 10; i++) {
         const { data: s } = await supabase.auth.getSession();
         if (s.session?.user) break;
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 300));
       }
       const { data: s2 } = await supabase.auth.getSession();
       if (!s2.session?.user) {
         setSuccess(null);
-        setError("Compte créé, mais la session n'est pas encore active. Connectez-vous avec le même identifiant.");
+        setError("Compte créé. Cliquez sur « Se connecter » avec le même identifiant et mot de passe.");
         setMode('signin');
         setLoading(false);
         return;
       }
-      window.location.replace('/dashboard');
+      setLoading(false);
+      window.location.assign('/dashboard');
     } catch (ex: any) {
       setError(ex?.message || 'Erreur inattendue. Réessayez.');
       setLoading(false);
