@@ -226,6 +226,56 @@ export default function PublicHome() {
           </div>
         </section>
 
+        {/* Open now */}
+        <section>
+          <div className="flex items-end justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Ouvert maintenant</h2>
+              <p className="text-sm text-slate-500 mt-1">Selon les horaires publiés par les établissements</p>
+            </div>
+            <Link to="/establishments" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+              Voir tout <ChevronRight size={16} />
+            </Link>
+          </div>
+          {(() => {
+            const openList = filteredEsts.filter((e) => isOpenNow(e.opening_hours) === true).slice(0, 6);
+            if (loading) return null;
+            if (openList.length === 0) {
+              return (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
+                  Aucun établissement n’a encore renseigné d’horaires, ou aucun n’est ouvert à cette heure.
+                </div>
+              );
+            }
+            return (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {openList.map((est) => (
+                  <Link
+                    key={est.id}
+                    to={`/e/${slugify(est.name, est.id)}`}
+                    className="rounded-2xl border border-emerald-200 bg-white p-4 hover:shadow-md transition flex gap-3"
+                  >
+                    <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0">
+                      {est.logo_url ? (
+                        <img src={est.logo_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <UtensilsCrossed size={20} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{est.name}</p>
+                      <p className="text-[11px] text-slate-500 capitalize">{est.type}</p>
+                      <span className="inline-block mt-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">Ouvert</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+
         {/* Discover establishments */}
         <section id="discover">
           <div className="flex items-end justify-between gap-3 mb-5">
