@@ -74,7 +74,7 @@ function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'ot
     e.includes('email address is already') ||
     e.includes('already exists')
   ) {
-    return 'Cet identifiant (e-mail) est déjà utilisé. Connectez-vous ou utilisez « Mot de passe oublié ».';
+    return 'Cet identifiant est déjà utilisé. Utilisez « Se connecter » ou « Mot de passe oublié ».';
   }
   if (e.includes('email not confirmed')) {
     return 'E-mail non confirmé. Vérifiez votre boîte mail.';

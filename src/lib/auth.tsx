@@ -632,7 +632,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const strength = isStrongEnoughPassword(password);
     if (!strength.ok) return { error: strength.reason };
-    // HIBP désactivé à l'inscription (réseau lent / bloqué = écran figé)
     const email = toAuthEmail(login);
     setLoading(true);
     try {
@@ -645,7 +644,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
 
-      // Toujours tenter sign-in après (session souvent absente au signup)
+      const alreadyMsg =
+        'Cet identifiant est déjà utilisé. Utilisez « Se connecter » ou « Mot de passe oublié ».';
+
+      // Erreur explicite Supabase
+      if (error && /already|registered|exists|duplicate/i.test(error.message || '')) {
+        setLoading(false);
+        return { error: alreadyMsg };
+      }
+
+      // Supabase masque parfois le doublon : user sans identities + pas de session
+      const identities = data?.user?.identities;
+      if (data?.user && Array.isArray(identities) && identities.length === 0 && !data.session) {
+        setLoading(false);
+        return { error: alreadyMsg };
+      }
+
+      // Connexion après création (session souvent absente au signup)
       let session = data?.session ?? null;
       let user = data?.user ?? null;
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
@@ -659,21 +674,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!session || !user) {
         setLoading(false);
-        if (error && /already|registered|exists/i.test(error.message || '')) {
-          return { error: 'Cet identifiant existe déjà. Utilisez « Se connecter ».' };
+        if (error && /already|registered|exists|duplicate/i.test(error.message || '')) {
+          return { error: alreadyMsg };
         }
         if (signInErr) {
           const m = (signInErr.message || '').toLowerCase();
+          // Mot de passe différent sur un compte existant → message "déjà utilisé"
+          if (
+            m.includes('invalid login') ||
+            m.includes('invalid_credentials') ||
+            m.includes('invalid email or password')
+          ) {
+            return { error: alreadyMsg };
+          }
+          if (m.includes('confirm')) {
+            return { error: 'Compte créé. Confirmez votre e-mail puis connectez-vous.' };
+          }
           return {
-            error: m.includes('confirm')
-              ? 'Compte créé. Confirmez votre e-mail puis connectez-vous.'
-              : safeErrorMessage(signInErr, error?.message || 'Inscription incomplète. Réessayez ou connectez-vous.'),
+            error: safeErrorMessage(signInErr, error?.message || 'Inscription incomplète. Réessayez.'),
           };
         }
         if (error) {
           return { error: safeErrorMessage(error, error.message) };
         }
-        return { error: 'Compte créé. Connectez-vous avec le même identifiant.' };
+        return { error: alreadyMsg };
       }
 
       if (session) setSession(session);
@@ -693,7 +717,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             { onConflict: 'user_id' }
           );
           if (memErr) console.warn('member upsert', memErr.message);
-        } catch { /* trigger SQL peut déjà l\'avoir créé */ }
+        } catch {
+          /* trigger SQL peut déjà l'avoir créé */
+        }
         try {
           await loadMemberData(user);
         } catch {
@@ -705,7 +731,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null };
     } catch (e: any) {
       setLoading(false);
-      return { error: e?.message || 'Inscription impossible' };
+      const msg = e?.message || 'Inscription impossible';
+      if (/already|registered|exists|duplicate/i.test(msg)) {
+        return {
+          error: 'Cet identifiant est déjà utilisé. Utilisez « Se connecter » ou « Mot de passe oublié ».',
+        };
+      }
+      return { error: msg };
     }
   }
 
