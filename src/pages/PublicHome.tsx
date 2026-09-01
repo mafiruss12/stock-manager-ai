@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  User, X, Loader2, Beer, UtensilsCrossed, Wine, Store, MapPin, Phone,
-  ChevronRight, LogIn, UserPlus, Building2, Eye, Search, Home, Menu
+  Search, MapPin, Star, Clock, ChevronRight, Loader2, UtensilsCrossed,
+  Beer, Wine, Calendar, Sparkles, Phone, ArrowRight
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import PublicLayout from '@/components/public/PublicLayout';
+import AuthModal, { AuthMode } from '@/components/public/AuthModal';
 
 type PubEst = {
   id: string;
@@ -24,442 +27,401 @@ type Ann = {
   image_url: string | null;
 };
 
-const TYPE_FILTERS = [
-  { id: 'all', label: 'Tout' },
-  { id: 'maquis', label: 'Maquis' },
-  { id: 'bar', label: 'Bars' },
-  { id: 'restaurant', label: 'Restaurants' },
+type MenuItem = {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  establishment_id: string;
+  image_url?: string | null;
+  est_name?: string;
+};
+
+const CATEGORIES = [
+  { id: 'restaurant', label: 'Restaurants', icon: UtensilsCrossed },
+  { id: 'maquis', label: 'Maquis', icon: Beer },
+  { id: 'bar', label: 'Bars', icon: Wine },
 ];
 
 export default function PublicHome() {
-  const { signIn, signUp, signInWithGoogle, user, signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  const [accountType, setAccountType] = useState<'visitor' | 'owner'>('visitor');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('signup');
   const [q, setQ] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [where, setWhere] = useState('');
   const [ests, setEsts] = useState<PubEst[]>([]);
   const [anns, setAnns] = useState<Ann[]>([]);
-  const [listLoading, setListLoading] = useState(true);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setListLoading(true);
+      setLoading(true);
       const [eRes, aRes] = await Promise.all([
         supabase
           .from('establishments')
           .select('id, name, type, address, phone, logo_url, public_menu')
           .eq('public_menu', true)
           .order('name')
-          .limit(60),
+          .limit(48),
         supabase
           .from('app_announcements')
           .select('id, title, body, link_url, image_url')
           .eq('active', true)
           .order('sort_order', { ascending: true })
-          .limit(12),
+          .limit(8),
       ]);
       if (cancelled) return;
-      setEsts((eRes.data as PubEst[]) || []);
+      const list = (eRes.data as PubEst[]) || [];
+      setEsts(list);
       setAnns((aRes.data as Ann[]) || []);
-      setListLoading(false);
+
+      if (list.length) {
+        const ids = list.map((e) => e.id);
+        const { data: prods } = await supabase
+          .from('products')
+          .select('id, name, price, stock, establishment_id, image_url')
+          .in('establishment_id', ids)
+          .gt('price', 0)
+          .order('name')
+          .limit(24);
+        if (!cancelled && prods) {
+          const byId = Object.fromEntries(list.map((e) => [e.id, e.name]));
+          setMenuItems(
+            (prods as MenuItem[]).map((p) => ({
+              ...p,
+              est_name: byId[p.establishment_id],
+            }))
+          );
+        }
+      }
+      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const filtered = useMemo(() => {
+  const filteredEsts = useMemo(() => {
     let list = ests;
-    if (filter !== 'all') {
-      list = list.filter((e) => String(e.type || '').toLowerCase().includes(filter));
-    }
     const s = q.trim().toLowerCase();
+    const w = where.trim().toLowerCase();
     if (s) {
       list = list.filter(
         (e) =>
           e.name.toLowerCase().includes(s) ||
-          String(e.address || '').toLowerCase().includes(s) ||
-          String(e.type || '').toLowerCase().includes(s)
+          String(e.type || '').toLowerCase().includes(s) ||
+          String(e.address || '').toLowerCase().includes(s)
       );
     }
-    return list;
-  }, [ests, filter, q]);
-
-  async function handleAuth(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-    try {
-      if (authMode === 'signin') {
-        const { error: err } = await signIn(email.trim(), password);
-        if (err) {
-          setError(err);
-          setLoading(false);
-          return;
-        }
-        const { data: { user: u } } = await supabase.auth.getUser();
-        if (u?.user_metadata?.account_type === 'visitor') {
-          setAuthOpen(false);
-          setLoading(false);
-          window.location.assign('/');
-          return;
-        }
-        window.location.assign('/dashboard');
-        return;
-      }
-      if (!fullName.trim()) {
-        setError('Nom complet requis');
-        setLoading(false);
-        return;
-      }
-      if (password.length < 6) {
-        setError('Mot de passe : minimum 6 caractères');
-        setLoading(false);
-        return;
-      }
-      const { error: err } = await signUp(email.trim(), password, fullName.trim());
-      if (err) {
-        setError(err);
-        setLoading(false);
-        return;
-      }
-      try {
-        await supabase.auth.updateUser({
-          data: { account_type: accountType, full_name: fullName.trim() },
-        });
-      } catch {
-        /* */
-      }
-      if (accountType === 'visitor') {
-        setSuccess('Compte visiteur créé.');
-        setAuthOpen(false);
-        setLoading(false);
-        return;
-      }
-      window.location.assign('/dashboard');
-    } catch (ex: any) {
-      setError(ex?.message || 'Erreur');
-      setLoading(false);
+    if (w) {
+      list = list.filter((e) => String(e.address || '').toLowerCase().includes(w));
     }
+    return list;
+  }, [ests, q, where]);
+
+  function openAuth(mode: AuthMode) {
+    setAuthMode(mode);
+    setAuthOpen(true);
   }
 
-  const typeIcon = (t: string | null) => {
-    const x = String(t || '').toLowerCase();
-    if (x.includes('restau')) return <UtensilsCrossed size={18} className="text-[#1877F2]" />;
-    if (x.includes('bar')) return <Wine size={18} className="text-[#1877F2]" />;
-    return <Beer size={18} className="text-[#1877F2]" />;
-  };
+  const rightSlot = user ? (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => window.location.assign('/dashboard')}
+        className="h-10 px-3 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100"
+      >
+        Mon espace
+      </button>
+      <button type="button" onClick={() => void signOut()} className="text-xs text-slate-500 hover:text-slate-800">
+        Quitter
+      </button>
+    </div>
+  ) : null;
 
   return (
-    <div className="min-h-screen bg-[#F0F2F5] text-[#1c1e21] font-sans">
-      {/* Barre type Facebook */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#dddfe2] shadow-sm">
-        <div className="max-w-[1100px] mx-auto px-3 h-[56px] flex items-center gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold text-sm">
-              SM
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="font-bold text-[15px] text-[#1c1e21]">Stock Manager</p>
-              <p className="text-[11px] text-[#65676b]">Kevin Tech Pro</p>
-            </div>
-          </div>
+    <PublicLayout onOpenAuth={user ? undefined : openAuth} rightSlot={rightSlot}>
+      <AuthModal open={authOpen} mode={authMode} onClose={() => setAuthOpen(false)} onMode={setAuthMode} />
 
-          <div className="flex-1 max-w-md relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#65676b]" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher un maquis, bar, restaurant…"
-              className="w-full h-10 rounded-full bg-[#F0F2F5] border-0 pl-9 pr-3 text-sm text-[#1c1e21] placeholder:text-[#65676b] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/40"
-            />
-          </div>
+      {/* HERO */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white">
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              'url(https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=60)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-blue-950/40" />
+        <div className="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
+          <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">Stock Manager AI</p>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight max-w-2xl leading-[1.15]">
+            Découvrez les meilleurs établissements autour de vous
+          </h1>
+          <p className="mt-4 text-slate-300 text-base sm:text-lg max-w-xl">
+            Restaurants, maquis, bars, menus du jour, événements et services — au même endroit.
+          </p>
 
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {user ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => window.location.assign('/dashboard')}
-                  className="hidden sm:inline-flex h-9 px-3 rounded-lg bg-[#E7F3FF] text-[#1877F2] text-sm font-semibold hover:bg-[#dbeafe]"
-                >
-                  Mon espace
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void signOut()}
-                  className="w-10 h-10 rounded-full bg-[#E4E6EB] flex items-center justify-center hover:bg-[#d8dadf]"
-                  title="Déconnexion"
-                >
-                  <X size={18} className="text-[#050505]" />
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAuthOpen((v) => !v)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  authOpen ? 'bg-[#E7F3FF] text-[#1877F2]' : 'bg-[#E4E6EB] text-[#050505] hover:bg-[#d8dadf]'
-                }`}
-                aria-label="Compte"
-              >
-                <User size={20} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Sous-nav filtres */}
-        <div className="max-w-[1100px] mx-auto px-3 pb-2 flex gap-1 overflow-x-auto">
-          {TYPE_FILTERS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFilter(f.id)}
-              className={`px-3 h-8 rounded-full text-[13px] font-semibold whitespace-nowrap ${
-                filter === f.id
-                  ? 'bg-[#E7F3FF] text-[#1877F2]'
-                  : 'text-[#65676b] hover:bg-[#E4E6EB]'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Panneau compte pliable */}
-        {authOpen && !user && (
-          <div className="border-t border-[#dddfe2] bg-white">
-            <div className="max-w-md mx-auto px-4 py-4">
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode('signin'); setError(null); }}
-                  className={`h-10 rounded-lg text-sm font-semibold ${
-                    authMode === 'signin' ? 'bg-[#1877F2] text-white' : 'bg-[#E4E6EB] text-[#050505]'
-                  }`}
-                >
-                  <LogIn size={14} className="inline mr-1" /> Connexion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setAuthMode('signup'); setError(null); }}
-                  className={`h-10 rounded-lg text-sm font-semibold ${
-                    authMode === 'signup' ? 'bg-[#1877F2] text-white' : 'bg-[#E4E6EB] text-[#050505]'
-                  }`}
-                >
-                  <UserPlus size={14} className="inline mr-1" /> Inscription
-                </button>
-              </div>
-
-              {authMode === 'signup' && (
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('visitor')}
-                    className={`p-3 rounded-xl border text-left text-xs ${
-                      accountType === 'visitor' ? 'border-[#1877F2] bg-[#E7F3FF]' : 'border-[#dddfe2]'
-                    }`}
-                  >
-                    <Eye size={16} className="mb-1 text-[#1877F2]" />
-                    <p className="font-semibold text-[#1c1e21]">Visiteur</p>
-                    <p className="text-[#65676b] mt-0.5">Voir restos & maquis</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAccountType('owner')}
-                    className={`p-3 rounded-xl border text-left text-xs ${
-                      accountType === 'owner' ? 'border-[#1877F2] bg-[#E7F3FF]' : 'border-[#dddfe2]'
-                    }`}
-                  >
-                    <Building2 size={16} className="mb-1 text-[#1877F2]" />
-                    <p className="font-semibold text-[#1c1e21]">Professionnel</p>
-                    <p className="text-[#65676b] mt-0.5">Gérer mon activité</p>
-                  </button>
-                </div>
-              )}
-
-              <form onSubmit={handleAuth} className="space-y-2">
-                {authMode === 'signup' && (
-                  <input
-                    className="w-full h-11 rounded-lg border border-[#dddfe2] px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]/40"
-                    placeholder="Nom complet"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                )}
+          <div className="mt-8 max-w-2xl bg-white rounded-2xl p-2 sm:p-3 shadow-2xl shadow-black/30">
+            <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
-                  className="w-full h-11 rounded-lg border border-[#dddfe2] px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]/40"
-                  placeholder="E-mail, téléphone ou identifiant"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Que recherchez-vous ?"
+                  className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
+              </div>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
-                  className="w-full h-11 rounded-lg border border-[#dddfe2] px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1877F2]/40"
-                  type="password"
-                  placeholder="Mot de passe (min. 6)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
+                  value={where}
+                  onChange={(e) => setWhere(e.target.value)}
+                  placeholder="Où êtes-vous ? (ex. Cocody)"
+                  className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                 />
-                {error && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
-                )}
-                {success && (
-                  <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">{success}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-11 rounded-lg bg-[#1877F2] hover:bg-[#166fe5] text-white font-semibold text-sm flex items-center justify-center gap-2"
-                >
-                  {loading ? <Loader2 className="animate-spin" size={18} /> : authMode === 'signin' ? 'Se connecter' : "S'inscrire"}
-                </button>
-              </form>
-              <button
-                type="button"
-                className="mt-2 w-full h-11 rounded-lg bg-[#E4E6EB] text-[#050505] font-semibold text-sm hover:bg-[#d8dadf]"
-                onClick={async () => {
-                  setError(null);
-                  try {
-                    await signInWithGoogle();
-                  } catch (ex: any) {
-                    setError(ex?.message || 'Google indisponible');
-                  }
-                }}
-              >
-                Continuer avec Google
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
-
-      <main className="max-w-[680px] mx-auto px-3 py-4 space-y-3">
-        {/* Carte intro type publication */}
-        <div className="bg-white rounded-xl shadow-sm border border-[#dddfe2] p-4">
-          <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold text-xs shrink-0">
-              SM
-            </div>
-            <div>
-              <p className="font-semibold text-[15px]">Stock Manager AI</p>
-              <p className="text-[13px] text-[#65676b] mt-0.5">
-                Découvrez les maquis, bars et restaurants. Menus et infos visibles sans compte.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Annonces = posts */}
-        {anns.map((a) => (
-          <article key={a.id} className="bg-white rounded-xl shadow-sm border border-[#dddfe2] overflow-hidden">
-            <div className="p-3 flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-[#E4E6EB] flex items-center justify-center">
-                <Store size={18} className="text-[#65676b]" />
               </div>
-              <div>
-                <p className="font-semibold text-[15px] leading-tight">{a.title}</p>
-                <p className="text-[12px] text-[#65676b]">Publication · Stock Manager</p>
-              </div>
-            </div>
-            <div className="px-3 pb-3">
-              <p className="text-[15px] text-[#1c1e21] whitespace-pre-wrap">{a.body}</p>
-            </div>
-            {a.image_url && (
-              <img src={a.image_url} alt="" className="w-full max-h-72 object-cover border-t border-[#dddfe2]" />
-            )}
-            {a.link_url && (
-              <a
-                href={a.link_url}
-                className="block px-3 py-2.5 text-[14px] font-semibold text-[#1877F2] border-t border-[#dddfe2] hover:bg-[#F0F2F5]"
+              <Link
+                to={`/establishments${q || where ? `?q=${encodeURIComponent(q)}&where=${encodeURIComponent(where)}` : ''}`}
+                className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm flex items-center justify-center gap-2"
               >
-                Voir plus
-              </a>
-            )}
-          </article>
-        ))}
-
-        {/* Feed établissements */}
-        {listLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="animate-spin text-[#1877F2]" size={28} />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-[#dddfe2] p-8 text-center">
-            <Store className="mx-auto text-[#bcc0c4]" size={40} />
-            <p className="mt-3 font-semibold text-[15px]">Aucune vitrine pour le moment</p>
-            <p className="mt-1 text-[13px] text-[#65676b]">
-              Les établissements apparaîtront ici lorsqu’ils activeront leur menu public.
+                Explorer <ArrowRight size={16} />
+              </Link>
+            </div>
+            <p className="px-2 pt-2 text-[11px] text-slate-400">
+              Ex. maquis · poulet braisé · bar Cocody · événement ce week-end
             </p>
           </div>
-        ) : (
-          filtered.map((est) => (
-            <a
-              key={est.id}
-              href={`/m/${est.id}`}
-              className="block bg-white rounded-xl shadow-sm border border-[#dddfe2] overflow-hidden hover:shadow-md transition-shadow"
-            >
-              <div className="p-3 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-[#E4E6EB] overflow-hidden flex items-center justify-center shrink-0">
-                  {est.logo_url ? (
-                    <img src={est.logo_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    typeIcon(est.type)
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[15px] truncate">{est.name}</p>
-                  <p className="text-[13px] text-[#65676b] capitalize">
-                    {est.type || 'Établissement'}
-                    {est.address ? ` · ${est.address}` : ''}
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-[#bcc0c4] shrink-0" />
-              </div>
-              <div className="h-[160px] bg-[#E4E6EB] flex items-center justify-center border-t border-[#f0f2f5]">
-                {est.logo_url ? (
-                  <img src={est.logo_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="text-center text-[#65676b]">
-                    <Store size={36} className="mx-auto opacity-40" />
-                    <p className="text-xs mt-2">Menu & offres</p>
-                  </div>
-                )}
-              </div>
-              <div className="px-3 py-2.5 flex flex-wrap gap-3 text-[13px] text-[#65676b] border-t border-[#dddfe2]">
-                {est.address && (
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin size={14} /> {est.address}
-                  </span>
-                )}
-                {est.phone && (
-                  <span className="inline-flex items-center gap-1">
-                    <Phone size={14} /> {est.phone}
-                  </span>
-                )}
-                <span className="ml-auto font-semibold text-[#1877F2]">Voir le menu</span>
-              </div>
-            </a>
-          ))
-        )}
+        </div>
+      </section>
 
-        <p className="text-center text-[12px] text-[#8a8d91] py-6">
-          Stock Manager AI · Kevin Tech Pro
-        </p>
-      </main>
-    </div>
+      <div className="max-w-6xl mx-auto px-4 space-y-14 py-12">
+        {/* Categories */}
+        <section>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">Explorer par type</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {CATEGORIES.map((c) => {
+              const Icon = c.icon;
+              return (
+                <Link
+                  key={c.id}
+                  to={`/establishments?type=${c.id}`}
+                  className="group rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition">
+                    <Icon size={20} />
+                  </div>
+                  <p className="font-semibold text-sm sm:text-base">{c.label}</p>
+                  <p className="text-xs text-slate-500 mt-1 hidden sm:block">Voir la sélection</p>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Discover establishments */}
+        <section id="discover">
+          <div className="flex items-end justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Découvrez les établissements</h2>
+              <p className="text-sm text-slate-500 mt-1">Vitrines publiques activées par les pros</p>
+            </div>
+            <Link to="/establishments" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+              Tout voir <ChevronRight size={16} />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-16"><Loader2 className="animate-spin text-blue-600" size={28} /></div>
+          ) : filteredEsts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
+              <p className="font-semibold text-slate-800">Aucune vitrine publique pour le moment</p>
+              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
+                Les établissements apparaîtront ici dès qu’un propriétaire active le menu public dans Stock Manager.
+              </p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredEsts.slice(0, 6).map((est) => (
+                <article
+                  key={est.id}
+                  className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition group"
+                >
+                  <div className="h-40 bg-slate-200 relative overflow-hidden">
+                    {est.logo_url ? (
+                      <img src={est.logo_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-400">
+                        <UtensilsCrossed size={36} />
+                      </div>
+                    )}
+                    <span className="absolute top-3 left-3 text-[11px] font-semibold bg-white/95 text-slate-800 px-2 py-1 rounded-full capitalize shadow-sm">
+                      {est.type || 'Établissement'}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-slate-900">{est.name}</h3>
+                    {est.address && (
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                        <MapPin size={12} /> {est.address}
+                      </p>
+                    )}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        to={`/m/${est.id}`}
+                        className="flex-1 text-center h-9 rounded-lg bg-blue-600 text-white text-xs font-semibold flex items-center justify-center hover:bg-blue-700"
+                      >
+                        Voir le menu
+                      </Link>
+                      <Link
+                        to={`/m/${est.id}`}
+                        className="flex-1 text-center h-9 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold flex items-center justify-center hover:bg-slate-200"
+                      >
+                        Découvrir
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Menu du jour from stock */}
+        <section>
+          <div className="flex items-end justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Menus & disponibilités</h2>
+              <p className="text-sm text-slate-500 mt-1">Reliés au stock public des établissements</p>
+            </div>
+          </div>
+          {menuItems.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              Les plats et boissons publics s’affichent ici dès qu’un établissement partage son menu.
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {menuItems.slice(0, 9).map((p) => {
+                const available = Number(p.stock) > 0;
+                return (
+                  <Link
+                    key={p.id}
+                    to={`/m/${p.establishment_id}`}
+                    className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:border-blue-200 hover:shadow-sm transition"
+                  >
+                    <div className="w-16 h-16 rounded-xl bg-slate-100 overflow-hidden shrink-0">
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-300">
+                          <UtensilsCrossed size={20} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm truncate">{p.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{p.est_name}</p>
+                      <div className="mt-1 flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-slate-900">
+                          {Number(p.price).toLocaleString('fr-FR')} F
+                        </span>
+                        <span
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            available ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
+                          }`}
+                        >
+                          {available ? `${p.stock} dispo` : 'Épuisé'}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Events from announcements for now */}
+        <section>
+          <div className="flex items-end justify-between gap-3 mb-5">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Calendar size={20} className="text-blue-600" /> Événements & à la une
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">Publications et temps forts des établissements</p>
+            </div>
+            <Link to="/events" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+              Voir tout <ChevronRight size={16} />
+            </Link>
+          </div>
+          {anns.length === 0 ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+              Les événements publiés par les pros apparaîtront ici.
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {anns.map((a) => (
+                <article key={a.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                  {a.image_url && (
+                    <img src={a.image_url} alt="" className="w-full h-40 object-cover" loading="lazy" />
+                  )}
+                  <div className="p-4">
+                    <p className="font-bold text-slate-900">{a.title}</p>
+                    <p className="text-sm text-slate-600 mt-2 line-clamp-3">{a.body}</p>
+                    {a.link_url && (
+                      <a href={a.link_url} className="inline-flex mt-3 text-sm font-semibold text-blue-600 hover:underline">
+                        Découvrir
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Services teaser */}
+        <section className="rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 text-white p-8 sm:p-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider">Services</p>
+              <h2 className="text-2xl font-bold mt-1">DJ, traiteur, photo, déco…</h2>
+              <p className="text-blue-100 text-sm mt-2 max-w-md">
+                Bientôt : annuaire de prestataires liés aux établissements et aux événements.
+              </p>
+            </div>
+            <Link
+              to="/services"
+              className="inline-flex h-11 px-5 rounded-xl bg-white text-blue-800 font-semibold text-sm items-center gap-2 hover:bg-blue-50"
+            >
+              Voir les services <ArrowRight size={16} />
+            </Link>
+          </div>
+        </section>
+
+        {/* CTA pro */}
+        {!user && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+            <Sparkles className="mx-auto text-blue-600 mb-3" size={28} />
+            <h2 className="text-xl font-bold">Vous avez un établissement ?</h2>
+            <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
+              Gérez stock, équipe, caisse et vitrine publique avec Stock Manager AI.
+            </p>
+            <button
+              type="button"
+              onClick={() => openAuth('signup')}
+              className="mt-5 h-11 px-6 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700"
+            >
+              Créer un compte professionnel
+            </button>
+          </section>
+        )}
+      </div>
+    </PublicLayout>
   );
 }

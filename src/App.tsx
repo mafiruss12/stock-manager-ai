@@ -3,6 +3,10 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import AuthPage from '@/pages/AuthPage';
 import PublicHome from '@/pages/PublicHome';
+import PublicEstablishments from '@/pages/public/PublicEstablishments';
+import PublicEvents from '@/pages/public/PublicEvents';
+import PublicServices from '@/pages/public/PublicServices';
+import PublicDiscover from '@/pages/public/PublicDiscover';
 import PendingAccessPage from '@/pages/PendingAccessPage';
 import Dashboard from '@/pages/Dashboard';
 import Documents from '@/pages/Documents';
@@ -142,12 +146,10 @@ function ProtectedRoutes() {
     );
   }
 
-  // Accueil public (vitrine) — login en panneau sur PublicHome
-  if (!effectiveUser) return <PublicHome />;
-  // Visiteur connecté : reste sur l'espace public
+  if (!effectiveUser) return <Navigate to="/" replace />;
   try {
     const acct = (effectiveUser as any)?.user_metadata?.account_type;
-    if (acct === 'visitor') return <PublicHome />;
+    if (acct === 'visitor' || acct === 'provider') return <Navigate to="/" replace />;
   } catch { /* */ }
 
   if (needsAccess && !member && !effectiveUser) return <PendingAccessPage />;
@@ -212,15 +214,68 @@ function ProtectedRoutes() {
   );
 }
 
+function PublicOrApp() {
+  const { user, member, loading, needsAccess } = useAuth();
+  const [bootUser, setBootUser] = useState(user);
+
+  useEffect(() => {
+    setBootUser(user);
+  }, [user]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (user) return;
+      try {
+        if (sessionStorage.getItem('mm_signed_out') === '1') {
+          sessionStorage.removeItem('mm_signed_out');
+          setBootUser(null);
+          return;
+        }
+      } catch { /* */ }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!cancelled && session?.user) setBootUser(session.user as any);
+      else if (!cancelled) setBootUser(null);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  if (!isSupabaseConfigured) return <ConfigError />;
+  const effectiveUser = user || bootUser;
+
+  if (loading && !effectiveUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-blue-600" size={32} />
+      </div>
+    );
+  }
+
+  const acct = (effectiveUser as any)?.user_metadata?.account_type;
+  const isVisitorLike = !effectiveUser || acct === 'visitor' || acct === 'provider';
+
+  // Routes publiques toujours accessibles
+  // Si pro connecté et va sur /dashboard → ProtectedRoutes via nested
+
+  return (
+    <Routes>
+      <Route path="/" element={<PublicHome />} />
+      <Route path="/discover" element={<PublicDiscover />} />
+      <Route path="/establishments" element={<PublicEstablishments />} />
+      <Route path="/events" element={<PublicEvents />} />
+      <Route path="/services" element={<PublicServices />} />
+      <Route path="/m/:estId" element={<PublicMenu />} />
+      <Route path="/*" element={<ProtectedRoutes />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ErrorBoundary>
-          <Routes>
-            <Route path="/m/:estId" element={<PublicMenu />} />
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
+          <PublicOrApp />
         </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
