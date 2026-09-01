@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Search, MapPin, Star, Clock, ChevronRight, Loader2, UtensilsCrossed,
-  Beer, Wine, Calendar, Sparkles, Phone, ArrowRight
+  Search, MapPin, Star, ChevronRight, Loader2, UtensilsCrossed,
+  Beer, Wine, Calendar, ArrowRight, Flame, Leaf, Music, Sandwich
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -41,13 +41,18 @@ type MenuItem = {
 };
 
 const CATEGORIES = [
-  { id: 'restaurant', label: 'Restaurants', icon: UtensilsCrossed },
-  { id: 'maquis', label: 'Maquis', icon: Beer },
-  { id: 'bar', label: 'Bars', icon: Wine },
+  { id: 'restaurant', label: 'Restaurants', icon: UtensilsCrossed, color: 'bg-[#E85D04] text-white' },
+  { id: 'maquis', label: 'Maquis', icon: Leaf, color: 'bg-[#166534] text-white' },
+  { id: 'bar', label: 'Bars', icon: Wine, color: 'bg-[#7c2d12] text-white' },
+  { id: 'lounge', label: 'Lounges', icon: Music, color: 'bg-[#9a3412] text-white' },
+  { id: 'fastfood', label: 'Fast-foods', icon: Sandwich, color: 'bg-[#c2410c] text-white' },
 ];
 
 export default function PublicHome() {
-  useEffect(() => { document.title = 'Stock Manager — Découvrir et gérer les établissements'; }, []);
+  useEffect(() => {
+    document.title = 'Stock Manager — Découvrez les meilleurs établissements';
+  }, []);
+
   const { user, signOut } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<AuthMode>('signup');
@@ -135,11 +140,15 @@ export default function PublicHome() {
       <button
         type="button"
         onClick={() => window.location.assign('/dashboard')}
-        className="h-10 px-3 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100"
+        className="h-10 px-3 rounded-xl text-sm font-semibold bg-[#FFF0D6] text-[#C2410C] hover:bg-[#FFE4B8] transition"
       >
         Mon espace
       </button>
-      <button type="button" onClick={() => void signOut()} className="text-xs text-slate-500 hover:text-slate-800">
+      <button
+        type="button"
+        onClick={() => void signOut()}
+        className="text-xs text-[#8A7B6B] hover:text-[#2C2416]"
+      >
         Quitter
       </button>
     </div>
@@ -149,127 +158,144 @@ export default function PublicHome() {
     <PublicLayout onOpenAuth={user ? undefined : openAuth} rightSlot={rightSlot}>
       <AuthModal open={authOpen} mode={authMode} onClose={() => setAuthOpen(false)} onMode={setAuthMode} />
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 text-white">
+      {/* ========== HERO ========== */}
+      <section className="relative overflow-hidden">
         <div
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0"
           style={{
             backgroundImage:
-              'url(https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=60)',
+              'url(https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=70)',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-blue-950/40" />
-        <div className="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
-          <p className="text-blue-300 text-xs font-semibold uppercase tracking-widest mb-3">Stock Manager AI</p>
-          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight max-w-2xl leading-[1.15]">
-            Découvrez les meilleurs établissements autour de vous
-          </h1>
-          <p className="mt-4 text-slate-300 text-base sm:text-lg max-w-xl">
-            Restaurants, maquis, bars, menus du jour, événements et services — au même endroit.
-          </p>
+        <div className="absolute inset-0 bg-gradient-to-r from-[#2C2416]/90 via-[#2C2416]/70 to-[#E85D04]/40" />
 
-          <div className="mt-8 max-w-2xl bg-white rounded-2xl p-2 sm:p-3 shadow-2xl shadow-black/30">
-            <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Que recherchez-vous ?"
-                  className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
-              </div>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  value={where}
-                  onChange={(e) => setWhere(e.target.value)}
-                  placeholder="Où êtes-vous ? (ex. Cocody)"
-                  className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 pl-10 pr-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                />
-              </div>
-              <Link
-                to={`/establishments${q || where ? `?q=${encodeURIComponent(q)}&where=${encodeURIComponent(where)}` : ''}`}
-                className="h-12 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm flex items-center justify-center gap-2"
-              >
-                Explorer <ArrowRight size={16} />
-              </Link>
-            </div>
-            <p className="px-2 pt-2 text-[11px] text-slate-400">
-              Ex. maquis · poulet braisé · bar Cocody · événement ce week-end
+        <div className="relative max-w-6xl mx-auto px-4 py-16 sm:py-24">
+          <div className="max-w-2xl">
+            <p className="inline-flex items-center gap-1.5 text-[#FDBA74] text-xs font-semibold uppercase tracking-widest mb-4">
+              <Flame size={14} />
+              Le meilleur de la Côte d&apos;Ivoire
             </p>
+
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight">
+              Découvrez les{' '}
+              <span className="text-[#FDBA74]">meilleurs</span>{' '}
+              établissements
+            </h1>
+
+            <p className="mt-5 text-white/80 text-base sm:text-lg max-w-lg leading-relaxed">
+              Restaurants, maquis, bars et fast-foods authentiques pour des moments savoureux près de chez vous.
+            </p>
+
+            {/* Search box */}
+            <div className="mt-8 bg-white rounded-2xl p-2 sm:p-3 shadow-2xl shadow-black/20">
+              <div className="grid sm:grid-cols-[1fr_1fr_auto] gap-2">
+                <div className="relative">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A89880]" size={18} />
+                  <input
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Rechercher un établissement, un plat..."
+                    className="w-full h-12 rounded-xl bg-[#FBF7F0] border border-[#E8DFD0] pl-11 pr-3 text-sm text-[#2C2416] placeholder:text-[#A89880] focus:outline-none focus:ring-2 focus:ring-[#E85D04]/30 focus:border-[#E85D04]"
+                  />
+                </div>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A89880]" size={18} />
+                  <input
+                    value={where}
+                    onChange={(e) => setWhere(e.target.value)}
+                    placeholder="Abidjan, Cocody, Yopougon..."
+                    className="w-full h-12 rounded-xl bg-[#FBF7F0] border border-[#E8DFD0] pl-11 pr-3 text-sm text-[#2C2416] placeholder:text-[#A89880] focus:outline-none focus:ring-2 focus:ring-[#E85D04]/30 focus:border-[#E85D04]"
+                  />
+                </div>
+                <Link
+                  to={`/establishments${q || where ? `?q=${encodeURIComponent(q)}&where=${encodeURIComponent(where)}` : ''}`}
+                  className="h-12 px-6 rounded-xl bg-[#E85D04] hover:bg-[#C2410C] text-white font-semibold text-sm flex items-center justify-center gap-2 transition shadow-md shadow-orange-600/20"
+                >
+                  Rechercher
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <div className="max-w-6xl mx-auto px-4 space-y-14 py-12">
-        {/* Categories */}
+        {/* ========== CATEGORIES ========== */}
         <section>
-          <h2 className="text-xl font-bold text-slate-900 mb-4">Explorer par type</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
             {CATEGORIES.map((c) => {
               const Icon = c.icon;
               return (
                 <Link
                   key={c.id}
                   to={`/establishments?type=${c.id}`}
-                  className="group rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-blue-200 transition"
+                  className={`flex items-center gap-2.5 shrink-0 px-5 py-3 rounded-full font-semibold text-sm transition hover:scale-105 ${c.color} shadow-sm`}
                 >
-                  <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center mb-3 group-hover:bg-blue-600 group-hover:text-white transition">
-                    <Icon size={20} />
-                  </div>
-                  <p className="font-semibold text-sm sm:text-base">{c.label}</p>
-                  <p className="text-xs text-slate-500 mt-1 hidden sm:block">Voir la sélection</p>
+                  <Icon size={18} />
+                  {c.label}
                 </Link>
               );
             })}
           </div>
         </section>
 
-        {/* Open now */}
+        {/* ========== OPEN NOW ========== */}
         <section>
-          <div className="flex items-end justify-between gap-3 mb-5">
+          <div className="flex items-end justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Ouvert maintenant</h2>
-              <p className="text-sm text-slate-500 mt-1">Selon les horaires publiés par les établissements</p>
+              <h2 className="text-2xl font-bold text-[#2C2416]">Ouvert maintenant</h2>
+              <p className="text-sm text-[#8A7B6B] mt-1">Établissements disponibles à cette heure</p>
             </div>
-            <Link to="/establishments" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+            <Link
+              to="/establishments"
+              className="text-sm font-semibold text-[#E85D04] hover:text-[#C2410C] flex items-center gap-1 transition"
+            >
               Voir tout <ChevronRight size={16} />
             </Link>
           </div>
+
           {(() => {
             const openList = filteredEsts.filter((e) => isOpenNow(e.opening_hours) === true).slice(0, 6);
-            if (loading) return null;
+            if (loading) {
+              return (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="animate-spin text-[#E85D04]" size={28} />
+                </div>
+              );
+            }
             if (openList.length === 0) {
               return (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-                  Aucun établissement n’a encore renseigné d’horaires, ou aucun n’est ouvert à cette heure.
+                <div className="rounded-2xl border border-dashed border-[#E8DFD0] bg-white p-8 text-center text-sm text-[#8A7B6B]">
+                  Aucun établissement n&apos;a encore renseigné d&apos;horaires, ou aucun n&apos;est ouvert à cette heure.
                 </div>
               );
             }
             return (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {openList.map((est) => (
                   <Link
                     key={est.id}
                     to={`/e/${slugify(est.name, est.id)}`}
-                    className="rounded-2xl border border-emerald-200 bg-white p-4 hover:shadow-md transition flex gap-3"
+                    className="rounded-2xl border border-[#E8DFD0] bg-white p-4 hover:shadow-lg hover:border-[#E85D04]/30 transition flex gap-3 group"
                   >
-                    <div className="w-14 h-14 rounded-xl bg-slate-100 overflow-hidden shrink-0">
+                    <div className="w-14 h-14 rounded-xl bg-[#F7F0E6] overflow-hidden shrink-0">
                       {est.logo_url ? (
-                        <img src={est.logo_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                        <img src={est.logo_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <UtensilsCrossed size={20} />
+                        <div className="w-full h-full flex items-center justify-center text-[#C4B5A0]">
+                          <UtensilsCrossed size={22} />
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{est.name}</p>
-                      <p className="text-[11px] text-slate-500 capitalize">{est.type}</p>
-                      <span className="inline-block mt-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">Ouvert</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm text-[#2C2416] truncate">{est.name}</p>
+                      <p className="text-[11px] text-[#8A7B6B] capitalize mt-0.5">{est.type || 'Établissement'}</p>
+                      <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Ouvert
+                      </span>
                     </div>
                   </Link>
                 ))}
@@ -278,213 +304,145 @@ export default function PublicHome() {
           })()}
         </section>
 
-        {/* Discover establishments */}
+        {/* ========== DISCOVER ========== */}
         <section id="discover">
-          <div className="flex items-end justify-between gap-3 mb-5">
+          <div className="flex items-end justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Découvrez les établissements</h2>
-              <p className="text-sm text-slate-500 mt-1">Vitrines publiques activées par les pros</p>
+              <h2 className="text-2xl font-bold text-[#2C2416]">Établissements populaires</h2>
+              <p className="text-sm text-[#8A7B6B] mt-1">Vitrines publiques activées par les propriétaires</p>
             </div>
-            <Link to="/establishments" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
+            <Link
+              to="/establishments"
+              className="text-sm font-semibold text-[#E85D04] hover:text-[#C2410C] flex items-center gap-1 transition"
+            >
               Tout voir <ChevronRight size={16} />
             </Link>
           </div>
 
           {loading ? (
-            <div className="flex justify-center py-16"><Loader2 className="animate-spin text-blue-600" size={28} /></div>
+            <div className="flex justify-center py-16">
+              <Loader2 className="animate-spin text-[#E85D04]" size={28} />
+            </div>
           ) : filteredEsts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-              <p className="font-semibold text-slate-800">Aucune vitrine publique pour le moment</p>
-              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">
-                Les établissements apparaîtront ici dès qu’un propriétaire active le menu public dans Stock Manager.
+            <div className="rounded-2xl border border-dashed border-[#E8DFD0] bg-white p-12 text-center">
+              <p className="font-semibold text-[#2C2416]">Aucune vitrine publique pour le moment</p>
+              <p className="text-sm text-[#8A7B6B] mt-2 max-w-md mx-auto">
+                Les établissements apparaîtront ici dès qu&apos;un propriétaire active le menu public dans Stock Manager.
               </p>
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {filteredEsts.slice(0, 6).map((est) => (
-                <article
+                <Link
                   key={est.id}
-                  className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition group"
+                  to={`/e/${slugify(est.name, est.id)}`}
+                  className="rounded-2xl border border-[#E8DFD0] bg-white overflow-hidden shadow-sm hover:shadow-xl hover:border-[#E85D04]/20 transition group"
                 >
-                  <div className="h-40 bg-slate-200 relative overflow-hidden">
+                  <div className="h-44 bg-[#F7F0E6] relative overflow-hidden">
                     {est.logo_url ? (
-                      <img src={est.logo_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-500" loading="lazy" />
+                      <img
+                        src={est.logo_url}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-400">
-                        <UtensilsCrossed size={36} />
+                      <div className="w-full h-full flex items-center justify-center text-[#C4B5A0]">
+                        <UtensilsCrossed size={40} />
                       </div>
                     )}
-                    <span className="absolute top-3 left-3 text-[11px] font-semibold bg-white/95 text-slate-800 px-2 py-1 rounded-full capitalize shadow-sm">
-                      {est.type || 'Établissement'}
-                      {est.is_sponsored ? ' · Sponsorisé' : ''}
-                    </span>
-                    {(() => {
-                      const o = isOpenNow(est.opening_hours);
-                      if (o === null) return null;
-                      return (
-                        <span className={`absolute top-3 right-3 text-[11px] font-semibold px-2 py-1 rounded-full shadow-sm ${o ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'}`}>
-                          {o ? 'Ouvert' : 'Fermé'}
-                        </span>
-                      );
-                    })()}
+                    {est.is_sponsored && (
+                      <span className="absolute top-3 left-3 text-[10px] font-bold bg-[#E85D04] text-white px-2 py-1 rounded-full">
+                        Sponsorisé
+                      </span>
+                    )}
                   </div>
                   <div className="p-4">
-                    <h3 className="font-bold text-slate-900">{est.name}</h3>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#2C2416] truncate">{est.name}</p>
+                        <p className="text-xs text-[#8A7B6B] capitalize mt-0.5">{est.type || 'Établissement'}</p>
+                      </div>
+                    </div>
                     {est.address && (
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                        <MapPin size={12} /> {est.address}
+                      <p className="mt-2 text-xs text-[#8A7B6B] flex items-center gap-1 truncate">
+                        <MapPin size={12} className="shrink-0 text-[#E85D04]" />
+                        {est.address}
                       </p>
                     )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Link
-                        to={`/m/${est.id}`}
-                        className="flex-1 text-center h-9 rounded-lg bg-blue-600 text-white text-xs font-semibold flex items-center justify-center hover:bg-blue-700"
-                      >
-                        Voir le menu
-                      </Link>
-                      <Link
-                        to={`/e/${slugify(est.name, est.id)}`}
-                        className="flex-1 text-center h-9 rounded-lg bg-slate-100 text-slate-800 text-xs font-semibold flex items-center justify-center hover:bg-slate-200"
-                      >
-                        Découvrir
-                      </Link>
+                    <div className="mt-3 flex items-center justify-between">
+                      {isOpenNow(est.opening_hours) === true ? (
+                        <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          Ouvert
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium text-[#A89880]">Horaires non renseignés</span>
+                      )}
+                      <span className="text-xs font-semibold text-[#E85D04] group-hover:underline">
+                        Voir →
+                      </span>
                     </div>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
         </section>
 
-        {/* Menu du jour from stock */}
-        <section>
-          <div className="flex items-end justify-between gap-3 mb-5">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Menus & disponibilités</h2>
-              <p className="text-sm text-slate-500 mt-1">Reliés au stock public des établissements</p>
+        {/* ========== MENU ITEMS (if any) ========== */}
+        {menuItems.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-[#2C2416]">Plats à découvrir</h2>
+                <p className="text-sm text-[#8A7B6B] mt-1">Sélection de plats disponibles</p>
+              </div>
             </div>
-          </div>
-          {menuItems.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-              Les plats et boissons publics s’affichent ici dès qu’un établissement partage son menu.
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {menuItems.slice(0, 9).map((p) => {
-                const available = Number(p.stock) > 0;
-                return (
-                  <Link
-                    key={p.id}
-                    to={`/m/${p.establishment_id}`}
-                    className="flex gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:border-blue-200 hover:shadow-sm transition"
-                  >
-                    <div className="w-16 h-16 rounded-xl bg-slate-100 overflow-hidden shrink-0">
-                      {p.image_url ? (
-                        <img src={p.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-300">
-                          <UtensilsCrossed size={20} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{p.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{p.est_name}</p>
-                      <div className="mt-1 flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-slate-900">
-                          {Number(p.price).toLocaleString('fr-FR')} F
-                        </span>
-                        <span
-                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                            available ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                          }`}
-                        >
-                          {available ? `${p.stock} dispo` : 'Épuisé'}
-                        </span>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {menuItems.slice(0, 8).map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-2xl border border-[#E8DFD0] bg-white overflow-hidden hover:shadow-md transition"
+                >
+                  <div className="h-32 bg-[#F7F0E6]">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[#C4B5A0]">
+                        <UtensilsCrossed size={28} />
                       </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Events from announcements for now */}
-        <section>
-          <div className="flex items-end justify-between gap-3 mb-5">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Calendar size={20} className="text-blue-600" /> Événements & à la une
-              </h2>
-              <p className="text-sm text-slate-500 mt-1">Publications et temps forts des établissements</p>
-            </div>
-            <Link to="/events" className="text-sm font-semibold text-blue-600 hover:underline flex items-center gap-1">
-              Voir tout <ChevronRight size={16} />
-            </Link>
-          </div>
-          {anns.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-              Les événements publiés par les pros apparaîtront ici.
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {anns.map((a) => (
-                <article key={a.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                  {a.image_url && (
-                    <img src={a.image_url} alt="" className="w-full h-40 object-cover" loading="lazy" />
-                  )}
-                  <div className="p-4">
-                    <p className="font-bold text-slate-900">{a.title}</p>
-                    <p className="text-sm text-slate-600 mt-2 line-clamp-3">{a.body}</p>
-                    {a.link_url && (
-                      <a href={a.link_url} className="inline-flex mt-3 text-sm font-semibold text-blue-600 hover:underline">
-                        Découvrir
-                      </a>
                     )}
                   </div>
-                </article>
+                  <div className="p-3">
+                    <p className="font-semibold text-sm text-[#2C2416] truncate">{item.name}</p>
+                    <p className="text-xs text-[#8A7B6B] mt-0.5 truncate">{item.est_name}</p>
+                    <p className="mt-2 font-bold text-[#E85D04]">
+                      {item.price.toLocaleString('fr-FR')} FCFA
+                    </p>
+                  </div>
+                </div>
               ))}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
-        {/* Services teaser */}
-        <section className="rounded-3xl bg-gradient-to-br from-blue-600 to-blue-800 text-white p-8 sm:p-10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-            <div>
-              <p className="text-blue-100 text-xs font-semibold uppercase tracking-wider">Services</p>
-              <h2 className="text-2xl font-bold mt-1">DJ, traiteur, photo, déco…</h2>
-              <p className="text-blue-100 text-sm mt-2 max-w-md">
-                Bientôt : annuaire de prestataires liés aux établissements et aux événements.
-              </p>
-            </div>
-            <Link
-              to="/services"
-              className="inline-flex h-11 px-5 rounded-xl bg-white text-blue-800 font-semibold text-sm items-center gap-2 hover:bg-blue-50"
-            >
-              Voir les services <ArrowRight size={16} />
-            </Link>
-          </div>
-        </section>
-
-        {/* CTA pro */}
-        {!user && (
-          <section className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <Sparkles className="mx-auto text-blue-600 mb-3" size={28} />
-            <h2 className="text-xl font-bold">Vous avez un établissement ?</h2>
-            <p className="text-sm text-slate-500 mt-2 max-w-lg mx-auto">
-              Gérez stock, équipe, caisse et vitrine publique avec Stock Manager AI.
+        {/* ========== CTA ========== */}
+        <section className="rounded-3xl bg-gradient-to-br from-[#E85D04] to-[#9a3412] p-8 sm:p-12 text-center text-white overflow-hidden relative">
+          <div className="relative z-10">
+            <h2 className="text-2xl sm:text-3xl font-bold">Vous êtes propriétaire ?</h2>
+            <p className="mt-3 text-white/85 max-w-lg mx-auto">
+              Créez votre vitrine gratuite, publiez votre menu et attirez plus de clients dès aujourd&apos;hui.
             </p>
             <button
               type="button"
               onClick={() => openAuth('signup')}
-              className="mt-5 h-11 px-6 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700"
+              className="mt-6 inline-flex items-center gap-2 h-12 px-8 rounded-xl bg-white text-[#C2410C] font-bold text-sm hover:bg-[#FFF0D6] transition shadow-lg"
             >
-              Créer un compte professionnel
+              Créer mon établissement
+              <ArrowRight size={18} />
             </button>
-          </section>
-        )}
+          </div>
+        </section>
       </div>
     </PublicLayout>
   );
