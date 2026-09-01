@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import PublicLayout from '@/components/public/PublicLayout';
 import AuthModal, { AuthMode } from '@/components/public/AuthModal';
-import { slugify } from '@/lib/publicEstablishment';
+import { slugify, isOpenNow, type OpeningHours } from '@/lib/publicEstablishment';
 
 type PubEst = {
   id: string;
@@ -14,6 +14,7 @@ type PubEst = {
   address: string | null;
   phone: string | null;
   logo_url?: string | null;
+  opening_hours?: OpeningHours | null;
 };
 
 export default function PublicEstablishments() {
@@ -23,6 +24,7 @@ export default function PublicEstablishments() {
   const [authMode, setAuthMode] = useState<AuthMode>('signin');
   const [ests, setEsts] = useState<PubEst[]>([]);
   const [loading, setLoading] = useState(true);
+  const [openOnly, setOpenOnly] = useState(false);
   const type = params.get('type') || '';
   const q = params.get('q') || '';
   const where = params.get('where') || '';
@@ -32,7 +34,7 @@ export default function PublicEstablishments() {
       setLoading(true);
       const { data } = await supabase
         .from('establishments')
-        .select('id, name, type, address, phone, logo_url')
+        .select('id, name, type, address, phone, logo_url, opening_hours')
         .eq('public_menu', true)
         .order('name')
         .limit(80);
@@ -57,8 +59,11 @@ export default function PublicEstablishments() {
       const w = where.toLowerCase();
       l = l.filter((e) => String(e.address || '').toLowerCase().includes(w));
     }
+    if (openOnly) {
+      l = l.filter((e) => isOpenNow(e.opening_hours) === true);
+    }
     return l;
-  }, [ests, type, q, where]);
+  }, [ests, type, q, where, openOnly]);
 
   return (
     <PublicLayout
@@ -75,6 +80,10 @@ export default function PublicEstablishments() {
       <div className="max-w-6xl mx-auto px-4 py-10">
         <h1 className="text-2xl font-bold text-slate-900">Établissements</h1>
         <p className="text-sm text-slate-500 mt-1">Vitrines publiques — menus et contacts</p>
+        <label className="mt-3 inline-flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />
+          Ouvert maintenant
+        </label>
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" /></div>
         ) : list.length === 0 ? (
@@ -89,7 +98,14 @@ export default function PublicEstablishments() {
                   {est.logo_url ? <img src={est.logo_url} alt="" className="w-full h-full object-cover" /> : <UtensilsCrossed className="text-slate-300" size={32} />}
                 </div>
                 <div className="p-4">
-                  <p className="font-bold">{est.name}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-bold">{est.name}</p>
+                    {(() => {
+                      const o = isOpenNow(est.opening_hours);
+                      if (o === null) return null;
+                      return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${o ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{o ? 'Ouvert' : 'Fermé'}</span>;
+                    })()}
+                  </div>
                   <p className="text-xs text-slate-500 capitalize mt-0.5">{est.type}</p>
                   {est.address && <p className="text-xs text-slate-500 mt-2 flex items-center gap-1"><MapPin size={12} />{est.address}</p>}
                 </div>

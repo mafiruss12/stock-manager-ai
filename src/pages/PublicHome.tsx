@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import PublicLayout from '@/components/public/PublicLayout';
 import AuthModal, { AuthMode } from '@/components/public/AuthModal';
-import { slugify } from '@/lib/publicEstablishment';
+import { slugify, isOpenNow, type OpeningHours } from '@/lib/publicEstablishment';
 
 type PubEst = {
   id: string;
@@ -18,6 +18,7 @@ type PubEst = {
   phone: string | null;
   logo_url?: string | null;
   public_menu?: boolean;
+  opening_hours?: OpeningHours | null;
 };
 
 type Ann = {
@@ -62,7 +63,7 @@ export default function PublicHome() {
       const [eRes, aRes] = await Promise.all([
         supabase
           .from('establishments')
-          .select('id, name, type, address, phone, logo_url, public_menu')
+          .select('id, name, type, address, phone, logo_url, public_menu, opening_hours')
           .eq('public_menu', true)
           .order('name')
           .limit(48),
@@ -264,6 +265,15 @@ export default function PublicHome() {
                     <span className="absolute top-3 left-3 text-[11px] font-semibold bg-white/95 text-slate-800 px-2 py-1 rounded-full capitalize shadow-sm">
                       {est.type || 'Établissement'}
                     </span>
+                    {(() => {
+                      const o = isOpenNow(est.opening_hours);
+                      if (o === null) return null;
+                      return (
+                        <span className={`absolute top-3 right-3 text-[11px] font-semibold px-2 py-1 rounded-full shadow-sm ${o ? 'bg-emerald-500 text-white' : 'bg-slate-700 text-white'}`}>
+                          {o ? 'Ouvert' : 'Fermé'}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="p-4">
                     <h3 className="font-bold text-slate-900">{est.name}</h3>

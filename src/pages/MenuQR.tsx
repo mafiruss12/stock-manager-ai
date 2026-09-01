@@ -10,6 +10,7 @@ import {
   BUSINESS_THEMES,
 } from '@/lib/businessTypes';
 import { EmptyState } from '@/components/ui';
+import { DAY_LABELS, type OpeningHours } from '@/lib/publicEstablishment';
 
 export default function MenuQR() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
@@ -35,6 +36,16 @@ export default function MenuQR() {
   const [evDesc, setEvDesc] = useState('');
   const [evSaving, setEvSaving] = useState(false);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [stats, setStats] = useState<{ profile_views: number; menu_views: number; whatsapp_clicks: number; phone_clicks: number } | null>(null);
+  const [hours, setHours] = useState<OpeningHours>({
+    mon: { open: '09:00', close: '23:00' },
+    tue: { open: '09:00', close: '23:00' },
+    wed: { open: '09:00', close: '23:00' },
+    thu: { open: '09:00', close: '23:00' },
+    fri: { open: '09:00', close: '02:00' },
+    sat: { open: '10:00', close: '02:00' },
+    sun: { open: '10:00', close: '22:00' },
+  });
 
   const menuUrl =
     typeof window !== 'undefined' && estId
@@ -55,7 +66,7 @@ export default function MenuQR() {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('establishments')
-      .select('public_menu, description, cover_url, public_show_stock, name, slug')
+      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours')
       .eq('id', estId)
       .maybeSingle();
     if (err) setError(err.message);
@@ -64,11 +75,22 @@ export default function MenuQR() {
     setDescription(row?.description || '');
     setCoverUrl(row?.cover_url || '');
     setShowStock(row?.public_show_stock !== false);
+    if (row?.opening_hours && typeof row.opening_hours === 'object') {
+      setHours((prev) => ({ ...prev, ...(row.opening_hours as OpeningHours) }));
+    }
     if (typeof window !== 'undefined' && row) {
       const { slugify } = await import('@/lib/publicEstablishment');
       const slug = row.slug || slugify(String(row.name || 'etablissement'), estId);
       setProfileUrl(`${window.location.origin}/e/${slug}`);
     }
+    try {
+      const { data: st } = await supabase
+        .from('public_profile_stats')
+        .select('profile_views, menu_views, whatsapp_clicks, phone_clicks')
+        .eq('establishment_id', estId)
+        .maybeSingle();
+      if (st) setStats(st as any);
+    } catch { /* */ }
     setLoading(false);
   }, [estId]);
 
@@ -152,6 +174,14 @@ export default function MenuQR() {
         </div>
       ) : (
         <>
+          {stats && (
+            <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 mb-5 grid grid-cols-2 gap-3 text-center">
+              <div><p className="text-lg font-bold text-amber-300">{stats.profile_views}</p><p className="text-[10px] text-stone-500">Vues fiche</p></div>
+              <div><p className="text-lg font-bold text-amber-300">{stats.menu_views}</p><p className="text-[10px] text-stone-500">Vues menu</p></div>
+              <div><p className="text-lg font-bold text-emerald-300">{stats.whatsapp_clicks}</p><p className="text-[10px] text-stone-500">Clics WhatsApp</p></div>
+              <div><p className="text-lg font-bold text-sky-300">{stats.phone_clicks}</p><p className="text-[10px] text-stone-500">Clics téléphone</p></div>
+            </div>
+          )}
           <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="font-medium text-stone-100">Menu public</p>
@@ -249,6 +279,58 @@ export default function MenuQR() {
                 />
                 Afficher les quantités disponibles sur le menu public
               </label>
+              <div className="space-y-2 pt-2 border-t border-stone-800">
+                <p className="text-sm font-medium text-stone-200">Horaires (vitrine)</p>
+                {DAY_LABELS.map(({ key, label }) => {
+                  const slot = hours[key] || { open: '09:00', close: '23:00', closed: false };
+                  return (
+                    <div key={key} className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="w-16 text-stone-400">{label}</span>
+                      <label className="flex items-center gap-1 text-stone-400">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(slot.closed)}
+                          onChange={(e) =>
+                            setHours((h) => ({
+                              ...h,
+                              [key]: { ...slot, closed: e.target.checked },
+                            }))
+                          }
+                        />
+                        Fermé
+                      </label>
+                      {!slot.closed && (
+                        <>
+                          <input
+                            type="time"
+                            className="input-field py-1 px-2 w-auto text-xs"
+                            value={slot.open || '09:00'}
+                            onChange={(e) =>
+                              setHours((h) => ({
+                                ...h,
+                                [key]: { ...slot, open: e.target.value, closed: false },
+                              }))
+                            }
+                          />
+                          <span className="text-stone-600">→</span>
+                          <input
+                            type="time"
+                            className="input-field py-1 px-2 w-auto text-xs"
+                            value={slot.close || '23:00'}
+                            onChange={(e) =>
+                              setHours((h) => ({
+                                ...h,
+                                [key]: { ...slot, close: e.target.value, closed: false },
+                              }))
+                            }
+                          />
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
               <button
                 type="button"
                 className="btn-primary w-full text-sm"
