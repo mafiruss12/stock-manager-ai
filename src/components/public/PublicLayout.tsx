@@ -1,6 +1,6 @@
 import { useState, ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, Search } from 'lucide-react';
+import { Menu, X, MapPin } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Accueil' },
@@ -23,28 +23,39 @@ export default function PublicLayout({
   const loc = useLocation();
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] text-slate-900">
-      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200/80 shadow-sm">
+    <div className="min-h-screen bg-[#FBF7F0] text-[#2C2416]">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#E8DFD0] shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          <Link to="/" className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-blue-600/25">
-              SM
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2.5 min-w-0 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E85D04] to-[#C2410C] flex items-center justify-center text-white shadow-md shadow-orange-600/30 group-hover:scale-105 transition-transform">
+              <span className="font-bold text-lg leading-none">S</span>
             </div>
             <div className="leading-tight min-w-0">
-              <p className="font-bold text-[15px] tracking-tight truncate">Stock Manager</p>
-              <p className="text-[11px] text-slate-500 truncate">Découvrir · Gérer · Développer</p>
+              <p className="font-bold text-[15px] tracking-tight text-[#2C2416] truncate">
+                Stock Manager
+              </p>
+              <p className="text-[11px] text-[#C2410C] font-medium truncate">
+                Côte d&apos;Ivoire
+              </p>
             </div>
           </Link>
 
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-1">
             {NAV.map((n) => {
-              const active = loc.pathname === n.to || (n.to !== '/' && loc.pathname.startsWith(n.to));
+              const active =
+                loc.pathname === n.to ||
+                (n.to !== '/' && loc.pathname.startsWith(n.to));
               return (
                 <Link
                   key={n.to}
                   to={n.to}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                    active ? 'text-blue-700 bg-blue-50' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    active
+                      ? 'text-[#C2410C] bg-[#FFF0D6]'
+                      : 'text-[#6B5E4F] hover:bg-[#F7F0E6] hover:text-[#2C2416]'
                   }`}
                 >
                   {n.label}
@@ -53,29 +64,37 @@ export default function PublicLayout({
             })}
           </nav>
 
+          {/* Right actions */}
           <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#8A7B6B] mr-1">
+              <MapPin size={14} className="text-[#E85D04]" />
+              <span>Abidjan</span>
+            </div>
+
             {rightSlot}
+
             {onOpenAuth && (
               <>
                 <button
                   type="button"
                   onClick={() => onOpenAuth('signin')}
-                  className="hidden sm:inline-flex h-10 px-3 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                  className="hidden sm:inline-flex h-10 px-3 rounded-xl text-sm font-semibold text-[#6B5E4F] hover:bg-[#F7F0E6] transition"
                 >
                   Se connecter
                 </button>
                 <button
                   type="button"
                   onClick={() => onOpenAuth('signup')}
-                  className="h-10 px-3.5 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                  className="h-10 px-4 rounded-xl text-sm font-semibold bg-[#E85D04] text-white hover:bg-[#C2410C] shadow-sm shadow-orange-600/20 transition"
                 >
                   Créer un compte
                 </button>
               </>
             )}
+
             <button
               type="button"
-              className="md:hidden w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center"
+              className="md:hidden w-10 h-10 rounded-xl bg-[#F7F0E6] flex items-center justify-center text-[#2C2416]"
               onClick={() => setOpen((v) => !v)}
               aria-label="Menu"
             >
@@ -84,14 +103,15 @@ export default function PublicLayout({
           </div>
         </div>
 
+        {/* Mobile menu */}
         {open && (
-          <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-1">
+          <div className="md:hidden border-t border-[#E8DFD0] bg-white px-4 py-3 space-y-1">
             {NAV.map((n) => (
               <Link
                 key={n.to}
                 to={n.to}
                 onClick={() => setOpen(false)}
-                className="block px-3 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="block px-3 py-2.5 rounded-xl text-sm font-medium text-[#3D3428] hover:bg-[#FBF7F0]"
               >
                 {n.label}
               </Link>
@@ -99,31 +119,50 @@ export default function PublicLayout({
           </div>
         )}
       </header>
+
       {children}
-      <footer className="border-t border-slate-200 bg-white mt-12">
-        <div className="max-w-6xl mx-auto px-4 py-10 grid sm:grid-cols-3 gap-8 text-sm">
+
+      {/* Footer */}
+      <footer className="border-t border-[#E8DFD0] bg-white mt-16">
+        <div className="max-w-6xl mx-auto px-4 py-12 grid sm:grid-cols-3 gap-10 text-sm">
           <div>
-            <p className="font-bold text-slate-900">Stock Manager AI</p>
-            <p className="text-slate-500 mt-2 text-[13px] leading-relaxed">
-              La plateforme intelligente pour découvrir, promouvoir et gérer les établissements en Côte d&apos;Ivoire.
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#E85D04] to-[#C2410C] flex items-center justify-center text-white font-bold">
+                S
+              </div>
+              <p className="font-bold text-[#2C2416]">Stock Manager</p>
+            </div>
+            <p className="text-[#8A7B6B] text-[13px] leading-relaxed">
+              La plateforme pour découvrir, promouvoir et gérer les meilleurs
+              établissements en Côte d&apos;Ivoire.
             </p>
           </div>
+
           <div>
-            <p className="font-semibold text-slate-800 mb-2">Explorer</p>
-            <div className="space-y-1.5 text-slate-500">
+            <p className="font-semibold text-[#2C2416] mb-3">Explorer</p>
+            <div className="space-y-2 text-[#6B5E4F]">
               {NAV.map((n) => (
-                <Link key={n.to} to={n.to} className="block hover:text-blue-600">
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  className="block hover:text-[#E85D04] transition"
+                >
                   {n.label}
                 </Link>
               ))}
             </div>
           </div>
+
           <div>
-            <p className="font-semibold text-slate-800 mb-2">Kevin Tech Pro</p>
-            <p className="text-slate-500 text-[13px]">Abidjan · WhatsApp pro disponible depuis l&apos;espace propriétaire.</p>
+            <p className="font-semibold text-[#2C2416] mb-3">Kevin Tech Pro</p>
+            <p className="text-[#8A7B6B] text-[13px] leading-relaxed">
+              Abidjan · Support WhatsApp disponible depuis l&apos;espace
+              propriétaire.
+            </p>
           </div>
         </div>
-        <div className="border-t border-slate-100 py-4 text-center text-xs text-slate-400">
+
+        <div className="border-t border-[#E8DFD0] py-4 text-center text-xs text-[#A89880]">
           © {new Date().getFullYear()} Stock Manager AI — Kevin Tech Pro
         </div>
       </footer>
