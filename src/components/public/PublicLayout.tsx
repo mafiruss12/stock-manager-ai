@@ -7,7 +7,8 @@ const NAV = [
   { to: '/discover', label: 'Découvrir' },
   { to: '/establishments', label: 'Collections' },
   { to: '/events', label: 'Actus' },
-  { to: '/services', label: 'À propos' },
+  { to: '/favorites', label: 'Favoris' },
+  { to: '/services', label: 'Services' },
 ];
 
 export default function PublicLayout({
