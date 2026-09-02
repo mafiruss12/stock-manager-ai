@@ -6,6 +6,7 @@ import PublicHome from '@/pages/PublicHome';
 import PublicEstablishments from '@/pages/public/PublicEstablishments';
 import PublicEvents from '@/pages/public/PublicEvents';
 import PublicServices from '@/pages/public/PublicServices';
+import PublicFavorites from '@/pages/public/PublicFavorites';
 import PublicDiscover from '@/pages/public/PublicDiscover';
 import PublicEstablishmentProfile from '@/pages/public/PublicEstablishmentProfile';
 import PublicCategory from '@/pages/public/PublicCategory';
@@ -269,6 +270,7 @@ function PublicOrApp() {
       <Route path="/bars" element={<PublicCategory />} />
             <Route path="/events" element={<PublicEvents />} />
       <Route path="/services" element={<PublicServices />} />
+      <Route path="/favorites" element={<PublicFavorites />} />
       <Route path="/m/:estId" element={<PublicMenu />} />
       <Route path="/e/:slugOrId" element={<PublicEstablishmentProfile />} />
       <Route path="/establishment/:slugOrId" element={<PublicEstablishmentProfile />} />

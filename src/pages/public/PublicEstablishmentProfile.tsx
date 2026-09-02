@@ -29,6 +29,7 @@ type Est = {
   public_reviews_count?: number | null;
   latitude?: number | null;
   longitude?: number | null;
+  gallery_urls?: string[] | null;
 };
 
 type Prod = {
@@ -68,14 +69,14 @@ export default function PublicEstablishmentProfile() {
       let row: Est | null = null;
       const byId = await supabase
         .from('establishments')
-        .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude')
+        .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude, gallery_urls')
         .eq('id', slugOrId)
         .maybeSingle();
       if (byId.data) row = byId.data as Est;
       if (!row) {
         const bySlug = await supabase
           .from('establishments')
-          .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude')
+          .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude, gallery_urls')
           .eq('slug', slugOrId)
           .maybeSingle();
         if (bySlug.data) row = bySlug.data as Est;
@@ -84,7 +85,7 @@ export default function PublicEstablishmentProfile() {
       if (!row) {
         const { data: list } = await supabase
           .from('establishments')
-          .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude')
+          .select('id, name, type, address, phone, logo_url, cover_url, description, public_menu, slug, opening_hours, public_show_stock, public_rating, public_reviews_count, latitude, longitude, gallery_urls')
           .eq('public_menu', true)
           .limit(80);
         row = ((list as Est[]) || []).find((e) => slugify(e.name, e.id) === slugOrId || e.id === slugOrId) || null;
@@ -195,6 +196,13 @@ export default function PublicEstablishmentProfile() {
 
               {est.description && (
                 <p className="mt-4 text-sm text-slate-600 leading-relaxed">{est.description}</p>
+              )}
+              {Array.isArray(est.gallery_urls) && est.gallery_urls.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {est.gallery_urls.slice(0, 6).map((u, i) => (
+                    <img key={i} src={u} alt="" className="w-full h-24 object-cover rounded-xl border border-slate-200" loading="lazy" />
+                  ))}
+                </div>
               )}
               {est.address && (
                 <p className="mt-3 text-sm text-slate-500 flex items-center gap-1.5">

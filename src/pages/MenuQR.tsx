@@ -38,7 +38,9 @@ export default function MenuQR() {
   const [evSaving, setEvSaving] = useState(false);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [stats, setStats] = useState<{ profile_views: number; menu_views: number; whatsapp_clicks: number; phone_clicks: number } | null>(null);
-  const [uploading, setUploading] = useState<'cover' | 'logo' | null>(null);
+  const [uploading, setUploading] = useState<'cover' | 'logo' | 'gallery' | null>(null);
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [sponsored, setSponsored] = useState(false);
   const [hours, setHours] = useState<OpeningHours>({
     mon: { open: '09:00', close: '23:00' },
     tue: { open: '09:00', close: '23:00' },
@@ -68,7 +70,7 @@ export default function MenuQR() {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('establishments')
-      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours')
+      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours, gallery_urls, is_sponsored')
       .eq('id', estId)
       .maybeSingle();
     if (err) setError(err.message);
@@ -80,6 +82,9 @@ export default function MenuQR() {
     if (row?.opening_hours && typeof row.opening_hours === 'object') {
       setHours((prev) => ({ ...prev, ...(row.opening_hours as OpeningHours) }));
     }
+    const g = row?.gallery_urls;
+    if (Array.isArray(g)) setGallery(g.filter((x: any) => typeof x === 'string'));
+    setSponsored(Boolean(row?.is_sponsored));
     if (typeof window !== 'undefined' && row) {
       const { slugify } = await import('@/lib/publicEstablishment');
       const slug = row.slug || slugify(String(row.name || 'etablissement'), estId);
@@ -330,6 +335,52 @@ export default function MenuQR() {
               {coverUrl && (
                 <img src={coverUrl} alt="" className="w-full h-28 object-cover rounded-xl border border-stone-700" />
               )}
+              <div className="space-y-2">
+                <p className="text-xs text-stone-400">Galerie (max 6 photos)</p>
+                <div className="flex flex-wrap gap-2">
+                  {gallery.map((url, i) => (
+                    <div key={url + i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-600">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        className="absolute top-0 right-0 bg-black/70 text-white text-[10px] px-1"
+                        onClick={() => setGallery((g) => g.filter((_, j) => j !== i))}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {gallery.length < 6 && (
+                    <label className="w-16 h-16 rounded-lg border border-dashed border-stone-500 flex items-center justify-center text-stone-400 text-xs cursor-pointer">
+                      {uploading === 'gallery' ? '…' : '+'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={!!uploading}
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!f || !estId) return;
+                          setUploading('gallery');
+                          try {
+                            const { url } = await uploadVitrineImage(estId, f, 'gallery');
+                            setGallery((g) => [...g, url].slice(0, 6));
+                            setOkMsg('Photo ajoutée — enregistrez la vitrine');
+                          } catch (ex: any) {
+                            setError(ex?.message || 'Upload galerie impossible');
+                          }
+                          setUploading(null);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-stone-300">
+                <input type="checkbox" checked={sponsored} onChange={(e) => setSponsored(e.target.checked)} />
+                Mettre en avant (Sponsorisé)
+              </label>
               <label className="flex items-center gap-2 text-sm text-stone-300">
                 <input
                   type="checkbox"
