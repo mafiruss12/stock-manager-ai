@@ -24,14 +24,10 @@ function actionsFor(type: BusinessType): Action[] {
   switch (type) {
     case 'maquis':
       return [
-        { to: '/pos', label: 'Nouvelle vente', sub: 'Caisse rapide', icon: <ShoppingCart size={22} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
-        { to: '/point-manuel', label: 'Point manuel', sub: 'Comptage fin de journée', icon: <ClipboardCheck size={22} />, color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
-        { to: '/inventory', label: 'État du stock', sub: 'Boissons & grillades', icon: <Beer size={22} />, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
-        { to: '/purchases', label: 'Approvisionnement', sub: 'Réception stock', icon: <Truck size={22} />, color: '#a855f7', bg: 'rgba(168,85,247,0.15)' },
-        { to: '/cloture', label: 'Clôture Z', sub: 'Fermer la journée', icon: <Wallet size={22} />, color: '#ef4444', bg: 'rgba(239,68,68,0.15)' },
-        { to: '/tables', label: 'Tables / Serveurs', sub: 'Occupation', icon: <LayoutGrid size={22} />, color: '#14b8a6', bg: 'rgba(20,184,166,0.15)' },
-        { to: '/kits', label: 'Kits & Promos', sub: 'Packs & offres', icon: <Package size={22} />, color: '#ec4899', bg: 'rgba(236,72,153,0.15)' },
-        { to: '/stock-transfer', label: 'Transfert stock', sub: 'Multi-établissements', icon: <Truck size={22} />, color: '#6366f1', bg: 'rgba(99,102,241,0.15)' },
+        { to: '/pos', label: 'Caisse', sub: 'Nouvelle vente', icon: <ShoppingCart size={22} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
+        { to: '/inventory', label: 'Stock', sub: 'Boissons & grillades', icon: <Beer size={22} />, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
+        { to: '/daily-report', label: 'Rapport du jour', sub: 'Point & envoi', icon: <ClipboardCheck size={22} />, color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+        { to: '/mes-employes', label: 'Employés', sub: 'Accès équipe', icon: <Users size={22} />, color: '#a855f7', bg: 'rgba(168,85,247,0.15)' },
       ];
     case 'location_event':
       return [

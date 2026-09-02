@@ -40,7 +40,7 @@ export default function GuidePage() {
       <div className="mt-8 rounded-2xl border border-stone-800 bg-stone-900/50 p-5 space-y-3">
         <h2 className="font-semibold text-stone-100">Astuces quotidiennes</h2>
         <ul className="space-y-2 text-sm text-stone-400">
-          <li>• <strong className="text-stone-300">Ouvrir la journée</strong> le matin (fond de caisse) avant les premières ventes.</li>
+          <li>• Commencez par la <strong className="text-stone-300">caisse</strong> et le <strong className="text-stone-300">stock</strong> ; finissez par le <strong className="text-stone-300">rapport du jour</strong>.</li>
           <li>• Enregistrer les ventes <strong className="text-stone-300">en temps réel</strong> via la caisse, ou faire un <strong className="text-stone-300">point manuel</strong> en fin de service.</li>
           <li>• Surveiller les filtres stock : <span className="text-red-400">Épuisé</span> / <span className="text-amber-400">Presque</span> / <span className="text-emerald-400">Normal</span>.</li>
           <li>• Clôturer le soir (Clôture Z) pour figer le rapport du jour.</li>

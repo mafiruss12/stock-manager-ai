@@ -123,12 +123,7 @@ function stepsFor(type: BusinessType): Step[] {
       icon: <Package size={18} />,
       check: (c) => c.hasProducts,
     },
-    {
-      id: 'open',
-      title: 'Ouvrir la journée',
-      description: 'Fond de caisse et démarrage des ventes',
-      to: '/daily-report?tab=cloture',
-      icon: <Wallet size={18} />,
+    />,
       check: (c) => c.hasSession,
     },
     {

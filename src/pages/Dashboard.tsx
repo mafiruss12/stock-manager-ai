@@ -22,7 +22,6 @@ import type { Sale, Order } from '@/lib/types';
 import type { BeveragePeriodReport } from '@/lib/beverageProfit';
 import OwnerReportCalendar from '@/components/OwnerReportCalendar';
 import QuickActions from '@/components/QuickActions';
-import WorkDayBanner from '@/components/WorkDayBanner';
 import StartupGuide from '@/components/StartupGuide';
 import ExchangeRatesCard from '@/components/ExchangeRatesCard';
 import SectorNews from '@/components/SectorNews';
@@ -321,7 +320,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <WorkDayBanner />
       <QuickActions businessType={activeEstablishment?.type} />
       <StartupGuide compact />
       <ExchangeRatesCard />
