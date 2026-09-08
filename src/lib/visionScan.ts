@@ -1,6 +1,11 @@
 /**
- * Reconnaissance d'objets / lecture inventaire via Gemini Vision.
- * Clé : VITE_GEMINI_API_KEY (Vercel / .env)
+ * Reconnaissance d'images via Gemini Vision (déjà branché Stock Manager).
+ * Clé : VITE_GEMINI_API_KEY (Vercel) ou localStorage gemini_api_key
+ *
+ * Usages :
+ * - inventaire / liste / objet
+ * - reçu d'achat (nouvelles boissons)
+ * - photo de casiers → comptage pour le point du jour
  */
 import type { Product } from './types';
 import {
@@ -12,12 +17,13 @@ import {
 
 const MODEL = 'gemini-2.0-flash';
 
+export type VisionScanMode = 'auto' | 'list' | 'object' | 'receipt' | 'casier';
+
 function getApiKey(): string | null {
   const k = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim();
   if (k) return k;
   try {
-    const local = localStorage.getItem('gemini_api_key')?.trim();
-    return local || null;
+    return localStorage.getItem('gemini_api_key')?.trim() || null;
   } catch {
     return null;
   }
@@ -48,11 +54,9 @@ async function blobToBase64(blob: Blob): Promise<{ mime: string; data: string }>
   return { mime, data };
 }
 
-/** Réduit l’image avant envoi API (max 1280px) */
-async function shrinkImage(file: File | Blob): Promise<Blob> {
+async function shrinkImage(file: File | Blob, max = 1400): Promise<Blob> {
   try {
     const bmp = await createImageBitmap(file);
-    const max = 1280;
     let { width, height } = bmp;
     if (width > max || height > max) {
       const s = max / Math.max(width, height);
@@ -67,7 +71,7 @@ async function shrinkImage(file: File | Blob): Promise<Blob> {
     ctx.drawImage(bmp, 0, 0, width, height);
     bmp.close?.();
     return await new Promise((res) => {
-      canvas.toBlob((b) => res(b || file), 'image/jpeg', 0.85);
+      canvas.toBlob((b) => res(b || file), 'image/jpeg', 0.88);
     });
   } catch {
     return file;
@@ -81,6 +85,11 @@ type VisionItem = {
   brand?: string;
   category?: string;
   confidence?: number;
+  bottles_per_casier?: number;
+  casiers?: number;
+  total_bottles?: number;
+  unit_price?: number;
+  line_total?: number;
 };
 
 function toScannedLines(items: VisionItem[], existing: Product[]): ScannedLine[] {
@@ -93,24 +102,57 @@ function toScannedLines(items: VisionItem[], existing: Product[]): ScannedLine[]
     if (seen.has(key)) continue;
     seen.add(key);
     const dup = findDuplicate(name, existing);
-    const stock = Math.max(0, Math.round(Number(it.quantity) || 0));
+
+    let stock = Math.max(0, Math.round(Number(it.quantity) || 0));
+    if (stock === 0 && it.total_bottles) stock = Math.round(Number(it.total_bottles));
+    if (stock === 0 && it.casiers && it.bottles_per_casier) {
+      stock = Math.round(Number(it.casiers) * Number(it.bottles_per_casier));
+    }
+
+    const cost =
+      (it.unit_price && Number(it.unit_price) > 0
+        ? Math.round(Number(it.unit_price))
+        : 0) || (dup ? Number(dup.cost) : 0);
+
     results.push({
       id: `vis-${results.length}-${Date.now()}`,
       name,
       category: it.category || guessCategoryFromName(name),
-      unit: it.unit || 'unité',
+      unit: it.unit || (it.casiers ? 'casier' : 'bouteille'),
       stock,
-      cost: dup ? Number(dup.cost) : 0,
+      cost,
       price: dup ? Number(dup.price) : 0,
       min_stock: dup ? Number(dup.min_stock) || 12 : 12,
       matchId: dup?.id ?? null,
       matchName: dup?.name ?? null,
       action: dup ? 'update' : 'create',
-      confidence: typeof it.confidence === 'number' ? it.confidence : 0.75,
+      confidence: typeof it.confidence === 'number' ? it.confidence : 0.8,
       raw: JSON.stringify(it),
     });
   }
   return results.slice(0, 80);
+}
+
+function extractJsonArray(text: string): VisionItem[] {
+  if (!text) return [];
+  const cleaned = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.items)) return parsed.items;
+  } catch {
+    /* */
+  }
+  const m = cleaned.match(/\[[\s\S]*\]/);
+  if (m) {
+    try {
+      const parsed = JSON.parse(m[0]);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      /* */
+    }
+  }
+  return [];
 }
 
 async function callGemini(
@@ -119,26 +161,23 @@ async function callGemini(
   onProgress?: (pct: number, status: string) => void,
 ): Promise<string> {
   const key = getApiKey();
-  if (!key) throw new Error('Clé Gemini manquante (VITE_GEMINI_API_KEY)');
+  if (!key) throw new Error('Clé Gemini manquante (VITE_GEMINI_API_KEY ou clé locale)');
 
   onProgress?.(15, 'Préparation image…');
   const small = await shrinkImage(image);
   const { mime, data } = await blobToBase64(small);
-  onProgress?.(35, 'Analyse IA (Gemini)…');
+  onProgress?.(40, 'Analyse Gemini…');
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
   const body = {
     contents: [
       {
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mime, data } },
-        ],
+        parts: [{ text: prompt }, { inline_data: { mime_type: mime, data } }],
       },
     ],
     generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 2048,
+      temperature: 0.15,
+      maxOutputTokens: 4096,
     },
   };
 
@@ -147,70 +186,86 @@ async function callGemini(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  onProgress?.(80, 'Réponse reçue…');
+  onProgress?.(85, 'Réponse reçue…');
   if (!res.ok) {
     const errText = await res.text().catch(() => '');
     if (res.status === 400 || res.status === 403) {
-      throw new Error('Clé Gemini invalide ou refusée. Vérifiez VITE_GEMINI_API_KEY.');
+      throw new Error('Clé Gemini invalide ou refusée. Vérifiez la clé API.');
     }
     throw new Error(`Gemini erreur ${res.status}: ${errText.slice(0, 180)}`);
   }
   const json = await res.json();
   const text =
-    json?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('') ||
+    json?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('\n') ||
     '';
-  return text.trim();
+  return String(text).trim();
 }
 
-function extractJsonArray(text: string): VisionItem[] {
-  // Strip markdown fences
-  let s = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-  const start = s.indexOf('[');
-  const end = s.lastIndexOf(']');
-  if (start >= 0 && end > start) s = s.slice(start, end + 1);
-  try {
-    const arr = JSON.parse(s);
-    if (Array.isArray(arr)) return arr as VisionItem[];
-  } catch {
-    /* fallback line parse */
-  }
-  return [];
-}
-
-const LIST_PROMPT = `Tu es un assistant inventaire pour commerces (maquis, bar, magasin, BTP, location).
-Analyse cette photo (carnet, tableau, étiquette, rayonnage ou produits).
-Extrais TOUS les produits visibles avec quantités si présentes.
-Réponds UNIQUEMENT avec un JSON array valide, sans texte autour, format:
-[{"name":"Flag 65cl","quantity":48,"unit":"bouteille","category":"Alcool","confidence":0.9}]
+const LIST_PROMPT = `Tu analyses une photo d'inventaire / liste de produits (boissons de maquis, bar, restaurant en Côte d'Ivoire).
+Réponds UNIQUEMENT un JSON array, sans markdown :
+[{"name":"nom produit","quantity":12,"unit":"bouteille","category":"Bière","confidence":0.9,"brand":"marque"}]
 Règles:
-- name = nom commercial lisible (marque + format si possible)
-- quantity = nombre entier si visible, sinon 0
-- unit = bouteille, casier, kg, sac, unité…
-- category = Alcool, Soft, Spiritueux, BTP, Location, Autre
-- Si c'est un seul objet (bouteille, sac de ciment…), une seule entrée
-- Langue: français
+- name en français, marque + format si visible (ex. Bock 66 60cl)
+- quantity = nombre visible (casiers convertis en bouteilles si possible)
+- unit = bouteille, casier, pack, kg, unité
+- category = Bière, Soft, Eau, Spiritueux, Vin, Grillade, Autre
 - Maximum 60 items`;
 
-const OBJECT_PROMPT = `Tu identifies des produits sur cette photo (boisson, matériau BTP, matériel de location, emballage…).
+const OBJECT_PROMPT = `Tu identifies les produits sur cette photo (boissons, casiers, packs).
 Réponds UNIQUEMENT un JSON array:
-[{"name":"nom du produit","quantity":1,"unit":"unité","category":"…","confidence":0.85,"brand":"marque"}]
-Si plusieurs objets distincts, liste-les. Si un seul produit, un seul objet.
+[{"name":"nom","quantity":1,"unit":"bouteille","category":"Bière","confidence":0.85,"brand":""}]
 Français. Pas de markdown.`;
 
+const RECEIPT_PROMPT = `Tu analyses un REÇU / FACTURE / ticket d'achat de boissons (fournisseur, dépôt, supermarché en Afrique de l'Ouest).
+Extrais chaque ligne produit achetée.
+Réponds UNIQUEMENT un JSON array, sans markdown :
+[{"name":"nom produit","quantity":24,"unit":"bouteille","category":"Bière","unit_price":400,"line_total":9600,"confidence":0.9,"casiers":2,"bottles_per_casier":12,"total_bottles":24}]
+Règles:
+- quantity / total_bottles = quantités achetées à ajouter au stock
+- unit_price en FCFA si visible
+- Si casier de 12 ou 24, renseigne bottles_per_casier et total_bottles
+- Ignore totaux généraux, TVA, horaires, adresses
+- Maximum 50 lignes produits`;
+
+const CASIER_PROMPT = `Tu analyses une photo de CASIERS / bouteilles de boissons (maquis, bar).
+Compte ce qui est visible pour le POINT DU JOUR / inventaire terrain.
+Réponds UNIQUEMENT un JSON array, sans markdown :
+[{"name":"nom ou type de boisson","quantity":36,"unit":"bouteille","category":"Bière","casiers":3,"bottles_per_casier":12,"total_bottles":36,"confidence":0.85}]
+Règles:
+- Estime le nombre de casiers et de bouteilles par type si plusieurs marques
+- bottles_per_casier = 12 ou 24 si reconnaissable, sinon estime
+- total_bottles = casiers × bottles_per_casier (ou compte unitaire)
+- quantity = total_bottles
+- Si marque illisible, utilise une description (ex. "Casier bière brune")
+- Maximum 30 entrées`;
+
+function promptFor(mode: VisionScanMode): string {
+  switch (mode) {
+    case 'object':
+      return OBJECT_PROMPT;
+    case 'receipt':
+      return RECEIPT_PROMPT;
+    case 'casier':
+      return CASIER_PROMPT;
+    case 'list':
+    case 'auto':
+    default:
+      return LIST_PROMPT;
+  }
+}
+
 /**
- * Reconnaissance vision (objets + listes). Fallback possible côté appelant via OCR.
+ * Analyse image avec Gemini selon le mode (inventaire, reçu, casiers).
  */
 export async function recognizeInventoryVision(
   file: File | Blob,
   existing: Product[],
-  mode: 'auto' | 'list' | 'object' = 'auto',
+  mode: VisionScanMode = 'auto',
   onProgress?: (pct: number, status: string) => void,
 ): Promise<{ lines: ScannedLine[]; rawText: string; engine: 'gemini' }> {
-  const prompt = mode === 'object' ? OBJECT_PROMPT : LIST_PROMPT;
-  const text = await callGemini(file, prompt, onProgress);
+  const text = await callGemini(file, promptFor(mode), onProgress);
   let items = extractJsonArray(text);
   if (items.length === 0) {
-    // parfois Gemini renvoie du texte libre → parser OCR-like
     const parsed = parseInventoryText(text, existing);
     if (parsed.length) {
       return { lines: parsed, rawText: text, engine: 'gemini' };
@@ -219,4 +274,22 @@ export async function recognizeInventoryVision(
   const lines = toScannedLines(items, existing);
   onProgress?.(100, 'Terminé');
   return { lines, rawText: text, engine: 'gemini' };
+}
+
+/** Alias explicite reçu d'achat */
+export async function recognizeReceiptVision(
+  file: File | Blob,
+  existing: Product[],
+  onProgress?: (pct: number, status: string) => void,
+) {
+  return recognizeInventoryVision(file, existing, 'receipt', onProgress);
+}
+
+/** Alias explicite comptage casiers / point */
+export async function recognizeCasierVision(
+  file: File | Blob,
+  existing: Product[],
+  onProgress?: (pct: number, status: string) => void,
+) {
+  return recognizeInventoryVision(file, existing, 'casier', onProgress);
 }

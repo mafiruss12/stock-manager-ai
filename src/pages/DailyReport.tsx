@@ -21,6 +21,7 @@ import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
 import { notifyOwnerOnReport, getOwnerContacts } from '@/lib/notifyOwner';
 import { ROLE_LABELS } from '@/lib/types';
 import { loadDayOpsSummary } from '@/lib/opsHub';
+import { hasVisionApi, recognizeCasierVision, recognizeReceiptVision } from '@/lib/visionScan';
 import { Link } from 'react-router-dom';
 import {
   speakFrench, stopSpeaking, playTone, buildReportSpeech,
@@ -86,6 +87,8 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
   const [ownerPhone, setOwnerPhone] = useState<string | null>(null);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [reportProofs, setReportProofs] = useState<StockProofPhoto[]>([]);
+  const [geminiHint, setGeminiHint] = useState<string | null>(null);
+  const [geminiBusy, setGeminiBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -415,6 +418,40 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
           ...prev.filter((x) => x.id !== r.id),
         ]);
         await loadReportProofs();
+
+        // Gemini : compter casiers / boissons sur la photo pour aider le point
+        if (hasVisionApi() && products.length > 0) {
+          setGeminiBusy(true);
+          setGeminiHint('Gemini analyse la photo (casiers / bouteilles)…');
+          try {
+            const vis = await recognizeCasierVision(file, products, () => {});
+            if (vis.lines.length) {
+              setQtyMap((prev) => {
+                const next = { ...prev };
+                let applied = 0;
+                for (const line of vis.lines) {
+                  const id = line.matchId;
+                  if (!id || line.stock <= 0) continue;
+                  next[id] = String(line.stock);
+                  applied += 1;
+                }
+                setGeminiHint(
+                  applied > 0
+                    ? `Gemini a proposé ${applied} quantité(s) depuis la photo. Vérifiez l’étape Boissons.`
+                    : `Gemini a lu : ${vis.lines.map((l) => `${l.name}×${l.stock}`).slice(0, 4).join(', ')}. Aucune correspondance stock — ajustez à la main.`,
+                );
+                return next;
+              });
+            } else {
+              setGeminiHint('Gemini n’a pas détecté de casiers lisibles. Vous pouvez rephotographer ou saisir à la main.');
+            }
+          } catch (ge: any) {
+            setGeminiHint(ge?.message || 'Analyse Gemini indisponible — saisie manuelle.');
+          }
+          setGeminiBusy(false);
+        } else if (!hasVisionApi()) {
+          setGeminiHint('Astuce : activez Gemini (Scanner inventaire) pour compter automatiquement les casiers sur photo.');
+        }
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Erreur photo');
@@ -1445,6 +1482,11 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
             </p>
           </div>
 
+          {(geminiBusy || geminiHint) && (
+            <p className="text-sm text-sky-200/90 bg-sky-500/10 border border-sky-500/30 rounded-xl px-3 py-2">
+              {geminiBusy ? 'Gemini analyse la photo…' : geminiHint}
+            </p>
+          )}
           {reportProofs.length === 0 ? (
             <p className="text-sm text-amber-200/80 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">
               Photo obligatoire : prenez au moins une photo des boissons vendues pour continuer.

@@ -15,6 +15,7 @@ import {
   hasVisionApi,
   recognizeInventoryVision,
   setLocalGeminiKey,
+  type VisionScanMode,
 } from '@/lib/visionScan';
 import { EmptyState } from '@/components/ui';
 
@@ -31,7 +32,7 @@ export default function ScanInventaire() {
   const [busy, setBusy] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrStatus, setOcrStatus] = useState('');
-  const [scanMode, setScanMode] = useState<'auto' | 'list' | 'object'>('auto');
+  const [scanMode, setScanMode] = useState<VisionScanMode>('auto');
   const [engineUsed, setEngineUsed] = useState('');
   const [geminiKeyDraft, setGeminiKeyDraft] = useState('');
   const [visionReady, setVisionReady] = useState(() => hasVisionApi());
@@ -66,7 +67,13 @@ export default function ScanInventaire() {
 
       if (hasVisionApi()) {
         try {
-          setOcrStatus('Reconnaissance IA (objets + texte)…');
+          setOcrStatus(
+            scanMode === 'receipt'
+              ? 'Gemini lit le reçu d’achat…'
+              : scanMode === 'casier'
+                ? 'Gemini compte les casiers / bouteilles…'
+                : 'Reconnaissance IA Gemini…',
+          );
           const vis = await recognizeInventoryVision(file, products, scanMode, (pct, status) => {
             setOcrProgress(pct);
             setOcrStatus(status);
@@ -219,7 +226,7 @@ export default function ScanInventaire() {
             <Sparkles className="text-amber-400" size={22} /> Scanner inventaire (IA)
           </h1>
           <p className="text-sm text-stone-400">
-            Photo du carnet / tableau → OCR français → doublons gérés → intégration auto
+            Gemini analyse photo / galerie : inventaire, reçu d'achat ou casiers pour le point
           </p>
         </div>
       </div>
@@ -234,14 +241,16 @@ export default function ScanInventaire() {
         <div className="card space-y-4">
           <p className="text-sm text-stone-300">
             Photo d&apos;un <strong>produit</strong> (bouteille, sac, matériel) ou d&apos;un <strong>carnet / tableau</strong>.
-            L&apos;IA Gemini reconnait les objets ; sinon OCR texte.
+            Gemini analyse la photo (reçu, casiers, liste). OCR local en secours si l'IA échoue.
           </p>
           <div className="flex flex-wrap gap-2">
             {([
-              ['auto', 'Auto (liste ou objet)'],
+              ['auto', 'Auto inventaire'],
               ['object', 'Objet unique'],
               ['list', 'Liste / carnet'],
-            ] as const).map(([id, label]) => (
+              ['receipt', "Reçu d'achat"],
+              ['casier', 'Casiers / point'],
+            ] as [VisionScanMode, string][]).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
