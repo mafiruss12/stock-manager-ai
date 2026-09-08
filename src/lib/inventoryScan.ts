@@ -191,6 +191,9 @@ export async function prepareImageForOcr(file: File | Blob): Promise<Blob> {
 /**
  * OCR français (fallback anglais) — chemins CDN pour Vite/PWA/APK.
  */
+/**
+ * OCR français (+ anglais) — d’abord chemins par défaut tesseract.js, puis CDN de secours.
+ */
 export async function runOcrFrench(
   file: File | Blob,
   onProgress?: (pct: number, status: string) => void,
@@ -198,19 +201,60 @@ export async function runOcrFrench(
   const prepared = await prepareImageForOcr(file);
   const { createWorker } = await import('tesseract.js');
 
+  const tryRecognize = async (
+    worker: Awaited<ReturnType<typeof createWorker>>,
+  ): Promise<string> => {
+    try {
+      await worker.setParameters({
+        tessedit_pageseg_mode: '6' as any, // bloc uniforme
+        preserve_interword_spaces: '1',
+      });
+    } catch {
+      /* ignore */
+    }
+    const { data } = await worker.recognize(prepared);
+    return (data.text || '').trim();
+  };
+
+  // 1) Chemins par défaut (souvent plus fiables que des URL hardcodées)
+  try {
+    onProgress?.(3, 'Chargement OCR…');
+    const worker = await createWorker('fra+eng', 1, {
+      logger: (m: { status?: string; progress?: number }) => {
+        if (typeof m.progress === 'number') {
+          onProgress?.(
+            Math.round(m.progress * 100),
+            m.status === 'recognizing text' ? 'Lecture du texte…' : m.status || '…',
+          );
+        }
+      },
+    } as any);
+    let out = await tryRecognize(worker);
+    if (out.length < 3) {
+      onProgress?.(50, 'Essai anglais…');
+      await worker.reinitialize('eng');
+      out = (await tryRecognize(worker)) || out;
+    }
+    await worker.terminate();
+    if (out.length >= 2) return out;
+  } catch (e) {
+    console.warn('[OCR] défaut échoué', e);
+  }
+
+  // 2) Secours CDN explicite
   const workerOpts = (langPath: string, corePath: string) => ({
     workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
     corePath,
     langPath,
     logger: (m: { status?: string; progress?: number }) => {
       if (typeof m.progress === 'number') {
-        onProgress?.(Math.round(m.progress * 100), m.status === 'recognizing text' ? 'Lecture du texte…' : (m.status || '…'));
-      } else if (m.status) {
-        onProgress?.(5, String(m.status));
+        onProgress?.(
+          Math.round(m.progress * 100),
+          m.status === 'recognizing text' ? 'Lecture du texte…' : m.status || '…',
+        );
       }
     },
   });
-
   const cores = [
     'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core-simd.wasm.js',
     'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1/tesseract-core.wasm.js',
@@ -225,17 +269,15 @@ export async function runOcrFrench(
     for (const langPath of langs) {
       let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
       try {
-        onProgress?.(2, 'Chargement du moteur OCR…');
+        onProgress?.(2, 'Chargement OCR (secours)…');
         worker = await createWorker('fra', 1, workerOpts(langPath, corePath) as any);
-        const { data } = await worker.recognize(prepared);
-        let out = (data.text || '').trim();
+        let out = await tryRecognize(worker);
         if (out.length < 3) {
           await worker.reinitialize('eng');
-          const r2 = await worker.recognize(prepared);
-          out = (r2.data.text || '').trim() || out;
+          out = (await tryRecognize(worker)) || out;
         }
         await worker.terminate();
-        return out;
+        if (out.length >= 2) return out;
       } catch (e) {
         lastErr = e;
         try {
@@ -246,7 +288,10 @@ export async function runOcrFrench(
       }
     }
   }
+
   throw lastErr instanceof Error
     ? lastErr
-    : new Error('Impossible de démarrer l’OCR. Vérifiez la connexion internet.');
+    : new Error(
+        'Impossible de démarrer l’OCR. Vérifiez la connexion internet (téléchargement du moteur) puis réessayez avec une photo nette et bien éclairée.',
+      );
 }
