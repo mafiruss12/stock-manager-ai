@@ -7,17 +7,20 @@ import DailyReportPage from '@/pages/DailyReport';
 import Caisse from '@/pages/Caisse';
 import ClotureZPage from '@/pages/ClotureZ';
 import Documents from '@/pages/Documents';
+import LiveDaySales from '@/pages/LiveDaySales';
 
-type TabId = 'point' | 'caisse' | 'cloture' | 'docs';
+type TabId = 'point' | 'live' | 'caisse' | 'cloture' | 'docs';
 
 const TABS: { id: TabId; label: string; icon: ReactNode; short: string }[] = [
-  { id: 'point', label: 'Point du jour', short: 'Point', icon: <ClipboardCheck size={16} /> },
+  { id: 'live', label: 'Ventes journée', short: 'Ventes', icon: <ShoppingCart size={16} /> },
+  { id: 'point', label: 'Point du soir', short: 'Point', icon: <ClipboardCheck size={16} /> },
   { id: 'caisse', label: 'Caisse', short: 'Caisse', icon: <ShoppingCart size={16} /> },
   { id: 'cloture', label: 'Clôture Z', short: 'Clôture', icon: <Wallet size={16} /> },
   { id: 'docs', label: 'Devis & Factures', short: 'Docs', icon: <FileText size={16} /> },
 ];
 
 function parseTab(raw: string | null): TabId {
+  if (raw === 'live' || raw === 'ventes' || raw === 'live-sales') return 'live';
   if (raw === 'caisse' || raw === 'pos') return 'caisse';
   if (raw === 'cloture' || raw === 'z') return 'cloture';
   if (raw === 'docs' || raw === 'documents' || raw === 'devis' || raw === 'facture') return 'docs';
@@ -76,7 +79,8 @@ export default function DailyReportHub() {
       </div>
 
       <div className="min-h-[50vh]">
-        {tab === 'point' && <DailyReportPage embedded />}
+        {tab === 'live' && <LiveDaySales />}
+      {tab === 'point' && <DailyReportPage embedded />}
         {tab === 'caisse' && <Caisse embedded />}
         {tab === 'cloture' && <ClotureZPage embedded />}
         {tab === 'docs' && <Documents embedded />}

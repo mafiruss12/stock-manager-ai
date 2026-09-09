@@ -41,6 +41,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/dashboard', label: 'Tableau de bord', icon: <LayoutDashboard size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/patron', label: 'Mode patron', icon: <Crown size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/daily-report', label: 'Rapport du jour', icon: <ClipboardCheck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/live-sales', label: 'Ventes journée', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/point-manuel', label: 'Point manuel', icon: <ClipboardList size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/orders', label: 'Commandes', icon: <Receipt size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
       { to: '/kitchen', label: 'Cuisine / Bar', icon: <UtensilsCrossed size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'employee'] },
@@ -592,7 +593,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               ]
             : [
                 { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
-                { to: '/pos', label: 'Caisse', icon: <ShoppingCart size={22} /> },
+                { to: '/live-sales', label: 'Ventes journée', icon: <ShoppingCart size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier', 'employee'] },
+      { to: '/pos', label: 'Caisse', icon: <ShoppingCart size={22} /> },
                 { to: '/orders', label: 'Ventes', icon: <Receipt size={22} /> },
                 { to: '/inventory', label: 'Boissons', icon: <Package size={22} /> },
                 { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },

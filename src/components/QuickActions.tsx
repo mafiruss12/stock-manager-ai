@@ -24,9 +24,9 @@ function actionsFor(type: BusinessType): Action[] {
   switch (type) {
     case 'maquis':
       return [
-        { to: '/pos', label: 'Caisse', sub: 'Nouvelle vente', icon: <ShoppingCart size={22} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
+        { to: '/live-sales', label: 'Ventes journée', sub: 'Client par client', icon: <ShoppingCart size={22} />, color: '#f59e0b', bg: 'rgba(245,158,11,0.18)' },
         { to: '/inventory', label: 'Stock', sub: 'Boissons & grillades', icon: <Beer size={22} />, color: '#3b82f6', bg: 'rgba(59,130,246,0.15)' },
-        { to: '/daily-report', label: 'Rapport du jour', sub: 'Point & envoi', icon: <ClipboardCheck size={22} />, color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
+        { to: '/daily-report', label: 'Point du soir', sub: 'Clôture classique', icon: <ClipboardCheck size={22} />, color: '#22c55e', bg: 'rgba(34,197,94,0.15)' },
         { to: '/mes-employes', label: 'Employés', sub: 'Accès équipe', icon: <Users size={22} />, color: '#a855f7', bg: 'rgba(168,85,247,0.15)' },
       ];
     case 'location_event':
