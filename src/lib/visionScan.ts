@@ -15,7 +15,7 @@ import {
   guessCategoryFromName,
 } from './inventoryScan';
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-3.6-flash';
 
 export type VisionScanMode = 'auto' | 'list' | 'object' | 'receipt' | 'casier';
 
@@ -168,7 +168,8 @@ async function callGemini(
   const { mime, data } = await blobToBase64(small);
   onProgress?.(40, 'Analyse Gemini…');
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+  // Clés Auth (AQ.) + anciennes (AIza) : header x-goog-api-key recommandé
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
   const body = {
     contents: [
       {
@@ -183,7 +184,10 @@ async function callGemini(
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': key,
+    },
     body: JSON.stringify(body),
   });
   onProgress?.(85, 'Réponse reçue…');
