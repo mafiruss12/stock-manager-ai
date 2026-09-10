@@ -36,7 +36,7 @@ export default function Tables() {
       supabase.from('restaurant_tables').select('*').eq('establishment_id', estId).order('number'),
       supabase
         .from('members')
-        .select('user_id, full_name, email, role')
+        .select('user_id, full_name, email, role, on_duty')
         .eq('establishment_id', estId)
         .eq('status', 'active'),
       supabase

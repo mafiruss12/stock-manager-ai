@@ -10,6 +10,13 @@ import { formatFCFA, formatTime } from '@/lib/format';
 import { EmptyState, Badge } from '@/components/ui';
 import { closeTableOrders, type ClosePay } from '@/lib/tableClose';
 import {
+  loadServerCandidates,
+  suggestServers,
+  assignServerToOrder,
+  autoAssignOrder,
+  type ServerCandidate,
+} from '@/lib/serverDispatch';
+import {
   requestOrderAlertPermissions,
   playOrderAlertSound,
   showOrderBrowserNotification,
@@ -23,7 +30,7 @@ interface OrderWithItems extends Order {
 }
 
 const ORDER_COLS =
-  'id, establishment_id, table_id, table_number, status, order_type, total, notes, created_at, source, payment_method, stock_deducted';
+  'id, establishment_id, table_id, table_number, status, order_type, total, notes, created_at, source, payment_method, stock_deducted, server_id, server_name';
 const ITEM_COLS = 'id, order_id, product_id, product_name, qty, unit_price, status';
 
 export default function Kitchen() {
@@ -38,6 +45,9 @@ export default function Kitchen() {
   const [msg, setMsg] = useState<string | null>(null);
   const [alertArmed, setAlertArmed] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [assignOrder, setAssignOrder] = useState<OrderWithItems | null>(null);
+  const [candidates, setCandidates] = useState<ServerCandidate[]>([]);
+  const [assignBusy, setAssignBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!estId) {
@@ -127,11 +137,37 @@ export default function Kitchen() {
     };
   }, [estId, load]);
 
+  async function openAssign(o: OrderWithItems) {
+    if (!estId) return;
+    setAssignOrder(o);
+    const list = await loadServerCandidates(estId);
+    setCandidates(list);
+  }
+
+  async function confirmAssign(cnd: ServerCandidate | null, auto = false) {
+    if (!assignOrder || !estId) return;
+    setAssignBusy(true);
+    if (auto) {
+      await autoAssignOrder(estId, assignOrder.id, assignOrder.table_id);
+    } else if (cnd) {
+      await assignServerToOrder({
+        orderId: assignOrder.id,
+        serverId: cnd.user_id,
+        serverName: cnd.full_name,
+        tableId: assignOrder.table_id,
+      });
+    }
+    setAssignBusy(false);
+    setAssignOrder(null);
+    setMsg('Serveur attribué');
+    await load();
+  }
+
   async function advanceOrder(o: OrderWithItems) {
     const next: Record<string, string> = {
       pending: 'preparing',
       preparing: 'ready',
-      ready: 'ready', // clôture séparée
+      ready: 'ready',
     };
     if (o.status === 'ready') {
       setCloseFor(o);
@@ -143,6 +179,12 @@ export default function Kitchen() {
       for (const item of o.items) {
         await supabase.from('order_items').update({ status: next[o.status] }).eq('id', item.id);
       }
+    }
+    // Nouvelle commande : proposer serveurs si pas encore attribué
+    if (o.status === 'pending' && !(o as any).server_id) {
+      await load();
+      await openAssign({ ...o, status: 'preparing' });
+      return;
     }
     await load();
   }
@@ -271,6 +313,11 @@ export default function Kitchen() {
                   <p className="text-xs text-stone-500">
                     {formatTime(o.created_at)} · {ORDER_STATUS_LABELS[o.status] || o.status}
                   </p>
+                  <p className="text-xs text-amber-300/90 mt-0.5">
+                    {(o as any).server_name
+                      ? `👤 ${(o as any).server_name}`
+                      : '👤 Non attribué'}
+                  </p>
                 </div>
                 <Badge
                   color={
@@ -292,8 +339,16 @@ export default function Kitchen() {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <p className="font-bold text-amber-300">{formatFCFA(Number(o.total) || 0)}</p>
+                <div className="flex gap-1">
+                <button
+                  type="button"
+                  className="btn-secondary text-xs min-h-[40px] px-2"
+                  onClick={() => void openAssign(o)}
+                >
+                  Serveur
+                </button>
                 <button
                   type="button"
                   className="btn-primary text-sm min-h-[40px] px-4"
@@ -315,9 +370,63 @@ export default function Kitchen() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {assignOrder && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-stone-700 bg-stone-950 p-5 space-y-3 max-h-[85vh] overflow-y-auto">
+            <h2 className="font-bold text-lg text-stone-100">
+              Attribuer un serveur — Table {assignOrder.table_number || '—'}
+            </h2>
+            <p className="text-sm text-stone-400">
+              Suggestions selon la charge (tables + commandes ouvertes). Les serveurs « en service » sont prioritaires.
+            </p>
+            <button
+              type="button"
+              className="btn-primary w-full min-h-[44px]"
+              disabled={assignBusy}
+              onClick={() => void confirmAssign(null, true)}
+            >
+              Attribution auto (moins chargé)
+            </button>
+            <div className="space-y-2">
+              {(suggestServers(candidates, 5).length ? suggestServers(candidates, 8) : candidates).map((cnd) => (
+                <button
+                  key={cnd.user_id}
+                  type="button"
+                  disabled={assignBusy}
+                  onClick={() => void confirmAssign(cnd)}
+                  className={`w-full text-left rounded-xl border px-3 py-3 ${
+                    cnd.on_duty
+                      ? 'border-amber-500/40 bg-amber-500/10'
+                      : 'border-stone-800 bg-stone-900 opacity-70'
+                  }`}
+                >
+                  <div className="flex justify-between gap-2">
+                    <span className="font-semibold text-stone-100">{cnd.full_name}</span>
+                    <span className="text-[10px] text-stone-500">
+                      {cnd.on_duty ? 'En service' : 'Hors service'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-400 mt-1">
+                    {cnd.open_tables} table(s) · {cnd.open_orders} commande(s) active(s)
+                    {cnd === suggestServers(candidates, 1)[0] ? ' · recommandé' : ''}
+                  </p>
+                </button>
+              ))}
+              {candidates.length === 0 && (
+                <p className="text-sm text-stone-500">Aucun membre actif — créez des accès employés.</p>
+              )}
+            </div>
+            <button type="button" className="btn-secondary w-full" onClick={() => setAssignOrder(null)}>
+              Plus tard
+            </button>
+          </div>
         </div>
       )}
 

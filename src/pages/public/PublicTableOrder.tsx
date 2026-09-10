@@ -49,6 +49,7 @@ export default function PublicTableOrder() {
   const [trackTotal, setTrackTotal] = useState(0);
   const [trackCreated, setTrackCreated] = useState<string | null>(null);
   const [pendingAhead, setPendingAhead] = useState(0);
+  const [trackServer, setTrackServer] = useState<string | null>(null);
   const [cat, setCat] = useState('Tous');
 
   useEffect(() => {
@@ -159,6 +160,7 @@ export default function PublicTableOrder() {
       if (Array.isArray(row.items) && row.items.length) setTrackItems(row.items);
       if (row.total != null) setTrackTotal(Number(row.total) || 0);
       if (row.created_at) setTrackCreated(String(row.created_at));
+      if (row.server_name) setTrackServer(String(row.server_name));
     }
     void pull();
     const t = setInterval(() => void pull(), 4000);
@@ -333,6 +335,13 @@ export default function PublicTableOrder() {
               {tableNum ? `Table ${tableNum}` : 'Votre commande'} · {est?.name}
             </p>
           </div>
+
+          {trackServer && (
+            <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 p-3 text-center">
+              <p className="text-xs text-sky-200/90">Votre serveur / serveuse</p>
+              <p className="text-lg font-bold text-stone-100 mt-1">👤 {trackServer}</p>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-center">
             <p className="text-xs text-amber-200/90 uppercase tracking-wide">Délai estimé</p>
