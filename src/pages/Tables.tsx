@@ -15,6 +15,7 @@ type TableRow = RestaurantTable & {
 export default function Tables() {
   const { member, activeEstablishment } = useAuth();
   const estId = activeEstablishment?.id || member?.establishment_id || null;
+  const orderBase = typeof window !== 'undefined' ? `${window.location.origin}/commander/${estId}` : '';
   const [tables, setTables] = useState<TableRow[]>([]);
   const [servers, setServers] = useState<Pick<Member, 'user_id' | 'full_name' | 'email' | 'role'>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +112,9 @@ export default function Tables() {
           <p className="text-stone-400 text-sm">
             {tables.length} tables · {totalSeats} places · {free} libres
           </p>
+          <p className="text-xs text-stone-500 mt-2">
+            Phase A : imprimez le QR de chaque table. Le client commande sur son téléphone → Cuisine / Bar reçoit la commande.
+          </p>
         </div>
         <button
           type="button"
@@ -194,6 +198,29 @@ export default function Tables() {
                   <p className="text-[11px] text-amber-400/90 mt-1 truncate">👤 {t.server_name}</p>
                 )}
               </button>
+              {estId && (
+                <div className="mt-3 flex flex-col items-center gap-1 border-t border-stone-800 pt-3">
+                  <img
+                    alt={`QR table ${t.number}`}
+                    className="w-28 h-28 rounded-lg bg-white p-1"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}`)}`}
+                  />
+                  <p className="text-[10px] text-stone-500 text-center break-all px-1">
+                    /commander/…?table={t.number}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-[11px] text-amber-400"
+                    onClick={() => {
+                      const url = `${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}`;
+                      void navigator.clipboard?.writeText(url);
+                      alert('Lien copié : ' + url);
+                    }}
+                  >
+                    Copier le lien
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -58,6 +58,7 @@ import SubscriptionPage from '@/pages/Subscription';
 import KitsPromos from '@/pages/KitsPromos';
 import MenuQR from '@/pages/MenuQR';
 import PublicMenu from '@/pages/PublicMenu';
+import PublicTableOrder from '@/pages/public/PublicTableOrder';
 import StockTransfer from '@/pages/StockTransfer';
 import RentDashboard from '@/pages/rent/Dashboard';
 import RentEquipment from '@/pages/rent/Equipment';
@@ -274,6 +275,8 @@ function PublicOrApp() {
       <Route path="/services" element={<PublicServices />} />
       <Route path="/favorites" element={<PublicFavorites />} />
       <Route path="/m/:estId" element={<PublicMenu />} />
+      <Route path="/commander/:estId" element={<PublicTableOrder />} />
+      <Route path="/order/:estId" element={<PublicTableOrder />} />
       <Route path="/e/:slugOrId" element={<PublicEstablishmentProfile />} />
       <Route path="/establishment/:slugOrId" element={<PublicEstablishmentProfile />} />
       <Route path="/*" element={<ProtectedRoutes />} />
