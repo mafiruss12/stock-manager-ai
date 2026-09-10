@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  QrCode, Copy, Check, ExternalLink, Loader2, ToggleLeft, ToggleRight, ArrowLeft,
+  QrCode, Copy, Check, ExternalLink, Printer, Loader2, ToggleLeft, ToggleRight, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -511,6 +511,12 @@ export default function MenuQR() {
             >
               {saving ? '…' : 'Enregistrer le QR personnalisé'}
             </button>
+            <Link
+              to="/print-qr"
+              className="btn-secondary w-full min-h-[44px] flex items-center justify-center gap-2"
+            >
+              <Printer size={16} /> Imprimer QR tables (design)
+            </Link>
           </div>
 
             Afficher les quantités disponibles sur le menu public

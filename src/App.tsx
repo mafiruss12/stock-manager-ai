@@ -18,6 +18,7 @@ import Inventaire from '@/pages/Inventaire';
 import ScanInventaire from '@/pages/ScanInventaire';
 import LiveDaySales from '@/pages/LiveDaySales';
 import MonService from '@/pages/MonService';
+import PrintTableQR from '@/pages/PrintTableQR';
 import PatronMode from '@/pages/PatronMode';
 import AITrain from '@/pages/AITrain';
 import DailyReportPage from '@/pages/DailyReport';
@@ -203,6 +204,7 @@ function ProtectedRoutes() {
         <Route path="/daily-report" element={<DailyReportSafe />} />
         <Route path="/live-sales" element={<LiveDaySales />} />
         <Route path="/mon-service" element={<MonService />} />
+        <Route path="/print-qr" element={<PrintTableQR />} />
         <Route path="/patron" element={<PatronMode />} />
         <Route path="/cloture" element={<RedirectToReportTab tab="cloture" />} />
         <Route path="/ai" element={<AIAssistant />} />

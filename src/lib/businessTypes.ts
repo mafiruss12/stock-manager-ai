@@ -109,7 +109,7 @@ export const BUSINESS_THEMES: Record<
 
 export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   maquis: [
-    '/dashboard', '/pos', '/live-sales', '/tables', '/orders', '/kitchen', '/mon-service', '/inventory', '/inventory/scan', '/guide',
+    '/dashboard', '/pos', '/live-sales', '/tables', '/print-qr', '/orders', '/kitchen', '/mon-service', '/inventory', '/inventory/scan', '/guide',
     '/menu-qr', '/purchases', '/customers',
     '/expenses', '/mes-employes', '/calendar', '/daily-report',
     '/statistics', '/reports', '/accounting', '/ai', '/chat',
@@ -117,7 +117,7 @@ export const MENU_BY_TYPE: Record<BusinessType, string[]> = {
   ],
   restaurant: [
     '/dashboard', '/pos', '/documents', '/inventory', '/inventory/scan', '/point-manuel', '/guide',
-    '/kits', '/menu-qr', '/stock-transfer', '/orders', '/tables', '/kitchen', '/mon-service', '/purchases', '/suppliers', '/customers',
+    '/kits', '/menu-qr', '/stock-transfer', '/orders', '/tables', '/print-qr', '/kitchen', '/mon-service', '/purchases', '/suppliers', '/customers',
     '/expenses', '/mes-employes', '/calendar', '/daily-report', '/cloture', '/patron',
     '/statistics', '/reports', '/accounting', '/ai', '/ai-train', '/chat',
     '/notifications', '/settings',

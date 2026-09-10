@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  LayoutGrid, Plus, Trash2, Users, CheckCircle2, Calendar, UserCircle,
+  LayoutGrid, Printer, Plus, Trash2, Users, CheckCircle2, Calendar, UserCircle,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -120,7 +121,10 @@ export default function Tables() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
+        <Link to="/print-qr" className="btn-secondary text-sm flex items-center gap-1 order-last">
+          Imprimer QR
+        </Link>
         <div>
           <p className="text-xs text-amber-400/90 mb-1">QR propre à votre établissement · personnalisable dans Menu / QR</p>
           <h1 className="text-2xl font-bold font-display text-stone-100">Tables & serveurs</h1>

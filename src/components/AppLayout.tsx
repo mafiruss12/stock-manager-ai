@@ -1,6 +1,6 @@
 import { type ReactNode, useState, useEffect , useRef} from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShoppingCart, Package, Camera, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown, Brain, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Camera, ClipboardCheck, Users, Building2, Beer, LogOut, Menu, X, UserCog, ClipboardList, Calculator, BarChart3, Truck, UserCircle, Calendar, UtensilsCrossed, Bell, Settings, Sparkles, Receipt, Wallet, MessageCircle, FileText, Crown, Brain, Sun, Moon } ;
 import DailyReportGate from '@/components/DailyReportGate';
 import OwnerReportReminder from '@/components/OwnerReportReminder';
 import ReportDelayNotifier from '@/components/ReportDelayNotifier';
@@ -613,7 +613,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             ? [
                 { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
                 { to: '/orders', label: 'Commandes', icon: <Receipt size={22} /> },
-                { to: '/tables', label: 'Tables', icon: <UtensilsCrossed size={22} /> },
+                { to: '/print-qr', label: 'Imprimer QR', icon: <QrCode size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/tables', label: 'Tables', icon: <UtensilsCrossed size={22} /> },
                 { to: '/kitchen', label: 'Cuisine', icon: <Package size={22} /> },
                 { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
               ]
