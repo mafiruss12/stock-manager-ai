@@ -158,14 +158,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!member?.user_id) return;
-    (async () => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    async function refreshNotifs() {
       const { count } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', member.user_id)
+        .eq('user_id', member!.user_id)
         .eq('read', false);
       setUnreadNotifs(count ?? 0);
+    }
 
+    void (async () => {
+      await refreshNotifs();
       if (activeEstablishment) {
         setEstName(activeEstablishment.name);
         setEstLogo(activeEstablishment.logo_url ?? null);
@@ -184,6 +189,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         setEstLogo(null);
       }
     })();
+
+    channel = supabase
+      .channel(`user-notifs-${member.user_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${member.user_id}`,
+        },
+        () => {
+          void refreshNotifs();
+        },
+      )
+      .subscribe();
+
+    return () => {
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, [member, activeEstablishment]);
 
   async function handleSignOut() {

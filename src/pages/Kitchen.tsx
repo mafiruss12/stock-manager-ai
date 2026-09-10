@@ -9,6 +9,12 @@ import { ORDER_STATUS_LABELS } from '@/lib/types';
 import { formatFCFA, formatTime } from '@/lib/format';
 import { EmptyState, Badge } from '@/components/ui';
 import { closeTableOrders, type ClosePay } from '@/lib/tableClose';
+import {
+  requestOrderAlertPermissions,
+  playOrderAlertSound,
+  showOrderBrowserNotification,
+  orderSoundEnabled,
+} from '@/lib/orderAlerts';
 
 interface OrderWithItems extends Order {
   items?: OrderItem[];
@@ -30,6 +36,8 @@ export default function Kitchen() {
   const [pay, setPay] = useState<ClosePay>('cash');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [alertArmed, setAlertArmed] = useState(false);
+  const [flash, setFlash] = useState(false);
 
   const load = useCallback(async () => {
     if (!estId) {
@@ -66,20 +74,14 @@ export default function Kitchen() {
     setOrders(ordersWithItems);
 
     const pend = ordersWithItems.filter((o) => o.status === 'pending').length;
-    if (pend > prevPending.current && prevPending.current > 0) {
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.connect(g);
-        g.connect(ctx.destination);
-        o.frequency.value = 880;
-        g.gain.value = 0.05;
-        o.start();
-        o.stop(ctx.currentTime + 0.15);
-      } catch {
-        /* */
-      }
+    if (pend > prevPending.current && (prevPending.current > 0 || alertArmed)) {
+      playOrderAlertSound();
+      showOrderBrowserNotification(
+        'Nouvelle commande',
+        `${pend} commande(s) en attente — Cuisine / Bar`,
+      );
+      setFlash(true);
+      setTimeout(() => setFlash(false), 4000);
       try {
         document.title = `(${pend}) Cuisine / Bar`;
       } catch {
@@ -185,6 +187,38 @@ export default function Kitchen() {
           <Bell size={12} /> Temps réel
         </span>
       </div>
+
+      {flash && (
+        <div className="rounded-xl border-2 border-red-500 bg-red-600 text-white px-4 py-3 font-bold text-center animate-pulse shadow-lg shadow-red-900/40">
+          🔔 Nouvelle commande — regardez la file
+        </div>
+      )}
+
+      {!alertArmed && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+          <p className="text-sm text-red-100">
+            Activez le <strong>son</strong> et les <strong>notifications</strong> pour être alerté à chaque commande.
+          </p>
+          <button
+            type="button"
+            className="shrink-0 min-h-[44px] px-4 rounded-xl bg-red-600 text-white font-bold text-sm"
+            onClick={async () => {
+              const r = await requestOrderAlertPermissions();
+              setAlertArmed(Boolean(r.sound || r.notification === 'granted'));
+              if (r.sound) playOrderAlertSound();
+              setMsg(
+                r.notification === 'granted'
+                  ? 'Alertes son + notification activées'
+                  : r.sound
+                    ? 'Son activé (notifications navigateur refusées ou indisponibles)'
+                    : 'Impossible d’activer les alertes — vérifiez les permissions du navigateur',
+              );
+            }}
+          >
+            Autoriser alertes
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <div className="rounded-xl border border-stone-800 bg-stone-900/60 p-3 text-center">

@@ -4,6 +4,10 @@ import { Loader2, Minus, Plus, Send, CheckCircle2, Beer } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatFCFA } from '@/lib/format';
 import ProductThumb from '@/components/ProductThumb';
+import {
+  estimateWaitMinutes,
+  ORDER_STATUS_CLIENT,
+} from '@/lib/orderAlerts';
 
 type Est = {
   id: string;
@@ -39,6 +43,12 @@ export default function PublicTableOrder() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [trackStatus, setTrackStatus] = useState<string>('pending');
+  const [trackItems, setTrackItems] = useState<{ product_name: string; qty: number; unit_price: number }[]>([]);
+  const [trackTotal, setTrackTotal] = useState(0);
+  const [trackCreated, setTrackCreated] = useState<string | null>(null);
+  const [pendingAhead, setPendingAhead] = useState(0);
   const [cat, setCat] = useState('Tous');
 
   useEffect(() => {
@@ -137,6 +147,28 @@ export default function PublicTableOrder() {
     };
   }, [estParam, tableNum]);
 
+  // Suivi statut commande client
+  useEffect(() => {
+    if (!lastOrderId || !done) return;
+    let cancelled = false;
+    async function pull() {
+      const { data, error } = await supabase.rpc('get_order_public_status', { p_id: lastOrderId });
+      if (cancelled || error || !data) return;
+      const row = data as any;
+      if (row.status) setTrackStatus(String(row.status));
+      if (Array.isArray(row.items) && row.items.length) setTrackItems(row.items);
+      if (row.total != null) setTrackTotal(Number(row.total) || 0);
+      if (row.created_at) setTrackCreated(String(row.created_at));
+    }
+    void pull();
+    const t = setInterval(() => void pull(), 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [lastOrderId, done]);
+
+
   const categories = useMemo(() => {
     const s = new Set(products.map((p) => p.category || 'Autres'));
     return ['Tous', ...Array.from(s).sort()];
@@ -221,6 +253,7 @@ export default function PublicTableOrder() {
             status: 'pending',
           });
         }
+        setLastOrderId(o2.id);
       } else {
         for (const l of lines) {
           await supabase.from('order_items').insert({
@@ -232,18 +265,26 @@ export default function PublicTableOrder() {
             status: 'pending',
           });
         }
+        setLastOrderId(order.id);
       }
 
       if (tableId) {
         await supabase.from('restaurant_tables').update({ status: 'occupied' }).eq('id', tableId);
       }
 
+      setTrackItems(
+        lines.map((l) => ({
+          product_name: l.product.name,
+          qty: l.qty,
+          unit_price: Math.round(Number(l.product.price) || 0),
+        })),
+      );
+      setTrackTotal(total);
+      setTrackStatus('pending');
+      setTrackCreated(new Date().toISOString());
       setDone(true);
       setCart({});
       setNote('');
-      if (kioskMode) {
-        setTimeout(() => setDone(false), 4000);
-      }
     } catch (e: any) {
       setError(e?.message || 'Envoi impossible');
     }
@@ -279,21 +320,84 @@ export default function PublicTableOrder() {
   }
 
   if (done) {
+    const waitMin = estimateWaitMinutes(trackStatus, pendingAhead);
+    const steps = ['pending', 'preparing', 'ready', 'served'] as const;
+    const stepIdx = Math.max(0, steps.indexOf(trackStatus as any));
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0a09] text-stone-100 p-6 text-center gap-3">
-        <CheckCircle2 className="text-emerald-400" size={64} />
-        <div className="text-5xl" aria-hidden>👍</div>
-        <h1 className="text-xl font-bold">Commande envoyée</h1>
-        <p className="text-stone-400 text-sm">
-          {tableNum ? `Table ${tableNum}` : 'Commande'} · le service s’en occupe.
-        </p>
-        <button
-          type="button"
-          className="mt-4 min-h-[52px] px-8 rounded-2xl bg-amber-500 text-stone-950 font-bold text-lg"
-          onClick={() => setDone(false)}
-        >
-          + Encore
-        </button>
+      <div className="min-h-screen bg-[#0c0a09] text-stone-100 px-4 py-6 pb-24">
+        <div className="max-w-lg mx-auto space-y-4">
+          <div className="text-center space-y-2">
+            <CheckCircle2 className="text-emerald-400 mx-auto" size={48} />
+            <h1 className="text-xl font-bold">Commande reçue</h1>
+            <p className="text-stone-400 text-sm">
+              {tableNum ? `Table ${tableNum}` : 'Votre commande'} · {est?.name}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-center">
+            <p className="text-xs text-amber-200/90 uppercase tracking-wide">Délai estimé</p>
+            <p className="text-4xl font-black text-amber-300 my-1">
+              {trackStatus === 'served' ? '0' : `~${waitMin}`}
+              <span className="text-lg font-bold"> min</span>
+            </p>
+            <p className="text-sm font-semibold text-stone-100">
+              {ORDER_STATUS_CLIENT[trackStatus] || trackStatus}
+            </p>
+          </div>
+
+          <div className="flex justify-between gap-1">
+            {steps.map((s, i) => (
+              <div key={s} className="flex-1 text-center">
+                <div
+                  className={`h-2 rounded-full mb-1 ${
+                    i <= stepIdx ? 'bg-amber-500' : 'bg-stone-800'
+                  }`}
+                />
+                <p className="text-[9px] text-stone-500 leading-tight">
+                  {s === 'pending' ? 'Reçue' : s === 'preparing' ? 'Prep.' : s === 'ready' ? 'Prête' : 'Servie'}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 p-4 space-y-2">
+            <p className="text-xs text-stone-500 uppercase font-semibold">Votre panier</p>
+            {trackItems.map((it, i) => (
+              <div key={i} className="flex justify-between gap-2 text-sm">
+                <span className="text-stone-200">
+                  <span className="inline-flex items-center justify-center min-w-[1.5rem] h-6 rounded-lg bg-amber-500/20 text-amber-300 font-bold text-xs mr-1">
+                    {it.qty}
+                  </span>
+                  {it.product_name}
+                </span>
+                <span className="font-mono text-amber-300/90 shrink-0">
+                  {formatFCFA(it.qty * Number(it.unit_price || 0))}
+                </span>
+              </div>
+            ))}
+            <div className="border-t border-stone-700 pt-2 flex justify-between font-bold">
+              <span>Total</span>
+              <span className="text-amber-300">{formatFCFA(trackTotal)}</span>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-stone-500">
+            Le statut se met à jour automatiquement. Paiement au serveur.
+          </p>
+
+          {trackStatus === 'served' || !kioskMode ? (
+            <button
+              type="button"
+              className="w-full min-h-[52px] rounded-2xl bg-amber-500 text-stone-950 font-bold text-lg"
+              onClick={() => {
+                setDone(false);
+                setLastOrderId(null);
+              }}
+            >
+              + Nouvelle commande
+            </button>
+          ) : null}
+        </div>
       </div>
     );
   }
