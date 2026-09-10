@@ -28,12 +28,21 @@ export default function Kitchen() {
 
     if (!ordData) { setLoading(false); return; }
 
-    const ordersWithItems = await Promise.all(
-      (ordData as Order[]).map(async (o) => {
-        const { data: items } = await supabase.from('order_items').select('*').eq('order_id', o.id);
-        return { ...o, items: (items ?? []) as OrderItem[] };
-      })
-    );
+    const ids = (ordData as Order[]).map((o) => o.id);
+    let itemsByOrder: Record<string, OrderItem[]> = {};
+    if (ids.length) {
+      const { data: allItems } = await supabase
+        .from('order_items')
+        .select('*')
+        .in('order_id', ids);
+      for (const it of (allItems as OrderItem[]) || []) {
+        (itemsByOrder[it.order_id] ||= []).push(it);
+      }
+    }
+    const ordersWithItems = (ordData as Order[]).map((o) => ({
+      ...o,
+      items: itemsByOrder[o.id] || [],
+    }));
     setOrders(ordersWithItems);
     const pend = ordersWithItems.filter((o) => o.status === 'pending').length;
     if (pend > prevPending.current && prevPending.current >= 0 && !loading) {
