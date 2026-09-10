@@ -203,10 +203,10 @@ export default function Tables() {
                   <img
                     alt={`QR table ${t.number}`}
                     className="w-28 h-28 rounded-lg bg-white p-1"
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}`)}`}
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}&kiosk=1`)}`}
                   />
                   <p className="text-[10px] text-stone-500 text-center break-all px-1">
-                    /commander/…?table={t.number}
+                    /commander/…?table={t.number}&kiosk=1
                   </p>
                   <button
                     type="button"

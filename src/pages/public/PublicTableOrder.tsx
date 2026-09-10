@@ -25,6 +25,7 @@ export default function PublicTableOrder() {
   const { estId } = useParams<{ estId: string }>();
   const [params] = useSearchParams();
   const tableNum = (params.get('table') || params.get('t') || '').trim();
+  const kioskMode = params.get('kiosk') === '1' || params.get('kiosk') === 'true';
 
   const [est, setEst] = useState<Est | null>(null);
   const [products, setProducts] = useState<Prod[]>([]);
@@ -42,6 +43,29 @@ export default function PublicTableOrder() {
       ? `Commander · Table ${tableNum}`
       : 'Commander · Stock Manager';
   }, [tableNum]);
+
+  useEffect(() => {
+    if (!kioskMode) return;
+    try {
+      document.documentElement.requestFullscreen?.();
+    } catch { /* */ }
+    const block = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', block);
+    // wake lock si dispo
+    let wake: any = null;
+    (async () => {
+      try {
+        wake = await (navigator as any).wakeLock?.request?.('screen');
+      } catch { /* */ }
+    })();
+    return () => {
+      window.removeEventListener('beforeunload', block);
+      try { wake?.release?.(); } catch { /* */ }
+    };
+  }, [kioskMode]);
 
   useEffect(() => {
     if (!estId) {
@@ -193,6 +217,9 @@ export default function PublicTableOrder() {
       setDone(true);
       setCart({});
       setNote('');
+      if (kioskMode) {
+        setTimeout(() => setDone(false), 4000);
+      }
     } catch (e: any) {
       setError(e?.message || 'Envoi impossible');
     }
@@ -358,7 +385,7 @@ export default function PublicTableOrder() {
               Envoyer la commande
             </button>
             <p className="text-[10px] text-center text-stone-500">
-              Paiement au serveur · stock géré par l’établissement
+              Paiement au serveur · stock décrémenté à la clôture staff
             </p>
           </div>
         </div>
