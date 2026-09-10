@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import type { RestaurantTable, Member } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
+import { orderUrl, qrImageUrl, parseQrConfig, type QrConfig } from '@/lib/qrBranding';
 
 type TableRow = RestaurantTable & {
   server_id?: string | null;
@@ -22,22 +23,35 @@ export default function Tables() {
   const [modalOpen, setModalOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState<TableRow | null>(null);
   const [form, setForm] = useState({ number: '', seats: '4', location: 'salle' });
+  const [estSlug, setEstSlug] = useState<string | null>(null);
+  const [qrCfg, setQrCfg] = useState<QrConfig>({});
+  const [estName, setEstName] = useState('');
 
   async function load() {
     if (!estId) {
       setLoading(false);
       return;
     }
-    const [tRes, mRes] = await Promise.all([
+    const [tRes, mRes, eRes] = await Promise.all([
       supabase.from('restaurant_tables').select('*').eq('establishment_id', estId).order('number'),
       supabase
         .from('members')
         .select('user_id, full_name, email, role')
         .eq('establishment_id', estId)
         .eq('status', 'active'),
+      supabase
+        .from('establishments')
+        .select('name, slug, qr_config')
+        .eq('id', estId)
+        .maybeSingle(),
     ]);
     setTables((tRes.data ?? []) as TableRow[]);
     setServers((mRes.data ?? []) as Pick<Member, 'user_id' | 'full_name' | 'email' | 'role'>[]);
+    if (eRes.data) {
+      setEstName(String((eRes.data as any).name || ''));
+      setEstSlug((eRes.data as any).slug || null);
+      setQrCfg(parseQrConfig((eRes.data as any).qr_config));
+    }
     setLoading(false);
   }
 
@@ -108,6 +122,7 @@ export default function Tables() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
+          <p className="text-xs text-amber-400/90 mb-1">QR propre à votre établissement · personnalisable dans Menu / QR</p>
           <h1 className="text-2xl font-bold font-display text-stone-100">Tables & serveurs</h1>
           <p className="text-stone-400 text-sm">
             {tables.length} tables · {totalSeats} places · {free} libres
@@ -200,25 +215,38 @@ export default function Tables() {
               </button>
               {estId && (
                 <div className="mt-3 flex flex-col items-center gap-1 border-t border-stone-800 pt-3">
-                  <img
-                    alt={`QR table ${t.number}`}
-                    className="w-28 h-28 rounded-lg bg-white p-1"
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}&kiosk=1`)}`}
-                  />
-                  <p className="text-[10px] text-stone-500 text-center break-all px-1">
-                    /commander/…?table={t.number}&kiosk=1
-                  </p>
-                  <button
-                    type="button"
-                    className="text-[11px] text-amber-400"
-                    onClick={() => {
-                      const url = `${window.location.origin}/commander/${estId}?table=${encodeURIComponent(String(t.number))}`;
-                      void navigator.clipboard?.writeText(url);
-                      alert('Lien copié : ' + url);
-                    }}
-                  >
-                    Copier le lien
-                  </button>
+                  {(() => {
+                    const estKey = estSlug || estId!;
+                    const url = orderUrl({
+                      origin: window.location.origin,
+                      estKey,
+                      table: t.number,
+                      kiosk: qrCfg.kiosk_default !== false,
+                    });
+                    return (
+                      <>
+                        <img
+                          alt={`QR ${estName || 'établissement'} · table ${t.number}`}
+                          className="w-28 h-28 rounded-lg bg-white p-1"
+                          src={qrImageUrl(url, qrCfg, 160)}
+                        />
+                        <p className="text-[10px] text-stone-400 text-center font-medium truncate w-full px-1">
+                          {estName || 'Mon établissement'}
+                        </p>
+                        <p className="text-[10px] text-stone-500 text-center">Table {t.number}</p>
+                        <button
+                          type="button"
+                          className="text-[11px] text-amber-400"
+                          onClick={() => {
+                            void navigator.clipboard?.writeText(url);
+                            alert('Lien propre à cet établissement :\n' + url);
+                          }}
+                        >
+                          Copier le lien
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>

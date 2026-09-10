@@ -12,6 +12,13 @@ import {
 import { EmptyState } from '@/components/ui';
 import { DAY_LABELS, type OpeningHours } from '@/lib/publicEstablishment';
 import { uploadVitrineImage } from '@/lib/publicMedia';
+import {
+  parseQrConfig,
+  qrImageUrl,
+  orderUrl,
+  menuPublicUrl,
+  type QrConfig,
+} from '@/lib/qrBranding';
 
 export default function MenuQR() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
@@ -41,6 +48,12 @@ export default function MenuQR() {
   const [uploading, setUploading] = useState<'cover' | 'logo' | 'gallery' | null>(null);
   const [gallery, setGallery] = useState<string[]>([]);
   const [sponsored, setSponsored] = useState(false);
+  const [qrColor, setQrColor] = useState('1c1917');
+  const [qrBg, setQrBg] = useState('ffffff');
+  const [qrTitle, setQrTitle] = useState('');
+  const [qrWelcome, setQrWelcome] = useState('Bienvenue — passez votre commande');
+  const [qrKiosk, setQrKiosk] = useState(true);
+  const [slug, setSlug] = useState('');
   const [hours, setHours] = useState<OpeningHours>({
     mon: { open: '09:00', close: '23:00' },
     tue: { open: '09:00', close: '23:00' },
@@ -51,16 +64,22 @@ export default function MenuQR() {
     sun: { open: '10:00', close: '22:00' },
   });
 
-  const menuUrl =
-    typeof window !== 'undefined' && estId
-      ? `${window.location.origin}/m/${estId}`
-      : estId
-        ? `/m/${estId}`
-        : '';
-
-  const qrSrc = menuUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=12&data=${encodeURIComponent(menuUrl)}`
-    : '';
+  const estKey = slug || estId || '';
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const menuUrl = estKey ? menuPublicUrl(origin || '', estKey) : '';
+  const qrCfgLive: QrConfig = {
+    color: qrColor,
+    bg: qrBg,
+    title: qrTitle,
+    welcome: qrWelcome,
+    kiosk_default: qrKiosk,
+  };
+  const qrSrc = menuUrl ? qrImageUrl(menuUrl, qrCfgLive, 280) : '';
+  const sampleTableUrl =
+    estKey && origin
+      ? orderUrl({ origin, estKey, table: 1, kiosk: qrKiosk })
+      : '';
+  const sampleTableQr = sampleTableUrl ? qrImageUrl(sampleTableUrl, qrCfgLive, 200) : '';
 
   const load = useCallback(async () => {
     if (!estId) {
@@ -70,7 +89,7 @@ export default function MenuQR() {
     setLoading(true);
     const { data, error: err } = await supabase
       .from('establishments')
-      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours, gallery_urls, is_sponsored')
+      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours, gallery_urls, is_sponsored, qr_config, logo_url')
       .eq('id', estId)
       .maybeSingle();
     if (err) setError(err.message);
@@ -85,6 +104,13 @@ export default function MenuQR() {
     const g = row?.gallery_urls;
     if (Array.isArray(g)) setGallery(g.filter((x: any) => typeof x === 'string'));
     setSponsored(Boolean(row?.is_sponsored));
+    const cfg = parseQrConfig(row?.qr_config);
+    setQrColor(cfg.color);
+    setQrBg(cfg.bg);
+    setQrTitle(cfg.title);
+    setQrWelcome(cfg.welcome);
+    setQrKiosk(cfg.kiosk_default);
+    if (row?.slug) setSlug(String(row.slug));
     if (typeof window !== 'undefined' && row) {
       const { slugify } = await import('@/lib/publicEstablishment');
       const slug = row.slug || slugify(String(row.name || 'etablissement'), estId);
@@ -387,7 +413,107 @@ export default function MenuQR() {
                   checked={showStock}
                   onChange={(e) => setShowStock(e.target.checked)}
                 />
-                Afficher les quantités disponibles sur le menu public
+                
+          {/* QR personnalisé par établissement */}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+            <h3 className="font-semibold text-stone-100 flex items-center gap-2">
+              <QrCode size={18} className="text-amber-400" />
+              QR propre à cet établissement
+            </h3>
+            <p className="text-xs text-stone-400">
+              Chaque établissement a son lien (slug) et ses couleurs. Les tables utilisent le même branding.
+            </p>
+            <label className="block text-xs text-stone-400">
+              Identifiant public (slug)
+              <input
+                className="input-field mt-1"
+                value={slug}
+                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                placeholder="ex: maquis-kofi-cocody"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-stone-400">
+                Couleur QR
+                <input type="color" className="mt-1 w-full h-10 rounded cursor-pointer"
+                  value={`#${qrColor}`}
+                  onChange={(e) => setQrColor(e.target.value.replace('#', ''))}
+                />
+              </label>
+              <label className="text-xs text-stone-400">
+                Fond QR
+                <input type="color" className="mt-1 w-full h-10 rounded cursor-pointer"
+                  value={`#${qrBg}`}
+                  onChange={(e) => setQrBg(e.target.value.replace('#', ''))}
+                />
+              </label>
+            </div>
+            <label className="block text-xs text-stone-400">
+              Titre (étiquette)
+              <input className="input-field mt-1" value={qrTitle}
+                onChange={(e) => setQrTitle(e.target.value)}
+                placeholder="Ex: Commande table — Maquis Kofi" />
+            </label>
+            <label className="block text-xs text-stone-400">
+              Message d&apos;accueil client
+              <input className="input-field mt-1" value={qrWelcome}
+                onChange={(e) => setQrWelcome(e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-300">
+              <input type="checkbox" checked={qrKiosk} onChange={(e) => setQrKiosk(e.target.checked)} />
+              Mode tablette (kiosk) par défaut sur QR tables
+            </label>
+            <div className="flex flex-wrap gap-4 items-start">
+              {qrSrc && (
+                <div className="text-center">
+                  <img src={qrSrc} alt="QR menu" className="w-32 h-32 rounded-xl bg-white p-1 mx-auto" />
+                  <p className="text-[10px] text-stone-500 mt-1">Menu public</p>
+                </div>
+              )}
+              {sampleTableQr && (
+                <div className="text-center">
+                  <img src={sampleTableQr} alt="QR table" className="w-32 h-32 rounded-xl bg-white p-1 mx-auto" />
+                  <p className="text-[10px] text-stone-500 mt-1">Exemple table 1</p>
+                </div>
+              )}
+            </div>
+            <p className="text-[11px] text-stone-500 break-all">Lien commande : {sampleTableUrl || '—'}</p>
+            <button
+              type="button"
+              disabled={!canEdit || saving}
+              className="btn-primary"
+              onClick={async () => {
+                if (!estId) return;
+                setSaving(true);
+                setError(null);
+                const { slugify } = await import('@/lib/publicEstablishment');
+                const finalSlug = (slug || '').trim() || slugify(String(activeEstablishment?.name || 'etablissement'), estId);
+                const payload = {
+                  slug: finalSlug,
+                  qr_config: {
+                    color: qrColor,
+                    bg: qrBg,
+                    title: qrTitle,
+                    welcome: qrWelcome,
+                    kiosk_default: qrKiosk,
+                    show_name: true,
+                  },
+                };
+                const { error: err } = await supabase.from('establishments').update(payload).eq('id', estId);
+                setSaving(false);
+                if (err) setError(err.message);
+                else {
+                  setSlug(finalSlug);
+                  setOkMsg('QR personnalisé enregistré pour cet établissement');
+                  setTimeout(() => setOkMsg(null), 2500);
+                }
+              }}
+            >
+              {saving ? '…' : 'Enregistrer le QR personnalisé'}
+            </button>
+          </div>
+
+            Afficher les quantités disponibles sur le menu public
               </label>
               <div className="space-y-2 pt-2 border-t border-stone-800">
                 <p className="text-sm font-medium text-stone-200">Horaires (vitrine)</p>

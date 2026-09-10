@@ -49,13 +49,26 @@ export default function PublicMenu() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: e, error: eErr } = await supabase
-        .from('establishments')
-        .select('id, name, type, address, phone, logo_url, public_menu')
-        .eq('id', estId)
-        .maybeSingle();
+      let e: Est | null = null;
+      const looksUuid = /^[0-9a-f-]{32,36}$/i.test(estId);
+      if (looksUuid) {
+        const { data } = await supabase
+          .from('establishments')
+          .select('id, name, type, address, phone, logo_url, public_menu')
+          .eq('id', estId)
+          .maybeSingle();
+        e = data as Est | null;
+      }
+      if (!e) {
+        const { data } = await supabase
+          .from('establishments')
+          .select('id, name, type, address, phone, logo_url, public_menu')
+          .eq('slug', estId)
+          .maybeSingle();
+        e = data as Est | null;
+      }
       if (cancelled) return;
-      if (eErr || !e) {
+      if (!e) {
         setError('Établissement introuvable ou menu non public.');
         setLoading(false);
         return;
@@ -67,17 +80,18 @@ export default function PublicMenu() {
         return;
       }
       setEst(e as Est);
+      const resolvedId = e.id;
       const [pRes, kRes] = await Promise.all([
         supabase
           .from('products')
           .select('id, name, category, price, stock, image_url')
-          .eq('establishment_id', estId)
+          .eq('establishment_id', resolvedId)
           .order('category')
           .order('name'),
         supabase
           .from('product_kits')
           .select('id, name, description, price')
-          .eq('establishment_id', estId)
+          .eq('establishment_id', resolvedId)
           .eq('active', true)
           .order('name'),
       ]);

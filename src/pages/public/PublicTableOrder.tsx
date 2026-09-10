@@ -22,10 +22,13 @@ type Prod = {
 };
 
 export default function PublicTableOrder() {
-  const { estId } = useParams<{ estId: string }>();
+  const { estId: estParam } = useParams<{ estId: string }>();
   const [params] = useSearchParams();
   const tableNum = (params.get('table') || params.get('t') || '').trim();
   const kioskMode = params.get('kiosk') === '1' || params.get('kiosk') === 'true';
+  const [estId, setEstId] = useState<string | null>(null);
+  const [welcome, setWelcome] = useState('Bienvenue — passez votre commande');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   const [est, setEst] = useState<Est | null>(null);
   const [products, setProducts] = useState<Prod[]>([]);
@@ -68,7 +71,7 @@ export default function PublicTableOrder() {
   }, [kioskMode]);
 
   useEffect(() => {
-    if (!estId) {
+    if (!estParam) {
       setError('Lien invalide');
       setLoading(false);
       return;
@@ -76,23 +79,44 @@ export default function PublicTableOrder() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: e } = await supabase
-        .from('establishments')
-        .select('id, name, public_menu, phone')
-        .eq('id', estId)
-        .maybeSingle();
+      // Résolution par UUID ou slug public (QR propre à l'établissement)
+      let e: any = null;
+      const looksUuid = !!estParam && /^[0-9a-f-]{32,36}$/i.test(estParam);
+      if (looksUuid) {
+        const { data } = await supabase
+          .from('establishments')
+          .select('id, name, public_menu, phone, slug, qr_config, logo_url, cover_url')
+          .eq('id', estParam)
+          .maybeSingle();
+        e = data;
+      }
+      if (!e && estParam) {
+        const { data } = await supabase
+          .from('establishments')
+          .select('id, name, public_menu, phone, slug, qr_config, logo_url, cover_url')
+          .eq('slug', estParam)
+          .maybeSingle();
+        e = data;
+      }
       if (cancelled) return;
       if (!e) {
-        setError('Établissement introuvable.');
+        setError('Établissement introuvable. Vérifiez le QR de cet établissement.');
         setLoading(false);
         return;
       }
+      setEstId(e.id);
       setEst(e as Est);
+      try {
+        const cfg = typeof e.qr_config === 'object' && e.qr_config ? e.qr_config : {};
+        if (cfg.welcome) setWelcome(String(cfg.welcome));
+        if (e.logo_url || e.cover_url) setLogoUrl(e.logo_url || e.cover_url);
+      } catch { /* */ }
 
+      const resolvedId = e.id as string;
       const { data: prods } = await supabase
         .from('products')
         .select('id, name, category, price, stock, image_url')
-        .eq('establishment_id', estId)
+        .eq('establishment_id', resolvedId)
         .order('name');
       setProducts(((prods as Prod[]) || []).filter((p) => Number(p.price) > 0));
 
@@ -100,7 +124,7 @@ export default function PublicTableOrder() {
         const { data: tabs } = await supabase
           .from('restaurant_tables')
           .select('id, number')
-          .eq('establishment_id', estId);
+          .eq('establishment_id', resolvedId);
         const match = (tabs || []).find(
           (t: any) => String(t.number).toLowerCase() === tableNum.toLowerCase(),
         );
@@ -111,7 +135,7 @@ export default function PublicTableOrder() {
     return () => {
       cancelled = true;
     };
-  }, [estId, tableNum]);
+  }, [estParam, tableNum]);
 
   const categories = useMemo(() => {
     const s = new Set(products.map((p) => p.category || 'Autres'));
@@ -314,6 +338,17 @@ export default function PublicTableOrder() {
           ))}
         </div>
 
+        {(logoUrl || welcome) && (
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-3 flex items-center gap-3 mb-2">
+            {logoUrl && (
+              <img src={logoUrl} alt="" className="w-12 h-12 rounded-xl object-cover bg-stone-800" />
+            )}
+            <div className="min-w-0">
+              <p className="font-semibold text-stone-100 truncate">{est?.name}</p>
+              <p className="text-xs text-stone-400">{welcome}</p>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-2">
           {visible.map((p) => {
             const q = cart[p.id] || 0;
