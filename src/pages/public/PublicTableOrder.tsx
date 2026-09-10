@@ -281,17 +281,18 @@ export default function PublicTableOrder() {
   if (done) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0c0a09] text-stone-100 p-6 text-center gap-3">
-        <CheckCircle2 className="text-emerald-400" size={48} />
+        <CheckCircle2 className="text-emerald-400" size={64} />
+        <div className="text-5xl" aria-hidden>👍</div>
         <h1 className="text-xl font-bold">Commande envoyée</h1>
         <p className="text-stone-400 text-sm">
-          {tableNum ? `Table ${tableNum}` : 'Commande'} · le bar / service s’en occupe.
+          {tableNum ? `Table ${tableNum}` : 'Commande'} · le service s’en occupe.
         </p>
         <button
           type="button"
-          className="mt-4 px-5 py-3 rounded-xl bg-amber-500 text-stone-950 font-bold"
+          className="mt-4 min-h-[52px] px-8 rounded-2xl bg-amber-500 text-stone-950 font-bold text-lg"
           onClick={() => setDone(false)}
         >
-          Commander encore
+          + Encore
         </button>
       </div>
     );
@@ -349,50 +350,78 @@ export default function PublicTableOrder() {
             </div>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <p className="text-center text-xs text-stone-500 pb-1">
+          Touchez l&apos;image pour ajouter · lecture non obligatoire
+        </p>
+        <div className="grid grid-cols-2 gap-3">
           {visible.map((p) => {
             const q = cart[p.id] || 0;
             const soldOut = Number(p.stock) <= 0;
             return (
-              <div
+              <button
                 key={p.id}
-                className={`rounded-xl border p-2 ${
-                  q > 0 ? 'border-amber-500/50 bg-amber-500/10' : 'border-stone-800 bg-stone-900/60'
-                } ${soldOut ? 'opacity-50' : ''}`}
+                type="button"
+                disabled={soldOut}
+                onClick={() => !soldOut && bump(p.id, 1)}
+                className={`relative text-left rounded-2xl border overflow-hidden transition active:scale-[0.98] ${
+                  q > 0
+                    ? 'border-amber-400 ring-2 ring-amber-400/40 bg-amber-500/10'
+                    : 'border-stone-800 bg-stone-900/80'
+                } ${soldOut ? 'opacity-45 grayscale' : ''}`}
               >
-                <div className="flex gap-2">
-                  <ProductThumb product={p as any} size={44} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold truncate">{p.name}</p>
-                    <p className="text-[11px] text-amber-300">{formatFCFA(Number(p.price) || 0)}</p>
-                    {soldOut && <p className="text-[10px] text-red-300">Épuisé</p>}
-                  </div>
+                <div className="aspect-square w-full bg-stone-950 flex items-center justify-center p-3">
+                  <ProductThumb
+                    name={p.name}
+                    category={p.category}
+                    imageUrl={p.image_url}
+                    size={120}
+                  />
+                </div>
+                {q > 0 && (
+                  <span className="absolute top-2 right-2 min-w-[28px] h-7 px-1.5 rounded-full bg-amber-500 text-stone-950 text-sm font-black flex items-center justify-center shadow-lg">
+                    {q}
+                  </span>
+                )}
+                {soldOut && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-white text-xs font-bold">
+                    Épuisé
+                  </span>
+                )}
+                <div className="px-2 py-2 border-t border-stone-800/80">
+                  <p className="text-base font-black text-amber-300 leading-none">
+                    {formatFCFA(Number(p.price) || 0)}
+                  </p>
+                  {/* Nom en petit pour ceux qui lisent — l’image reste principale */}
+                  <p className="text-[10px] text-stone-500 truncate mt-1 leading-tight">{p.name}</p>
                 </div>
                 {!soldOut && (
-                  <div className="mt-2 flex items-center justify-between">
-                    <button
-                      type="button"
-                      className="p-1.5 rounded-lg bg-stone-800"
+                  <div
+                    className="flex items-center justify-between gap-1 px-2 pb-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span
+                      role="button"
+                      className="flex-1 min-h-[40px] rounded-xl bg-stone-800 flex items-center justify-center"
                       onClick={() => bump(p.id, -1)}
                     >
-                      <Minus size={14} />
-                    </button>
-                    <span className="font-bold text-amber-300">{q}</span>
-                    <button
-                      type="button"
-                      className="p-1.5 rounded-lg bg-stone-800"
+                      <Minus size={18} />
+                    </span>
+                    <span
+                      role="button"
+                      className="flex-1 min-h-[40px] rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-bold"
                       onClick={() => bump(p.id, 1)}
                     >
-                      <Plus size={14} />
-                    </button>
+                      <Plus size={18} />
+                    </span>
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
 
         <label className="block text-xs text-stone-400">
+
           Note (optionnel)
           <input
             className="mt-1 w-full rounded-xl border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-stone-100"
@@ -420,7 +449,7 @@ export default function PublicTableOrder() {
               Envoyer la commande
             </button>
             <p className="text-[10px] text-center text-stone-500">
-              Paiement au serveur · stock décrémenté à la clôture staff
+              Touchez les images · paiement au serveur
             </p>
           </div>
         </div>
