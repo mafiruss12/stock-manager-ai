@@ -199,6 +199,18 @@ export default function PublicTableOrder() {
     setBusy(false);
   }
 
+  if (!tableNum && !loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0c0a09] text-stone-200 p-6 text-center">
+        <div>
+          <Beer className="mx-auto text-amber-400 mb-3" size={36} />
+          <p className="font-bold text-lg">Scannez le QR de votre table</p>
+          <p className="text-sm text-stone-400 mt-2">Le lien doit contenir le numéro de table.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0c0a09] text-stone-400">

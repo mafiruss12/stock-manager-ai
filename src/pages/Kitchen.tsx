@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UtensilsCrossed, CheckCircle2, Clock, ChefHat, Bell } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
@@ -15,6 +15,7 @@ export default function Kitchen() {
   const { member } = useAuth();
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
+  const prevPending = useRef(0);
 
   async function load() {
     if (!member?.establishment_id) { setLoading(false); return; }
@@ -34,12 +35,25 @@ export default function Kitchen() {
       })
     );
     setOrders(ordersWithItems);
+    const pend = ordersWithItems.filter((o) => o.status === 'pending').length;
+    if (pend > prevPending.current && prevPending.current >= 0 && !loading) {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; g.gain.value = 0.05;
+        o.start(); o.stop(ctx.currentTime + 0.15);
+      } catch { /* */ }
+      try { document.title = `(${pend}) Cuisine / Bar`; } catch { /* */ }
+    }
+    prevPending.current = pend;
     setLoading(false);
   }
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 10000);
+    const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
     /* eslint-disable-next-line */
   }, [member]);
