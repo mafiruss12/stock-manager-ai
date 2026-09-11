@@ -40,7 +40,7 @@ const SERVICES = [
 
 export default function PublicHome() {
   useEffect(() => {
-    document.title = 'CHEZ NOUS — Découvrez les meilleurs établissements';
+    document.title = 'Stock Manager AI — Découvrez les meilleurs établissements';
   }, []);
 
   const { user, signOut } = useAuth();

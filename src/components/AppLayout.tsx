@@ -9,7 +9,7 @@ import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
-import { startPrefetchInterval } from '@/lib/offline';
+import { startPrefetchInterval, flushQueue, queueCount } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS } from '@/lib/types';
 import type { Role } from '@/lib/types';
@@ -159,7 +159,20 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }, [bizType]);
 
   useEffect(() => {
-    const on = () => setIsOnline(true);
+    const on = () => {
+      setIsOnline(true);
+      void (async () => {
+        try {
+          const n = await queueCount();
+          if (n > 0) {
+            const r = await flushQueue(supabase);
+            if (r && (r as any).done > 0) {
+              /* synced */
+            }
+          }
+        } catch { /* */ }
+      })();
+    };
     const off = () => setIsOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);

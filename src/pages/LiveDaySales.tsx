@@ -54,12 +54,22 @@ export default function LiveDaySales() {
   useEffect(() => {
     if (!estId) return;
     setDay(loadLiveDay(estId, date));
-    supabase
-      .from('products')
-      .select('*')
-      .eq('establishment_id', estId)
-      .order('name')
-      .then(({ data }) => setProducts((data as Product[]) || []));
+    (async () => {
+      const cacheKey = `products:${estId}`;
+      if (!isOnline()) {
+        const cached = await cacheGet<Product[]>(cacheKey);
+        if (cached?.length) setProducts(cached);
+        return;
+      }
+      const { data } = await supabase
+        .from('products')
+        .select('*')
+        .eq('establishment_id', estId)
+        .order('name');
+      const list = (data as Product[]) || [];
+      setProducts(list);
+      if (list.length) await cacheSet(cacheKey, list);
+    })();
   }, [estId, date]);
 
   useEffect(() => {

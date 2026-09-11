@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, MapPin, Heart } from 'lucide-react';
 
 const NAV = [
-  { to: '/', label: 'Accueil' },
+  { to: '/accueil', label: 'Accueil' },
   { to: '/discover', label: 'Découvrir' },
   { to: '/establishments', label: 'Collections' },
   { to: '/events', label: 'Actus' },
@@ -28,8 +28,8 @@ export default function PublicLayout({
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-[#E8DFD0] shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          {/* Logo CHEZ NOUS */}
-          <Link to="/" className="flex items-center gap-2.5 min-w-0 group">
+          {/* Logo STOCK MANAGER AI */}
+          <Link to="/accueil" className="flex items-center gap-2.5 min-w-0 group">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E85D04] to-[#C2410C] flex items-center justify-center text-white shadow-md shadow-orange-600/25 group-hover:scale-105 transition-transform">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
@@ -39,7 +39,7 @@ export default function PublicLayout({
             </div>
             <div className="leading-tight min-w-0">
               <p className="font-bold text-[16px] tracking-tight text-[#2C2416] truncate">
-                CHEZ NOUS
+                STOCK MANAGER AI
               </p>
               <p className="text-[10px] text-[#166534] font-semibold tracking-wide truncate uppercase">
                 Côte d&apos;Ivoire
@@ -139,7 +139,7 @@ export default function PublicLayout({
                 </svg>
               </div>
               <div>
-                <p className="font-bold text-[#2C2416]">CHEZ NOUS</p>
+                <p className="font-bold text-[#2C2416]">STOCK MANAGER AI</p>
                 <p className="text-[10px] text-[#166534] font-semibold uppercase">Côte d&apos;Ivoire</p>
               </div>
             </div>
@@ -174,7 +174,7 @@ export default function PublicLayout({
         </div>
 
         <div className="border-t border-[#E8DFD0] py-4 text-center text-xs text-[#A89880]">
-          © {new Date().getFullYear()} CHEZ NOUS — Kevin Tech Pro
+          © {new Date().getFullYear()} STOCK MANAGER AI — Kevin Tech Pro
         </div>
       </footer>
     </div>
