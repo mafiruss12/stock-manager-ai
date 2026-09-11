@@ -1,6 +1,13 @@
-/* Stock Manager AI — Service Worker offline-first */
-const CACHE_NAME = 'maquis-shell-v3';
-const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
+/* Stock Manager AI — Service Worker offline-first v4 */
+const CACHE_NAME = 'maquis-shell-v4';
+const PRECACHE = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/login',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -22,21 +29,29 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
-  if (url.hostname.includes('supabase.co') || url.hostname.includes('github.com')) return;
+  // API distantes : réseau uniquement (pas de cache trompeur)
+  if (url.hostname.includes('supabase.co') || url.hostname.includes('googleapis.com')) return;
 
+  // Navigation : offline → shell index.html (SPA)
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((res) => {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put('/index.html', clone));
+          caches.open(CACHE_NAME).then((c) => {
+            c.put('/index.html', clone);
+            c.put('/', clone);
+          });
           return res;
         })
-        .catch(() => caches.match('/index.html').then((r) => r || caches.match('/')))
+        .catch(() =>
+          caches.match('/index.html').then((r) => r || caches.match('/') || caches.match('/login'))
+        )
     );
     return;
   }
 
+  // Assets même origine : cache d'abord puis réseau
   if (url.origin === self.location.origin) {
     event.respondWith(
       caches.match(request).then((cached) => {

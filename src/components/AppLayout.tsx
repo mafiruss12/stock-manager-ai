@@ -145,6 +145,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [unreadNotifs, setUnreadNotifs] = useState(0);
   const [estName, setEstName] = useState<string | null>(null);
   const [estLogo, setEstLogo] = useState<string | null>(null);
@@ -156,6 +157,18 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyBusinessTheme(bizType);
   }, [bizType]);
+
+  useEffect(() => {
+    const on = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    setIsOnline(navigator.onLine);
+    return () => {
+      window.removeEventListener('online', on);
+      window.removeEventListener('offline', off);
+    };
+  }, []);
 
   useEffect(() => {
     if (!member?.user_id) return;
@@ -341,6 +354,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   if (isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center p-6">
+      {!isOnline && (
+        <div className="sticky top-0 z-[60] bg-amber-600 text-stone-950 text-center text-xs font-semibold py-1.5 px-3">
+          Hors ligne — vous pouvez continuer le travail local ; synchronisation dès le retour du réseau
+        </div>
+      )}
         <div className="max-w-md text-center space-y-3">
           <h1 className="text-xl font-bold">Compte équipe</h1>
           <p className="text-stone-400 text-sm">

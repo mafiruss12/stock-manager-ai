@@ -1,6 +1,7 @@
 import BrandFooter from '@/components/BrandFooter';
 import AdMarquee from '@/components/AdMarquee';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2, Package, TrendingUp, WifiOff, Shield, Bot, Users, ClipboardList, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toAuthEmail } from '@/lib/login';
@@ -90,6 +91,10 @@ function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'ot
 
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true });
+  }, [user, navigate]);
   const [mode, setMode] = useState<Mode>('signin');
   const [newPassword, setNewPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');

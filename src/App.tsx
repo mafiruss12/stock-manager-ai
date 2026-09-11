@@ -269,7 +269,9 @@ function PublicOrApp() {
 
   return (
     <Routes>
-      <Route path="/" element={<PublicHome />} />
+      <Route path="/" element={<AuthPage />} />
+      <Route path="/login" element={<AuthPage />} />
+      <Route path="/accueil" element={<PublicHome />} />
       <Route path="/discover" element={<PublicDiscover />} />
       <Route path="/establishments" element={<PublicEstablishments />} />
       <Route path="/restaurants" element={<PublicCategory />} />
