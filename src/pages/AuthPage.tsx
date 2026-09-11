@@ -519,7 +519,7 @@ async function resendConfirmation() {
         <div className="order-1 lg:order-2 w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
         <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl auth-form-card">
           <div className="flex flex-col items-center mb-6">
-            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-16 w-auto max-w-[280px] object-contain mb-3" />
+            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-20 w-20 rounded-full object-cover mb-3 shadow-lg" />
             <h1 className="text-3xl font-bold font-display text-stone-100">Stock Manager AI</h1>
             <p className="text-sm text-stone-400 mt-1">
               {mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Gestion intelligente multi-métiers'}
@@ -560,7 +560,7 @@ async function resendConfirmation() {
           )}
 
           <div className="flex flex-col items-center gap-2 mb-4">
-            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-14 w-14 rounded-xl object-contain bg-white p-1 shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/logo-sm.png'; }} />
+            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-14 w-14 rounded-full object-cover shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/logo-sm.png'; }} />
             <p className="text-xs text-stone-400 text-center">
               <span className="font-semibold text-stone-200">Stock Manager AI</span>
               <br />

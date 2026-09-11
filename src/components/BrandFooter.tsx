@@ -16,7 +16,7 @@ export default function BrandFooter({ compact = false }: { compact?: boolean }) 
           <img
             src="/logo-sm.png"
             alt="Kevin Tech Pro"
-            className="h-9 w-9 rounded-lg object-contain bg-white p-0.5"
+            className="h-9 w-9 rounded-lg object-cover bg-white p-0.5"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '/logo-sm.png';
             }}
