@@ -14,7 +14,7 @@ export default function BrandFooter({ compact = false }: { compact?: boolean }) 
       <div className="max-w-lg mx-auto flex flex-col items-center gap-2 text-center">
         <div className="flex items-center gap-2.5">
           <img
-            src="/kevin-tech-pro-logo.png"
+            src="/logo-sm.png"
             alt="Kevin Tech Pro"
             className="h-9 w-9 rounded-lg object-contain bg-white p-0.5"
             onError={(e) => {

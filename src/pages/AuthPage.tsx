@@ -406,7 +406,7 @@ async function resendConfirmation() {
         {Array.from({ length: 6 }).map((_, i) => (
           <img
             key={i}
-            src="/kevin-tech-pro-logo.png"
+            src="/logo-sm.png"
             alt=""
             className="auth-logo-float absolute object-contain opacity-[0.12]"
             style={{
@@ -418,17 +418,17 @@ async function resendConfirmation() {
               animationDuration: `${14 + (i % 4) * 3}s`,
             }}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
+              (e.target as HTMLImageElement).src = '/logo-sm.png';
             }}
           />
         ))}
         {/* Grand logo central en fond */}
         <img
-          src="/kevin-tech-pro-logo.png"
+          src="/logo-sm.png"
           alt=""
           className="auth-logo-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.08] w-[min(90vw,520px)] h-[min(90vw,520px)]"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
+            (e.target as HTMLImageElement).src = '/logo-sm.png';
           }}
         />
       </div>
@@ -519,7 +519,7 @@ async function resendConfirmation() {
         <div className="order-1 lg:order-2 w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
         <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl auth-form-card">
           <div className="flex flex-col items-center mb-6">
-            <img src="/logo-full.png" alt="Stock Manager AI" className="h-16 w-auto max-w-[280px] object-contain mb-3" />
+            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-16 w-auto max-w-[280px] object-contain mb-3" />
             <h1 className="text-3xl font-bold font-display text-stone-100">Stock Manager AI</h1>
             <p className="text-sm text-stone-400 mt-1">
               {mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Gestion intelligente multi-métiers'}
@@ -560,7 +560,7 @@ async function resendConfirmation() {
           )}
 
           <div className="flex flex-col items-center gap-2 mb-4">
-            <img src="/kevin-tech-pro-logo.png" alt="Kevin Tech Pro" className="h-14 w-14 rounded-xl object-contain bg-white p-1 shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg'; }} />
+            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-14 w-14 rounded-xl object-contain bg-white p-1 shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/logo-sm.png'; }} />
             <p className="text-xs text-stone-400 text-center">
               <span className="font-semibold text-stone-200">Stock Manager AI</span>
               <br />
