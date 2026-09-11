@@ -640,95 +640,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: { full_name: fullName || login, name: fullName || login },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
       const alreadyMsg =
         'Cet identifiant est déjà utilisé. Utilisez « Se connecter » ou « Mot de passe oublié ».';
 
-      // Erreur explicite Supabase
       if (error && /already|registered|exists|duplicate/i.test(error.message || '')) {
         setLoading(false);
         return { error: alreadyMsg };
       }
+      if (error) {
+        setLoading(false);
+        return { error: safeErrorMessage(error, error.message) };
+      }
 
-      // Supabase masque parfois le doublon : user sans identities + pas de session
+      // Doublon masqué Supabase
       const identities = data?.user?.identities;
       if (data?.user && Array.isArray(identities) && identities.length === 0 && !data.session) {
         setLoading(false);
         return { error: alreadyMsg };
       }
 
-      // Connexion après création (session souvent absente au signup)
-      let session = data?.session ?? null;
-      let user = data?.user ?? null;
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInData?.session) {
-        session = signInData.session;
-        user = signInData.user;
-      }
-
-      if (!session || !user) {
-        setLoading(false);
-        if (error && /already|registered|exists|duplicate/i.test(error.message || '')) {
-          return { error: alreadyMsg };
-        }
-        if (signInErr) {
-          const m = (signInErr.message || '').toLowerCase();
-          // Mot de passe différent sur un compte existant → message "déjà utilisé"
-          if (
-            m.includes('invalid login') ||
-            m.includes('invalid_credentials') ||
-            m.includes('invalid email or password')
-          ) {
-            return { error: alreadyMsg };
-          }
-          if (m.includes('confirm')) {
-            return { error: 'Compte créé. Confirmez votre e-mail puis connectez-vous.' };
-          }
-          return {
-            error: safeErrorMessage(signInErr, error?.message || 'Inscription incomplète. Réessayez.'),
-          };
-        }
-        if (error) {
-          return { error: safeErrorMessage(error, error.message) };
-        }
-        return { error: alreadyMsg };
-      }
-
-      if (session) setSession(session);
-      if (user) {
-        setUser(user);
-        setNeedsAccess(false);
+      // P0 — pas de connexion auto : l'utilisateur doit confirmer l'e-mail puis se connecter
+      if (data?.user?.id) {
         try {
-          const { error: memErr } = await supabase.from('members').upsert(
+          await supabase.from('members').upsert(
             {
-              user_id: user.id,
-              email: user.email || email,
-              full_name: fullName || user.user_metadata?.full_name || login,
+              user_id: data.user.id,
+              email: data.user.email || email,
+              full_name: fullName || login,
               role: 'owner',
               status: 'active',
               establishment_id: null,
             },
             { onConflict: 'user_id' }
           );
-          if (memErr) console.warn('member upsert', memErr.message);
         } catch {
-          /* trigger SQL peut déjà l'avoir créé */
-        }
-        try {
-          await loadMemberData(user);
-        } catch {
-          setMember(buildFallbackMember(user));
-          setNeedsAccess(false);
+          /* trigger ou RLS */
         }
       }
+
+      // Ne pas poser de session locale si confirm e-mail requis
+      try {
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch {
+        /* */
+      }
+      setSession(null);
+      setUser(null);
       setLoading(false);
-      return { error: null };
+      return {
+        error: null,
+        needsEmailConfirm: true as unknown as null,
+      } as { error: string | null };
     } catch (e: any) {
       setLoading(false);
       const msg = e?.message || 'Inscription impossible';

@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { Beer, Mail, Lock, User, Loader2, Chrome, KeyRound, ArrowLeft, AlertCircle, CheckCircle2, Package, TrendingUp, WifiOff, Shield, Bot, Users, ClipboardList, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { toAuthEmail } from '@/lib/login';
+import { makeSignupCaptcha, checkSignupCaptcha, getLoginLockRemaining } from '@/lib/security';
+import { logSecurityEvent } from '@/lib/securityEvents';
+import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 import { supabase } from '@/lib/supabase';
 
 const MARQUEE_MESSAGES = [
@@ -54,7 +57,7 @@ const AUTH_HIGHLIGHTS = [
   },
 ];
 
-type Mode = 'signin' | 'signup' | 'forgot' | 'recovery' | 'mfa';
+type Mode = 'signin' | 'signup' | 'forgot' | 'recovery' | 'mfa' | 'mfa_setup';
 
 function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'other' = 'other'): string {
   const e = (err || '').toLowerCase();
@@ -98,6 +101,11 @@ export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('signin');
   const [newPassword, setNewPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [captcha, setCaptcha] = useState(() => makeSignupCaptcha());
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null);
+  const [setupQr, setSetupQr] = useState<string | null>(null);
   const [pendingMfaUserId, setPendingMfaUserId] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [highlightIdx, setHighlightIdx] = useState(0);
@@ -262,6 +270,33 @@ async function resendConfirmation() {
         return;
       }
 
+      if (mode === 'mfa_setup') {
+        if (!pendingMfaUserId || !setupSecret) {
+          setError('Session 2FA invalide');
+          setLoading(false);
+          return;
+        }
+        const ok = await verifyTotp(setupSecret, mfaCode);
+        if (!ok) {
+          setError('Code 2FA incorrect — réessayez');
+          setLoading(false);
+          return;
+        }
+        const { error: upErr } = await supabase
+          .from('members')
+          .update({ mfa_enabled: true, mfa_secret: setupSecret })
+          .eq('user_id', pendingMfaUserId);
+        if (upErr) {
+          setError(upErr.message || 'Impossible d\'activer le 2FA (colonnes mfa_*)');
+          setLoading(false);
+          return;
+        }
+        void logSecurityEvent('mfa_success', { setup: true });
+        setSuccess('2FA activé — redirection…');
+        window.location.replace('/dashboard');
+        return;
+      }
+
       if (mode === 'mfa') {
         if (!pendingMfaUserId) {
           setMode('signin');
@@ -290,13 +325,19 @@ async function resendConfirmation() {
         return;
       }
 
-      if (!password || password.length < 6) {
+      if (mode !== 'mfa' && mode !== 'mfa_setup' && mode !== 'forgot' && (!password || password.length < 6)) {
         setError('Le mot de passe doit contenir au moins 6 caractères');
         setLoading(false);
         return;
       }
 
       if (mode === 'signin') {
+        const lockMs = getLoginLockRemaining();
+        if (lockMs > 0) {
+          setError(`Trop de tentatives. Réessayez dans ${Math.ceil(lockMs / 60000)} min.`);
+          setLoading(false);
+          return;
+        }
         const { error: err } = await signIn(login, password);
         if (err) {
           setError(mapAuthError(err, 'signin'));
@@ -315,17 +356,31 @@ async function resendConfirmation() {
             .select('role, mfa_enabled, mfa_secret')
             .eq('user_id', uid)
             .maybeSingle();
-          if (
-            mem?.mfa_enabled &&
-            mem?.mfa_secret &&
-            ['super_admin', 'admin'].includes(String(mem.role))
-          ) {
+          const role = String(mem?.role || '');
+          // P0 — 2FA admin uniquement (pas propriétaire)
+          if (['super_admin', 'admin'].includes(role)) {
+            if (mem?.mfa_enabled && mem?.mfa_secret) {
+              setPendingMfaUserId(uid);
+              setMode('mfa');
+              setSuccess("Entrez le code 2FA de votre application d'authentification");
+              void logSecurityEvent('mfa_challenge', { role });
+              setLoading(false);
+              return;
+            }
+            // Admin sans 2FA : configuration obligatoire
+            const secret = generateTotpSecret();
+            setSetupSecret(secret);
             setPendingMfaUserId(uid);
-            setMode('mfa');
-            setSuccess('Entrez le code de votre application d\'authentification');
+            const email = sess.session?.user?.email || 'admin';
+            const url = otpauthUrl(secret, email, 'Stock Manager AI');
+            setSetupQr(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`);
+            setMode('mfa_setup');
+            setSuccess('Configuration 2FA obligatoire pour le compte admin');
+            void logSecurityEvent('mfa_setup', { role, forced: true });
             setLoading(false);
             return;
           }
+          void logSecurityEvent('login_success', { role });
         }
         setSuccess('Connexion réussie…');
         window.location.replace('/dashboard');
@@ -343,8 +398,20 @@ async function resendConfirmation() {
         setLoading(false);
         return;
       }
-      if (password.length < 6) {
-        setError('Mot de passe : minimum 6 caractères');
+      if (password.length < 8) {
+        setError('Mot de passe : minimum 8 caractères, avec lettre et chiffre');
+        setLoading(false);
+        return;
+      }
+      if (!acceptedTerms) {
+        setError('Veuillez accepter les conditions d\'utilisation');
+        setLoading(false);
+        return;
+      }
+      if (!checkSignupCaptcha(captchaAnswer, captcha.expected)) {
+        setError('Réponse anti-robot incorrecte');
+        setCaptcha(makeSignupCaptcha());
+        setCaptchaAnswer('');
         setLoading(false);
         return;
       }
@@ -365,22 +432,17 @@ async function resendConfirmation() {
         setLoading(false);
         return;
       }
-      setSuccess("Compte créé ! Ouverture de l'application…");
-      for (let i = 0; i < 10; i++) {
-        const { data: s } = await supabase.auth.getSession();
-        if (s.session?.user) break;
-        await new Promise((r) => setTimeout(r, 300));
-      }
-      const { data: s2 } = await supabase.auth.getSession();
-      if (!s2.session?.user) {
-        setSuccess(null);
-        setError("Compte créé. Cliquez sur « Se connecter » avec le même identifiant et mot de passe.");
-        setMode('signin');
-        setLoading(false);
-        return;
-      }
+      void logSecurityEvent('signup');
+      setSuccess(
+        'Compte créé. Vérifiez votre e-mail (lien de confirmation), puis connectez-vous. Sans confirmation, la connexion peut être refusée.'
+      );
+      setMode('signin');
+      setPassword('');
+      setCaptcha(makeSignupCaptcha());
+      setCaptchaAnswer('');
+      setAcceptedTerms(false);
       setLoading(false);
-      window.location.assign('/dashboard');
+      return;
     } catch (ex: any) {
       setError(ex?.message || 'Erreur inattendue. Réessayez.');
       setLoading(false);
@@ -609,6 +671,7 @@ async function resendConfirmation() {
               </div>
             )}
 
+            {mode !== 'mfa' && mode !== 'mfa_setup' && (
             <div>
               <label className="label">{mode === 'forgot' ? 'E-mail du compte' : 'Identifiant ou email'}</label>
               <div className="relative">
@@ -624,8 +687,26 @@ async function resendConfirmation() {
                 />
               </div>
             </div>
+            )}
 
-            {mode !== 'forgot' && mode !== 'recovery' && mode !== 'mfa' && (
+            {(mode === 'mfa' || mode === 'mfa_setup') && (
+              <div>
+                <label className="label">Code 2FA (6 chiffres)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="input-field text-center tracking-[0.3em] text-lg"
+                  required
+                />
+              </div>
+            )}
+
+            {mode !== 'forgot' && mode !== 'recovery' && mode !== 'mfa' && mode !== 'mfa_setup' && (
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="label mb-0">Mot de passe</label>
@@ -653,9 +734,37 @@ async function resendConfirmation() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="input-field pl-10"
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
+              </div>
+            )}
+
+
+            {mode === 'signup' && (
+              <div className="space-y-3">
+                <label className="flex items-start gap-2 text-xs text-stone-400">
+                  <input type="checkbox" className="mt-0.5" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} />
+                  <span>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité de Stock Manager AI.</span>
+                </label>
+                <div>
+                  <label className="text-xs text-stone-400">Anti-robot : combien font {captcha.a} + {captcha.b} ?</label>
+                  <input
+                    type="number"
+                    className="input mt-1 w-full"
+                    value={captchaAnswer}
+                    onChange={(e) => setCaptchaAnswer(e.target.value)}
+                    placeholder="Résultat"
+                  />
+                </div>
+              </div>
+            )}
+
+            {mode === 'mfa_setup' && setupQr && (
+              <div className="space-y-2 text-center">
+                <p className="text-xs text-amber-200/90">Scannez ce QR avec Google Authenticator / Authy, puis entrez le code à 6 chiffres.</p>
+                <img src={setupQr} alt="QR 2FA" className="mx-auto w-[180px] h-[180px] rounded-lg bg-white p-2" />
+                <p className="text-[10px] font-mono text-stone-500 break-all">{setupSecret}</p>
               </div>
             )}
 
@@ -664,7 +773,7 @@ async function resendConfirmation() {
                 <Loader2 className="animate-spin" size={18} />
               ) : mode === 'recovery' ? (
                 'Enregistrer le nouveau mot de passe'
-              ) : mode === 'mfa' ? (
+              ) : mode === 'mfa' || mode === 'mfa_setup' ? (
                 'Valider le code 2FA'
               ) : mode === 'forgot' ? (
                 <><KeyRound size={18} /> Envoyer le lien</>

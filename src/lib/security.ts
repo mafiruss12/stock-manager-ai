@@ -8,7 +8,7 @@
  */
 
 const LOGIN_ATTEMPTS_KEY = 'mm_login_attempts';
-const MAX_ATTEMPTS = 5;
+const MAX_ATTEMPTS = 5; // P1 anti brute-force
 const LOCK_MS = 15 * 60 * 1000; // 15 minutes
 
 interface AttemptState {
@@ -65,11 +65,27 @@ export function isSafeLogin(login: string): boolean {
 }
 
 export function isStrongEnoughPassword(password: string): { ok: true } | { ok: false; reason: string } {
-  if (!password || password.length < 6) {
-    return { ok: false, reason: 'Mot de passe : minimum 6 caractères.' };
+  if (!password || password.length < 8) {
+    return { ok: false, reason: 'Mot de passe : minimum 8 caractères.' };
+  }
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return { ok: false, reason: 'Mot de passe : au moins une lettre et un chiffre.' };
   }
   return { ok: true };
 }
+
+/** Mini CAPTCHA anti-bot (addition) */
+export function makeSignupCaptcha(): { a: number; b: number; expected: number } {
+  const a = 2 + Math.floor(Math.random() * 8);
+  const b = 1 + Math.floor(Math.random() * 9);
+  return { a, b, expected: a + b };
+}
+
+export function checkSignupCaptcha(answer: string, expected: number): boolean {
+  const n = Number(String(answer).trim());
+  return Number.isFinite(n) && n === expected;
+}
+
 
 export async function isPasswordBreached(password: string): Promise<boolean> {
   try {
