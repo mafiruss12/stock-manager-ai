@@ -18,7 +18,7 @@ export default function BrandFooter({ compact = false }: { compact?: boolean }) 
             alt="Kevin Tech Pro"
             className="h-9 w-9 rounded-lg object-contain bg-white p-0.5"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
+              (e.target as HTMLImageElement).src = '/logo-sm.png';
             }}
           />
           <div className="text-left">
