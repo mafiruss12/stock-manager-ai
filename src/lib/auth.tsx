@@ -810,36 +810,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }
 
-  /** Déconnexion auto après inactivité (15 min) */
-  useEffect(() => {
-    if (!user) return;
-    const IDLE_MS = 15 * 60 * 1000; // 15 minutes
-    let timer: ReturnType<typeof setTimeout> | null = null;
+  /* Déconnexion auto désactivée : session jusqu'au bouton Déconnexion */
 
-    const reset = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        console.info('[auth] Déconnexion pour inactivité');
-        void signOut();
-        try {
-          alert('Session expirée pour inactivité (15 min). Reconnectez-vous.');
-        } catch {
-          /* */
-        }
-      }, IDLE_MS);
-    };
-
-    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'] as const;
-    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
-    reset();
-
-    return () => {
-      if (timer) clearTimeout(timer);
-      events.forEach((e) => window.removeEventListener(e, reset));
-    };
-    // signOut is stable enough for this purpose
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
 
   async function refresh() {
     if (user) {
