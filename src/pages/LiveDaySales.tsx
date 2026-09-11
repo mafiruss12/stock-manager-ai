@@ -316,7 +316,7 @@ export default function LiveDaySales() {
                     }`}
                   >
                     <div className="flex gap-2 items-center">
-                      <ProductThumb product={p} size={40} />
+                      <ProductThumb product={p} name={p.name} category={p.category} imageUrl={p.image_url} size={48} />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-semibold text-stone-100 truncate">{p.name}</p>
                         <p className="text-[11px] text-amber-300/90">{formatFCFA(Number(p.price) || 0)}</p>
