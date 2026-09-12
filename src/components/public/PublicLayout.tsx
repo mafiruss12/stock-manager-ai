@@ -30,7 +30,13 @@ export default function PublicLayout({
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
           {/* Logo STOCK MANAGER AI */}
           <Link to="/accueil" className="flex items-center gap-2.5 min-w-0 group">
-            <img src="/logo-sm.png" alt="Stock Manager AI" className="w-10 h-10 rounded-full object-cover shadow-md shadow-orange-600/25 group-hover:scale-105 transition-transform" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E85D04] to-[#C2410C] flex items-center justify-center text-white shadow-md shadow-orange-600/25 group-hover:scale-105 transition-transform">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+                <path d="M7 2v20" />
+                <path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+              </svg>
+            </div>
             <div className="leading-tight min-w-0">
               <p className="font-bold text-[16px] tracking-tight text-[#2C2416] truncate">
                 STOCK MANAGER AI

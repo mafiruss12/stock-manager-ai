@@ -564,7 +564,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <Beer size={20} className="text-primary-500" />
             )}
             <div className="flex items-center gap-2 min-w-0">
-              <img src="/icon-192.png" alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shrink-0" aria-hidden />
               <span className="font-display font-bold text-stone-100 truncate">{estName || 'Stock Manager AI'}</span>
             </div>
           </div>
