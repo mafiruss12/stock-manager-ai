@@ -1,8 +1,8 @@
 import { DEFAULT_BRANDING, type BtpBranding } from '@/lib/btp';
 import { isBtp } from '@/lib/businessTypes';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
-import { useEffect, useState } from 'react';
-import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield, MapPin, Loader2, Navigation, Fingerprint } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Building2, User, Save, CheckCircle2, Camera, Plus, Lock, KeyRound, RefreshCw, Download, Shield, MapPin, Loader2, Navigation, Fingerprint, ChevronRight, Sun, Moon, CreditCard, LogOut, Smartphone, Palette } from 'lucide-react';
 // MapPin used for GPS
 import { requestMicrophone, resetPermissionsOnboarding, openAppSettings } from '@/lib/devicePermissions';
 import {
@@ -18,6 +18,39 @@ import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } 
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
+
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+  active,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  onClick: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition border-b border-stone-800/80 last:border-0 ${
+        active ? 'bg-amber-500/10' : 'hover:bg-stone-800/40'
+      }`}
+    >
+      <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 shrink-0">
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-stone-100">{title}</p>
+        {subtitle ? <p className="text-xs text-stone-500 mt-0.5">{subtitle}</p> : null}
+      </div>
+      <ChevronRight size={18} className={`text-stone-500 shrink-0 transition ${active ? 'rotate-90 text-amber-400' : ''}`} />
+    </button>
+  );
+}
 
 export default function SettingsPage() {
   const { member, activeEstablishment, refresh, signOut } = useAuth();
@@ -42,6 +75,8 @@ export default function SettingsPage() {
   const [btpBranding, setBtpBranding] = useState<BtpBranding>({ ...DEFAULT_BRANDING });
   const [brandingSaved, setBrandingSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
+  const togglePanel = (id: string) => setOpenPanel((p) => (p === id ? null : id));
 
   const canManageEst = member && ['super_admin', 'admin', 'owner'].includes(member.role);
 
@@ -421,38 +456,9 @@ async function saveProfile() {
       </div>
     )}
 
-    <div>
-      <h1 className="text-2xl font-bold font-display text-stone-100 mb-2">Profil & Paramètres</h1>
-
-      <div className="card mb-4 space-y-2 border-amber-500/20">
-        <p className="font-medium text-stone-100 flex items-center gap-2">
-          <Shield size={18} className="text-amber-400" /> Autorisations appareil
-        </p>
-        <p className="text-sm text-stone-400">
-          Micro, caméra, notifications, GPS — nécessaires pour la dictée, les photos et les rappels.
-        </p>
-        <button
-          type="button"
-          className="btn-primary w-full min-h-[48px]"
-          onClick={() => void openAppSettings()}
-        >
-          Ouvrir les paramètres du téléphone
-        </button>
-        <button
-          type="button"
-          className="btn-secondary w-full min-h-[44px]"
-          onClick={() => {
-            resetPermissionsOnboarding();
-            window.dispatchEvent(new Event('mm-request-permissions'));
-          }}
-        >
-          Afficher l’écran d’autorisations
-        </button>
-      </div>
-      <p className="text-sm text-stone-400 mt-2">
-        Pour autoriser un employé à modifier le stock : allez dans <a href="/mes-employes" className="text-amber-400 underline">Équipe</a> et cochez « Modifier stock ».
-      </p>
-      <p className="text-stone-400 text-sm mb-6">Personnalisez votre compte et votre établissement</p>
+    <div className="pb-8">
+      <h1 className="text-2xl font-bold font-display text-stone-100 mb-1">Paramètres</h1>
+      <p className="text-stone-500 text-sm mb-5">Compte, sécurité et établissement</p>
 
       {error && (
         <div className="mb-4 bg-error-500/10 border border-error-500/30 rounded-xl p-3 text-sm text-error-300">
@@ -460,9 +466,116 @@ async function saveProfile() {
         </div>
       )}
 
-      <div className="max-w-lg space-y-6">
+      {/* —— Liste style app —— */}
+      <div className="max-w-lg space-y-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Gestion du compte</p>
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
+            <SettingsRow
+              icon={<User size={20} />}
+              title="Mon profil"
+              subtitle={member?.full_name || member?.email || 'Nom, photo'}
+              active={openPanel === 'profile'}
+              onClick={() => togglePanel('profile')}
+            />
+            <SettingsRow
+              icon={<CreditCard size={20} />}
+              title="Abonnement"
+              subtitle={activeEstablishment ? (getSubscriptionState(activeEstablishment).label || 'État du forfait') : 'Non lié'}
+              active={openPanel === 'sub'}
+              onClick={() => togglePanel('sub')}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Sécurité</p>
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
+            <SettingsRow
+              icon={<KeyRound size={20} />}
+              title="Mot de passe"
+              subtitle="Changer le mot de passe de connexion"
+              active={openPanel === 'password'}
+              onClick={() => togglePanel('password')}
+            />
+            <SettingsRow
+              icon={<Fingerprint size={20} />}
+              title="Code PIN et biométrie"
+              subtitle={bioEnabled ? 'Biométrie activée' : 'Pas activé'}
+              active={openPanel === 'bio'}
+              onClick={() => togglePanel('bio')}
+            />
+            <SettingsRow
+              icon={<Shield size={20} />}
+              title="Autorisations appareil"
+              subtitle="Micro, caméra, GPS, notifications"
+              active={openPanel === 'perms'}
+              onClick={() => togglePanel('perms')}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Établissement</p>
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
+            <SettingsRow
+              icon={<Building2 size={20} />}
+              title="Infos établissement"
+              subtitle={est?.name || form.name || 'Nom, adresse, contacts'}
+              active={openPanel === 'est'}
+              onClick={() => togglePanel('est')}
+            />
+            <SettingsRow
+              icon={<MapPin size={20} />}
+              title="Position GPS"
+              subtitle={gpsCoords ? `${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}` : 'Non enregistrée'}
+              active={openPanel === 'gps'}
+              onClick={() => togglePanel('gps')}
+            />
+          </div>
+          <p className="text-xs text-stone-500 px-1 mt-2">
+            Droit « modifier stock » des employés : page <a href="/mes-employes" className="text-amber-400 underline">Équipe</a>
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Application</p>
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
+            <SettingsRow
+              icon={<Palette size={20} />}
+              title="Apparence"
+              subtitle={themeMode === 'dark' ? 'Mode sombre' : 'Mode jour'}
+              active={openPanel === 'theme'}
+              onClick={() => togglePanel('theme')}
+            />
+            <SettingsRow
+              icon={<RefreshCw size={20} />}
+              title="Mises à jour"
+              subtitle={`Version v${APP_VERSION}`}
+              active={openPanel === 'update'}
+              onClick={() => togglePanel('update')}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Session</p>
+          <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
+            <SettingsRow
+              icon={<LogOut size={20} />}
+              title="Se déconnecter"
+              subtitle="Fermer la session sur cet appareil"
+              active={openPanel === 'session'}
+              onClick={() => togglePanel('session')}
+            />
+          </div>
+        </div>
+
+      {/* Détails des panneaux — contenu existant filtré par openPanel */}
+      <div className="space-y-4 pt-2">
         {/* Profil */}
-        <div className="card">
+        {openPanel === 'profile' && (
+        <div className="card border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <User size={20} className="text-primary-400" /> Mon profil
           </h2>
@@ -508,7 +621,9 @@ async function saveProfile() {
         </div>
 
         {/* Mot de passe */}
-        <div className="card">
+        )}
+        {openPanel === 'password' && (
+        <div className="card border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <KeyRound size={20} className="text-amber-400" /> Sécurité — Mot de passe
           </h2>
@@ -554,7 +669,9 @@ async function saveProfile() {
         </div>
 
         {/* Biométrie */}
-        <div className="card">
+        )}
+        {openPanel === 'bio' && (
+        <div className="card border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <Fingerprint size={20} className="text-amber-400" /> Sécurité — Biométrie
           </h2>
@@ -611,8 +728,9 @@ async function saveProfile() {
           )}
         </div>
 
-        {/* Établissement */}
-        <div className="card">
+        )}
+        {openPanel === 'est' && (
+        <div className="card border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <Building2 size={20} className="text-secondary-400" />
             {est ? 'Mon établissement' : 'Créer mon établissement'}
@@ -787,8 +905,9 @@ async function saveProfile() {
           )}
         </div>
 
-        {/* Mises à jour */}
-        <div className="card space-y-3">
+        )}
+        {openPanel === 'update' && (
+        <div className="card space-y-3 border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100">Mises à jour</h2>
           <p className="text-sm text-stone-400">
             Version actuelle : <span className="text-stone-200 font-mono">v{APP_VERSION}</span>
@@ -841,7 +960,9 @@ async function saveProfile() {
         </div>
 
 
-        <div className="card space-y-3">
+        )}
+        {openPanel === 'perms' && (
+        <div className="card space-y-3 border-amber-500/20">
           <h2 className="text-lg font-semibold text-stone-100">Autorisations téléphone</h2>
           <p className="text-sm text-stone-400">
             Microphone, caméra, localisation, notifications — indispensables sur le terrain.
@@ -868,7 +989,9 @@ async function saveProfile() {
           </button>
         </div>
 
-        <div className="card space-y-3">
+        )}
+        {openPanel === 'session' && (
+        <div className="card space-y-3 border-error-500/20">
           <h2 className="text-lg font-semibold text-stone-100">Session</h2>
           <button
             type="button"
@@ -881,6 +1004,65 @@ async function saveProfile() {
             Se déconnecter
           </button>
         </div>
+        )}
+
+        {openPanel === 'sub' && activeEstablishment && (
+          <div className="card border-amber-500/30 space-y-2">
+            <h2 className="font-semibold text-amber-200">Abonnement</h2>
+            <p className="text-sm text-stone-200">{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
+            <p className="text-xs text-stone-400 whitespace-pre-wrap">{paymentInstructions()}</p>
+            <a
+              href={paymentWhatsAppLink(`Bonjour, paiement abonnement Stock Manager — ${activeEstablishment?.name || ''}`)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex mt-2 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium"
+            >
+              Contacter pour payer (WhatsApp)
+            </a>
+          </div>
+        )}
+
+        {openPanel === 'theme' && (
+          <div className="card space-y-3 border-amber-500/20">
+            <h2 className="font-semibold text-stone-100">Apparence</h2>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-medium ${
+                  themeMode === 'light' ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-stone-700 bg-stone-900 text-stone-300'
+                }`}
+                onClick={() => { applyTheme('light'); setThemeMode('light'); }}
+              >
+                ☀️ Mode jour
+              </button>
+              <button
+                type="button"
+                className={`min-h-[48px] rounded-xl border px-3 py-2 text-sm font-medium ${
+                  themeMode === 'dark' ? 'border-amber-500 bg-amber-500/15 text-amber-200' : 'border-stone-700 bg-stone-900 text-stone-300'
+                }`}
+                onClick={() => { applyTheme('dark'); setThemeMode('dark'); }}
+              >
+                🌙 Mode sombre
+              </button>
+            </div>
+          </div>
+        )}
+
+        {openPanel === 'gps' && (
+          <div className="card space-y-3 border-sky-500/30">
+            <h2 className="font-semibold text-sky-300 flex items-center gap-2"><MapPin size={18} /> Position GPS</h2>
+            {gpsCoords ? (
+              <p className="font-mono text-sm text-stone-300">{gpsCoords.lat.toFixed(6)}, {gpsCoords.lng.toFixed(6)}</p>
+            ) : (
+              <p className="text-sm text-stone-500">Aucune position enregistrée</p>
+            )}
+            <button type="button" className="btn-primary w-full flex items-center justify-center gap-2" disabled={gpsLoading} onClick={() => void captureGps()}>
+              {gpsLoading ? <Loader2 className="animate-spin" size={18} /> : <MapPin size={18} />}
+              {gpsCoords ? 'Mettre à jour ma position GPS' : 'Enregistrer ma position GPS'}
+            </button>
+            {gpsMsg && <p className="text-xs text-stone-400">{gpsMsg}</p>}
+          </div>
+        )}
 
       </div>
     </div>
