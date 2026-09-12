@@ -19,16 +19,30 @@ import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate,
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
 
-function SettingsRow({ icon, title, subtitle }: { icon: ReactNode; title: string; subtitle?: string }) {
+function SettingsRow({
+  icon,
+  title,
+  subtitle,
+  onClick,
+}: {
+  icon: ReactNode;
+  title: string;
+  subtitle?: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-stone-800/80 last:border-0">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-stone-800/80 last:border-0 text-left hover:bg-stone-800/50 active:bg-stone-800 transition"
+    >
       <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center text-amber-400 shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-stone-100">{title}</p>
         {subtitle ? <p className="text-xs text-stone-500 mt-0.5">{subtitle}</p> : null}
       </div>
-      <ChevronRight size={18} className="text-stone-600 shrink-0" />
-    </div>
+      <ChevronRight size={18} className="text-stone-500 shrink-0" />
+    </button>
   );
 }
 
@@ -55,6 +69,7 @@ export default function SettingsPage() {
   const [btpBranding, setBtpBranding] = useState<BtpBranding>({ ...DEFAULT_BRANDING });
   const [brandingSaved, setBrandingSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
 
   const canManageEst = member && ['super_admin', 'admin', 'owner'].includes(member.role);
 
@@ -383,6 +398,7 @@ async function saveProfile() {
         </section>
       )}
 
+{openPanel === 'theme' && (
 <section className="card p-4 space-y-3">
         <h2 className="font-semibold text-stone-100 flex items-center gap-2">Apparence</h2>
         <p className="text-sm text-stone-400">Choisissez le mode d’affichage de l’application.</p>
@@ -417,8 +433,9 @@ async function saveProfile() {
           </button>
         </div>
       </section>
+)}
 
-    {activeEstablishment && (
+    {openPanel === 'sub' && activeEstablishment && (
       <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-stone-200">
         <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
         <p>{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
@@ -437,35 +454,48 @@ async function saveProfile() {
     <div>
       <h1 className="text-2xl font-bold font-display text-stone-100 mb-1">Paramètres</h1>
       <p className="text-stone-500 text-sm mb-4">Compte, sécurité et établissement</p>
+
+      {openPanel && (
+        <button
+          type="button"
+          onClick={() => setOpenPanel(null)}
+          className="mb-4 flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300"
+        >
+          ← Retour à la liste
+        </button>
+      )}
+
+      {!openPanel && (
       <div className="max-w-lg space-y-4 mb-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Gestion du compte</p>
           <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
-            <SettingsRow icon={<User size={20} />} title="Mon profil" subtitle="Nom, photo, rôle" />
-            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle="Forfait et paiement" />
+            <SettingsRow icon={<User size={20} />} title="Mon profil" subtitle="Nom, photo, rôle" onClick={() => setOpenPanel('profile')} />
+            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle="Forfait et paiement" onClick={() => setOpenPanel('sub')} />
           </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Sécurité</p>
           <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
-            <SettingsRow icon={<KeyRound size={20} />} title="Mot de passe" subtitle="Changer le mot de passe" />
-            <SettingsRow icon={<Fingerprint size={20} />} title="Code PIN et biométrie" subtitle="Empreinte / Face ID" />
-            <SettingsRow icon={<Shield size={20} />} title="Autorisations appareil" subtitle="Micro, caméra, GPS" />
+            <SettingsRow icon={<KeyRound size={20} />} title="Mot de passe" subtitle="Changer le mot de passe" onClick={() => setOpenPanel('password')} />
+            <SettingsRow icon={<Fingerprint size={20} />} title="Code PIN et biométrie" subtitle="Empreinte / Face ID" onClick={() => setOpenPanel('bio')} />
+            <SettingsRow icon={<Shield size={20} />} title="Autorisations appareil" subtitle="Micro, caméra, GPS" onClick={() => setOpenPanel('perms')} />
           </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Établissement & application</p>
           <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
-            <SettingsRow icon={<Building2 size={20} />} title="Infos établissement" subtitle="Nom, adresse, contacts" />
-            <SettingsRow icon={<MapPin size={20} />} title="Position GPS" subtitle="Localisation" />
-            <SettingsRow icon={<Palette size={20} />} title="Apparence" subtitle="Mode jour / sombre" />
-            <SettingsRow icon={<RefreshCw size={20} />} title="Mises à jour" subtitle="Version de l’app" />
-            <SettingsRow icon={<LogOut size={20} />} title="Session" subtitle="Déconnexion" />
+            <SettingsRow icon={<Building2 size={20} />} title="Infos établissement" subtitle="Nom, adresse, contacts" onClick={() => setOpenPanel('est')} />
+            <SettingsRow icon={<MapPin size={20} />} title="Position GPS" subtitle="Localisation" onClick={() => setOpenPanel('gps')} />
+            <SettingsRow icon={<Palette size={20} />} title="Apparence" subtitle="Mode jour / sombre" onClick={() => setOpenPanel('theme')} />
+            <SettingsRow icon={<RefreshCw size={20} />} title="Mises à jour" subtitle="Version de l’app" onClick={() => setOpenPanel('update')} />
+            <SettingsRow icon={<LogOut size={20} />} title="Session" subtitle="Déconnexion" onClick={() => setOpenPanel('session')} />
           </div>
         </div>
       </div>
-      <p className="text-xs text-stone-500 mb-4 max-w-lg">Utilisez les blocs ci-dessous pour modifier chaque paramètre.</p>
+      )}
 
+      {openPanel === 'perms' && (
       <div className="card mb-4 space-y-2 border-amber-500/20">
         <p className="font-medium text-stone-100 flex items-center gap-2">
           <Shield size={18} className="text-amber-400" /> Autorisations appareil
@@ -491,10 +521,7 @@ async function saveProfile() {
           Afficher l’écran d’autorisations
         </button>
       </div>
-      <p className="text-sm text-stone-400 mt-2">
-        Pour autoriser un employé à modifier le stock : allez dans <a href="/mes-employes" className="text-amber-400 underline">Équipe</a> et cochez « Modifier stock ».
-      </p>
-      <p className="text-stone-400 text-sm mb-6">Personnalisez votre compte et votre établissement</p>
+      )}
 
       {error && (
         <div className="mb-4 bg-error-500/10 border border-error-500/30 rounded-xl p-3 text-sm text-error-300">
@@ -504,6 +531,7 @@ async function saveProfile() {
 
       <div className="max-w-lg space-y-6">
         {/* Profil */}
+        {openPanel === 'profile' && (
         <div className="card">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <User size={20} className="text-primary-400" /> Mon profil
@@ -549,7 +577,9 @@ async function saveProfile() {
           </div>
         </div>
 
+        )}
         {/* Mot de passe */}
+        {openPanel === 'password' && (
         <div className="card">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <KeyRound size={20} className="text-amber-400" /> Sécurité — Mot de passe
@@ -595,7 +625,9 @@ async function saveProfile() {
           </div>
         </div>
 
+        )}
         {/* Biométrie */}
+        {openPanel === 'bio' && (
         <div className="card">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <Fingerprint size={20} className="text-amber-400" /> Sécurité — Biométrie
@@ -653,7 +685,9 @@ async function saveProfile() {
           )}
         </div>
 
+        )}
         {/* Établissement */}
+        {openPanel === 'est' && (
         <div className="card">
           <h2 className="text-lg font-semibold text-stone-100 mb-4 flex items-center gap-2">
             <Building2 size={20} className="text-secondary-400" />
@@ -829,7 +863,9 @@ async function saveProfile() {
           )}
         </div>
 
+        )}
         {/* Mises à jour */}
+        {openPanel === 'update' && (
         <div className="card space-y-3">
           <h2 className="text-lg font-semibold text-stone-100">Mises à jour</h2>
           <p className="text-sm text-stone-400">
@@ -883,6 +919,8 @@ async function saveProfile() {
         </div>
 
 
+        )}
+        {openPanel === 'perms' && (
         <div className="card space-y-3">
           <h2 className="text-lg font-semibold text-stone-100">Autorisations téléphone</h2>
           <p className="text-sm text-stone-400">
@@ -910,6 +948,8 @@ async function saveProfile() {
           </button>
         </div>
 
+        )}
+        {openPanel === 'session' && (
         <div className="card space-y-3">
           <h2 className="text-lg font-semibold text-stone-100">Session</h2>
           <button
@@ -923,6 +963,25 @@ async function saveProfile() {
             Se déconnecter
           </button>
         </div>
+        )}
+
+        {openPanel === 'gps' && (
+        <div className="card space-y-3">
+          <h2 className="text-lg font-semibold text-sky-300 flex items-center gap-2">
+            <MapPin size={18} /> Position GPS
+          </h2>
+          {gpsCoords ? (
+            <p className="font-mono text-sm text-stone-300">{gpsCoords.lat.toFixed(6)}, {gpsCoords.lng.toFixed(6)}</p>
+          ) : (
+            <p className="text-sm text-stone-500">Aucune position enregistrée</p>
+          )}
+          <button type="button" className="btn-primary w-full flex items-center justify-center gap-2" disabled={gpsLoading} onClick={() => void captureGps()}>
+            {gpsLoading ? <Loader2 className="animate-spin" size={18} /> : <MapPin size={18} />}
+            {gpsCoords ? 'Mettre à jour ma position GPS' : 'Enregistrer ma position GPS'}
+          </button>
+          {gpsMsg && <p className="text-xs text-stone-400">{gpsMsg}</p>}
+        </div>
+        )}
 
       </div>
     </div>
