@@ -200,7 +200,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       await refreshNotifs();
       if (activeEstablishment) {
         setEstName(activeEstablishment.name);
-        setEstLogo(activeEstablishment.logo_url || '/logo-sm.png');
+        setEstLogo(activeEstablishment.logo_url || null);
       } else if (member.establishment_id) {
         const { data } = await supabase
           .from('establishments')

@@ -1,4 +1,4 @@
-/** Signature Kevin Tech Pro — sans email public (réservé à l’assistance IA) */
+/** Signature Kevin Tech Pro — logo KTP distinct du logo Stock Manager */
 const SOCIALS = [
   { label: 'Facebook', href: 'https://www.facebook.com/search/top?q=kevin%20tech%20pro' },
   { label: 'TikTok', href: 'https://www.tiktok.com/search?q=kevin%20tech%20pro' },
@@ -14,11 +14,11 @@ export default function BrandFooter({ compact = false }: { compact?: boolean }) 
       <div className="max-w-lg mx-auto flex flex-col items-center gap-2 text-center">
         <div className="flex items-center gap-2.5">
           <img
-            src="/logo-sm.png"
+            src="/kevin-tech-pro-logo.png"
             alt="Kevin Tech Pro"
-            className="h-9 w-9 rounded-lg object-cover bg-white p-0.5"
+            className="h-9 w-9 rounded-lg object-contain bg-white p-0.5"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/logo-sm.png';
+              (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
             }}
           />
           <div className="text-left">

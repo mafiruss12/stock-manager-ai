@@ -468,7 +468,7 @@ async function resendConfirmation() {
         {Array.from({ length: 6 }).map((_, i) => (
           <img
             key={i}
-            src="/logo-sm.png"
+            src="/kevin-tech-pro-logo.png"
             alt=""
             className="auth-logo-float absolute object-contain opacity-[0.12]"
             style={{
@@ -480,17 +480,17 @@ async function resendConfirmation() {
               animationDuration: `${14 + (i % 4) * 3}s`,
             }}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = '/logo-sm.png';
+              (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
             }}
           />
         ))}
         {/* Grand logo central en fond */}
         <img
-          src="/logo-sm.png"
+          src="/kevin-tech-pro-logo.png"
           alt=""
-          className="auth-logo-center absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.08] w-[min(90vw,520px)] h-[min(90vw,520px)]"
+          className="auth-logo-center absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-1/2 object-contain opacity-[0.08] w-[min(90vw,520px)] h-[min(90vw,520px)]"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/logo-sm.png';
+            (e.target as HTMLImageElement).src = '/kevin-tech-pro-logo.jpg';
           }}
         />
       </div>
@@ -622,7 +622,7 @@ async function resendConfirmation() {
           )}
 
           <div className="flex flex-col items-center gap-2 mb-4">
-            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-14 w-14 rounded-full object-cover shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/logo-sm.png'; }} />
+            <img src="/logo-sm.png" alt="Stock Manager AI" className="h-14 w-14 rounded-full object-cover shadow" onError={(e) => { (e.target as HTMLImageElement).src = '/logo-sm-solid.png'; }} />
             <p className="text-xs text-stone-400 text-center">
               <span className="font-semibold text-stone-200">Stock Manager AI</span>
               <br />
