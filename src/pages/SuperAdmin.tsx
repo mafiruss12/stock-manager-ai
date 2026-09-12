@@ -8,7 +8,8 @@ import { Modal, Badge, EmptyState } from '@/components/ui';
 import { toAuthEmail, displayLogin, generatePassword, generateLogin } from '@/lib/login';
 import {
   PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
-  getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink } from '@/lib/subscription';
+  getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink,
+} from '@/lib/subscription';
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
@@ -269,6 +270,17 @@ export default function SuperAdmin() {
       mfa_secret: null }).eq('user_id', member.user_id);
     if (err) setError(err.message);
     else flash('2FA désactivée');
+  }
+
+  async function setPlanTier(estId: string, tier: string) {
+    const { error: err } = await supabase.from('establishments').update({
+      plan_tier: tier,
+    } as any).eq('id', estId);
+    if (err) setError(err.message);
+    else {
+      flash(`Palier mis à jour : ${tier}`);
+      await loadData();
+    }
   }
 
   async function activateSubscription(estId: string, months: number) {
@@ -1221,6 +1233,7 @@ export default function SuperAdmin() {
                 <thead>
                   <tr className="text-left text-stone-500 border-b border-stone-800">
                     <th className="py-2">Établissement</th>
+                    <th className="py-2">Palier</th>
                     <th className="py-2">Statut</th>
                     <th className="py-2">Essai fin</th>
                     <th className="py-2">Abo fin</th>
@@ -1233,6 +1246,18 @@ export default function SuperAdmin() {
                     return (
                       <tr key={est.id} className="border-b border-stone-800/60">
                         <td className="py-2 text-stone-200">{est.name}</td>
+                        <td className="py-2">
+                          <select
+                            className="text-[12px] bg-stone-800 border border-stone-700 rounded px-2 py-1 text-stone-200 max-w-[120px]"
+                            value={(est as any).plan_tier || 'starter'}
+                            onChange={(e) => void setPlanTier(est.id, e.target.value)}
+                            title="Palier"
+                          >
+                            <option value="starter">Essentiel</option>
+                            <option value="pro">Pro</option>
+                            <option value="business">Business</option>
+                          </select>
+                        </td>
                         <td className="py-2">
                           <span className={st.blocked ? 'text-red-400' : st.status === 'active' ? 'text-emerald-400' : 'text-amber-300'}>
                             {st.label}

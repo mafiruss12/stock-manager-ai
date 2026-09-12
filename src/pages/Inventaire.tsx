@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { Package, Plus, Pencil, Trash2, Search, AlertTriangle, Sparkles, Download, Upload, Calculator, Camera, Printer, Truck, MoreHorizontal, History, RefreshCw, Volume2, ImageIcon } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { usePlanAccess } from '@/lib/usePlanAccess';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
@@ -34,6 +35,7 @@ function aiStatus(stock: number, min: number): { label: string; color: 'error' |
 export default function Inventaire() {
   const navigate = useNavigate();
   const { member, activeEstablishment, effectiveRole } = useAuth();
+  const { assertProductLimit } = usePlanAccess();
   const bizType = normalizeBusinessType((activeEstablishment as any)?.type);
   const ui = getBusinessUI(bizType);
   const showCasiers = usesCasiers(bizType);
@@ -282,6 +284,7 @@ export default function Inventaire() {
           client_op_id: opId,
         });
       } else {
+        if (!assertProductLimit(products.length)) return;
         const { data: ins, error: insErr } = await supabase.from('products').insert(payload).select('id').maybeSingle();
         if (insErr) {
           alert('Création impossible : ' + insErr.message);

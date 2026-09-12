@@ -7,6 +7,7 @@ import ReportDelayNotifier from '@/components/ReportDelayNotifier';
 import PermissionsOnboarding from '@/components/PermissionsOnboarding';
 import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
+import { usePlanAccess } from '@/lib/usePlanAccess';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
 import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { startPrefetchInterval, flushQueue, queueCount } from '@/lib/offline';
@@ -121,6 +122,7 @@ const SECTION_META: Record<string, { emoji: string; gradient: string; border: st
     text: 'text-sky-200' } };
 
 export default function AppLayout({ children }: { children: ReactNode }) {
+  const { allow, plan: planLimits } = usePlanAccess();
   const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
   // Déconnexion auto après 15 min sans activité
@@ -280,6 +282,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       // Filtre métier : uniquement les routes du type d'établissement
       const alwaysOn = item.to === '/daily-report' || item.to === '/dashboard' || item.to === '/settings';
       if (!alwaysOn && !allowedRoutes.has(item.to)) return false;
+
+      // Limites de palier (Essentiel / Pro / Business)
+      if ((item.to === '/kitchen') && !allow('kitchen')) return false;
+      if ((item.to === '/menu-qr' || item.to === '/print-qr') && !allow('qrOrdering')) return false;
+      if ((item.to === '/vision-scan' || item.to === '/ocr') && !allow('ocrAi')) return false;
 
       // Modules location uniquement pour location_event (et dans Outils)
       if (RENT_ONLY.has(item.to) && !isLocation) return false;
