@@ -625,17 +625,7 @@ async function resendConfirmation() {
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-2 mb-4">
-            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow">
-              <Package className="text-stone-950" size={22} />
-            </div>
-            <p className="text-xs text-stone-400 text-center">
-              <span className="font-semibold text-stone-200">Stock Manager AI</span>
-              <br />
-              <span className="text-amber-400 font-bold">Powered by Kevin Tech Pro</span>
-            </p>
-          </div>
-          <AdMarquee className="mb-4 mx-1" />
+
         <form onSubmit={handleSubmit} className="space-y-4">
             {(mode === 'signin' || mode === 'signup') && (
               <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-stone-800/80 border border-stone-700 mb-1">
