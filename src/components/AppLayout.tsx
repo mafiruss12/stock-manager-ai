@@ -557,16 +557,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button onClick={() => setSidebarOpen(true)} className="text-stone-300">
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2">
-            {estLogo ? (
-              <img src={estLogo} alt="" className="w-6 h-6 rounded object-cover" />
-            ) : (
-              <Beer size={20} className="text-primary-500" />
-            )}
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shrink-0" aria-hidden />
-              <span className="font-display font-bold text-stone-100 truncate">{estName || 'Stock Manager AI'}</span>
-            </div>
+          <div className="flex items-center gap-2 min-w-0 flex-1 justify-center px-1">
+            <img
+              src="/logo-sm.png"
+              alt="Stock Manager"
+              className="w-8 h-8 rounded-full object-cover shrink-0 border border-amber-500/30"
+            />
+            <span className="font-display font-bold text-stone-100 truncate text-sm">
+              {estName || 'Stock Manager AI'}
+            </span>
           </div>
 
           <div className="flex items-center gap-1">
