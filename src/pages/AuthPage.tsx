@@ -581,9 +581,11 @@ async function resendConfirmation() {
         <div className="order-1 lg:order-2 w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
         <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl auth-form-card">
           <div className="flex flex-col items-center mb-6">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-3 shadow-lg shadow-amber-900/30">
-              <Package className="text-stone-950" size={28} />
-            </div>
+            <img
+              src="/logo-sm.png"
+              alt="Stock Manager AI"
+              className="h-20 w-20 rounded-full object-cover mb-3 shadow-lg shadow-amber-900/40 border border-amber-500/30"
+            />
             <h1 className="text-3xl font-bold font-display text-stone-100">Stock Manager AI</h1>
             <p className="text-sm text-stone-400 mt-1">
               {mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Gestion intelligente multi-métiers'}
