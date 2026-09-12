@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import { useAuth } from '@/lib/auth';
-import { PLAN, getSubscriptionState, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
+import { PLAN, PLANS, getSubscriptionState, getEffectivePlan, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
@@ -438,6 +438,7 @@ async function saveProfile() {
     {openPanel === 'sub' && activeEstablishment && (
       <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-stone-200">
         <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
+        <p className="text-sm text-amber-100/90 mb-1">Plan : <strong>{getEffectivePlan(activeEstablishment as any).label}</strong></p>
         <p>{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
         <p className="text-xs text-stone-400 mt-2 whitespace-pre-wrap">{paymentInstructions()}</p>
         <a

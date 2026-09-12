@@ -4,7 +4,8 @@ import {
 } from 'lucide-react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/auth'
+import { usePlanAccess } from '@/lib/usePlanAccess';
 import type { Member, Role } from '@/lib/types';
 import { ROLE_LABELS, ROLE_RANK } from '@/lib/types';
 import { Modal, Badge, EmptyState } from '@/components/ui';
@@ -249,6 +250,30 @@ function TeamAccessForm({
     if (!login.trim() || !password) {
       setError('Identifiant et mot de passe obligatoires');
       return;
+    }
+    // Limite plan Starter / Pro
+    try {
+      const { count } = await supabase
+        .from('members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('establishment_id', establishmentId)
+        .neq('role', 'owner');
+      const { getEffectivePlan } = await import('@/lib/subscription');
+      const { data: estRow } = await supabase
+        .from('establishments')
+        .select('plan_tier, subscription_status')
+        .eq('id', establishmentId)
+        .maybeSingle();
+      const plan = getEffectivePlan(estRow as any);
+      if ((count ?? 0) >= plan.maxEmployees) {
+        setError(
+          `Limite plan ${plan.label} : ${plan.maxEmployees} employés max. Passez en Pro pour en ajouter.`,
+        );
+        setLoading(false);
+        return;
+      }
+    } catch {
+      /* continue si table absente */
     }
     if (ROLE_RANK[role] <= ROLE_RANK[myRole]) {
       setError('Rôle non autorisé');

@@ -1,3 +1,4 @@
+import { usePlanAccess } from '@/lib/usePlanAccess';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   UtensilsCrossed, CheckCircle2, Clock, ChefHat, Bell, Wallet, Loader2,
@@ -34,6 +35,16 @@ const ORDER_COLS =
 const ITEM_COLS = 'id, order_id, product_id, product_name, qty, unit_price, status';
 
 export default function Kitchen() {
+  const { allow, plan } = usePlanAccess();
+  if (!allow('kitchen')) {
+    return (
+      <div className="card p-6 space-y-2 max-w-lg">
+        <h1 className="text-lg font-semibold">Cuisine / file d’attente</h1>
+        <p className="text-sm text-stone-400">Fonction Pro. Plan actuel : {plan.label}.</p>
+      </div>
+    );
+  }
+
   const { member, activeEstablishment } = useAuth();
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const [orders, setOrders] = useState<OrderWithItems[]>([]);

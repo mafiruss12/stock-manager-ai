@@ -4,6 +4,7 @@ import {
   QrCode, Copy, Check, ExternalLink, Printer, Loader2, ToggleLeft, ToggleRight, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { usePlanAccess } from '@/lib/usePlanAccess';
 import { useAuth } from '@/lib/auth';
 import {
   normalizeBusinessType,
@@ -170,6 +171,21 @@ export default function MenuQR() {
         title="Aucun établissement"
         message="Sélectionnez un établissement."
       />
+    );
+  }
+
+  const { allow, plan } = usePlanAccess();
+  if (!allow('qrOrdering')) {
+    return (
+      <div className="card p-6 space-y-3 max-w-lg">
+        <h1 className="text-lg font-semibold text-stone-100">Commande QR tables</h1>
+        <p className="text-sm text-stone-400">
+          Réservé au plan <strong className="text-amber-300">Pro</strong> (votre plan effectif : {plan.label}).
+        </p>
+        <p className="text-xs text-stone-500">
+          Passez en Pro pour générer les QR de tables, recevoir les commandes et assigner les serveurs.
+        </p>
+      </div>
     );
   }
 

@@ -1,5 +1,6 @@
 /** Offre commerciale Stock Manager CI */
 
+/** Tarifs de référence (affichage commercial) */
 export const PLAN = {
   setupStockFcfa: 15_000,
   setupTrainingFcfa: 10_000,
@@ -9,6 +10,118 @@ export const PLAN = {
   graceDays: 3,
   currencyLabel: 'F CFA',
 } as const;
+
+/** Plans Starter / Pro — limites d’accès dans l’app */
+export type PlanTier = 'starter' | 'pro' | 'business';
+
+export type PlanLimits = {
+  id: PlanTier;
+  label: string;
+  setupFcfa: number;
+  monthlyFcfa: number;
+  maxEstablishments: number;
+  maxEmployees: number;
+  maxProducts: number;
+  /** Commande QR / tables */
+  qrOrdering: boolean;
+  /** Cuisine / file d’attente */
+  kitchen: boolean;
+  /** Multi-établissements (switch) */
+  multiSite: boolean;
+  /** OCR Gemini / analyse tickets */
+  ocrAi: boolean;
+  /** Rapports semaine/mois auto avancés */
+  advancedReports: boolean;
+  /** Support prioritaire (affichage) */
+  prioritySupport: boolean;
+};
+
+export const PLANS: Record<PlanTier, PlanLimits> = {
+  starter: {
+    id: 'starter',
+    label: 'Starter',
+    setupFcfa: 10_000,
+    monthlyFcfa: 5_000,
+    maxEstablishments: 1,
+    maxEmployees: 3,
+    maxProducts: 80,
+    qrOrdering: false,
+    kitchen: false,
+    multiSite: false,
+    ocrAi: false,
+    advancedReports: false,
+    prioritySupport: false,
+  },
+  pro: {
+    id: 'pro',
+    label: 'Pro',
+    setupFcfa: 30_000,
+    monthlyFcfa: 12_000,
+    maxEstablishments: 3,
+    maxEmployees: 15,
+    maxProducts: 500,
+    qrOrdering: true,
+    kitchen: true,
+    multiSite: true,
+    ocrAi: true,
+    advancedReports: true,
+    prioritySupport: true,
+  },
+  business: {
+    id: 'business',
+    label: 'Business',
+    setupFcfa: 50_000,
+    monthlyFcfa: 25_000,
+    maxEstablishments: 20,
+    maxEmployees: 100,
+    maxProducts: 5_000,
+    qrOrdering: true,
+    kitchen: true,
+    multiSite: true,
+    ocrAi: true,
+    advancedReports: true,
+    prioritySupport: true,
+  },
+};
+
+export function normalizePlanTier(raw: string | null | undefined): PlanTier {
+  const v = String(raw || 'starter').toLowerCase();
+  if (v === 'pro' || v === 'professional') return 'pro';
+  if (v === 'business' || v === 'entreprise') return 'business';
+  return 'starter';
+}
+
+export function getPlanLimits(est: { plan_tier?: string | null } | null | undefined): PlanLimits {
+  return PLANS[normalizePlanTier(est?.plan_tier)];
+}
+
+export type PlanFeature =
+  | 'qrOrdering'
+  | 'kitchen'
+  | 'multiSite'
+  | 'ocrAi'
+  | 'advancedReports'
+  | 'prioritySupport';
+
+/** Pendant l’essai gratuit : accès Pro pour convaincre, puis retour au plan choisi */
+export function getEffectivePlan(
+  est: { plan_tier?: string | null; subscription_status?: string | null } | null | undefined,
+): PlanLimits {
+  const status = String(est?.subscription_status || 'trial');
+  if (status === 'trial') return PLANS.pro;
+  return getPlanLimits(est);
+}
+
+export function canUseFeature(
+  est: { plan_tier?: string | null; subscription_status?: string | null } | null | undefined,
+  feature: PlanFeature,
+): boolean {
+  return Boolean(getEffectivePlan(est)[feature]);
+}
+
+export function upgradeMessage(featureLabel: string): string {
+  return `${featureLabel} est réservé au plan Pro. Passez en Pro (12 000 F/mois) via WhatsApp pour débloquer.`;
+}
 
 /** Durées d’abonnement proposées (mois) */
 export const SUB_PERIODS = [
@@ -72,6 +185,7 @@ export type EstSubscription = {
   trial_ends_at?: string | null;
   subscription_ends_at?: string | null;
   last_payment_at?: string | null;
+  plan_tier?: string | null;
 };
 
 export function trialEndsAtFromNow(days = PLAN.trialDays): string {
@@ -130,7 +244,7 @@ export function getSubscriptionState(est: EstSubscription | null | undefined): {
     return {
       status: 'active',
       blocked: false,
-      label: 'Actif',
+      label: `Actif · ${getPlanLimits(est).label}`,
       daysLeft,
       message:
         daysLeft != null
@@ -164,7 +278,7 @@ export function getSubscriptionState(est: EstSubscription | null | undefined): {
     return {
       status: 'trial',
       blocked: false,
-      label: 'Essai gratuit',
+      label: 'Essai gratuit · accès Pro',
       daysLeft,
       message: `Essai gratuit — ${daysLeft} j restant(s). Puis ${PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois.`,
     };
