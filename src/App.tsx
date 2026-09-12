@@ -42,6 +42,7 @@ import Customers from '@/pages/Customers';
 import Tables from '@/pages/Tables';
 import Orders from '@/pages/Orders';
 import Kitchen from '@/pages/Kitchen';
+import PlanGate from '@/components/PlanGate';
 import Accounting from '@/pages/Accounting';
 import Statistics from '@/pages/Statistics';
 import Reports from '@/pages/Reports';
@@ -180,7 +181,7 @@ function ProtectedRoutes() {
         <Route path="/pos" element={<RedirectToReportTab tab="caisse" />} />
         <Route path="/caisse" element={<Navigate to="/pos" replace />} />
         <Route path="/orders" element={<Orders />} />
-        <Route path="/kitchen" element={<Kitchen />} />
+        <Route path="/kitchen" element={<PlanGate feature="kitchen" label="Cuisine / Grill"><Kitchen /></PlanGate>} />
         <Route path="/inventory" element={<Inventaire />} />
         <Route path="/inventory/scan" element={<ScanInventaire />} />
         <Route path="/inventaire" element={<Navigate to="/inventory" replace />} />
@@ -188,7 +189,7 @@ function ProtectedRoutes() {
         <Route path="/guide" element={<GuidePage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/kits" element={<KitsPromos />} />
-        <Route path="/menu-qr" element={<MenuQR />} />
+        <Route path="/menu-qr" element={<PlanGate feature="qrOrdering" label="QR / Menu en ligne"><MenuQR /></PlanGate>} />
         <Route path="/stock-transfer" element={<StockTransfer />} />
         <Route path="/tables" element={<Tables />} />
         <Route path="/mes-employes" element={<MesEmployes />} />
@@ -204,7 +205,7 @@ function ProtectedRoutes() {
         <Route path="/daily-report" element={<DailyReportSafe />} />
         <Route path="/live-sales" element={<LiveDaySales />} />
         <Route path="/mon-service" element={<MonService />} />
-        <Route path="/print-qr" element={<PrintTableQR />} />
+        <Route path="/print-qr" element={<PlanGate feature="qrOrdering" label="Imprimer QR tables"><PrintTableQR /></PlanGate>} />
         <Route path="/patron" element={<PatronMode />} />
         <Route path="/cloture" element={<RedirectToReportTab tab="cloture" />} />
         <Route path="/ai" element={<AIAssistant />} />

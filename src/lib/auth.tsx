@@ -156,6 +156,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function switchEstablishment(establishmentId: string) {
     if (!user || !member) return;
     const target = myEstablishments.find((e) => e.id === establishmentId);
+    if (!target) return;
+
+    // Palier : multi-sites / max établissements
+    const primary = myEstablishments[0];
+    const plan = getEffectivePlan(primary as any);
+    if (!plan.multiSite && establishmentId !== (member.establishment_id || primary?.id)) {
+      alert(
+        `Offre ${plan.label} : un seul établissement. Passez en Pro pour gérer plusieurs sites.`,
+      );
+      return;
+    }
+    if (myEstablishments.length > plan.maxEstablishments && establishmentId !== member.establishment_id) {
+      // si déjà trop de sites liés, on autorise le switch mais on a prévenu à la création
+      const allowedIds = myEstablishments.slice(0, plan.maxEstablishments).map((e) => e.id);
+      if (!allowedIds.includes(establishmentId) && member.role !== 'super_admin' && member.role !== 'admin') {
+        alert(`Offre ${plan.label} : maximum ${plan.maxEstablishments} établissement(s).`);
+        return;
+      }
+    }
+
     const role = (target?.member_role as Member['role']) || member.role;
 
     await supabase

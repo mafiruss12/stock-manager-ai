@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import { useAuth } from '@/lib/auth';
-import { PLAN, PLANS, getSubscriptionState, getEffectivePlan, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
+import { PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
