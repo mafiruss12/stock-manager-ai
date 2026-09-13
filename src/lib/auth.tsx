@@ -672,7 +672,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: alreadyMsg };
       }
 
-      // P0 — pas de connexion auto : l'utilisateur doit confirmer l'e-mail puis se connecter
+      // Profil membre propriétaire
       if (data?.user?.id) {
         try {
           await supabase.from('members').upsert(
@@ -691,19 +691,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Ne pas poser de session locale si confirm e-mail requis
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch {
-        /* */
+      // Session disponible (confirm e-mail désactivé côté Supabase) → connecter
+      if (data.session?.user) {
+        setSession(data.session);
+        setUser(data.session.user);
+        try {
+          await loadMemberData(data.session.user);
+        } catch {
+          setMember(buildFallbackMember(data.session.user));
+          setNeedsAccess(false);
+        }
+        setLoading(false);
+        return { error: null };
       }
-      setSession(null);
-      setUser(null);
+
+      // Pas de session (confirm e-mail activé) → tentative de connexion immédiate
+      // (nécessaire pour identifiants @maquis.local sans boîte mail)
+      try {
+        const { data: s2, error: e2 } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (!e2 && s2.session?.user) {
+          setSession(s2.session);
+          setUser(s2.session.user);
+          try {
+            await loadMemberData(s2.session.user);
+          } catch {
+            setMember(buildFallbackMember(s2.session.user));
+            setNeedsAccess(false);
+          }
+          setLoading(false);
+          return { error: null };
+        }
+        if (e2 && /confirm|verification|email not confirmed/i.test(e2.message || '')) {
+          setLoading(false);
+          return {
+            error:
+              'Confirmez votre e-mail via le lien reçu, puis connectez-vous. (Pour un identifiant sans e-mail réel, demandez à l’admin de désactiver la confirmation e-mail dans Supabase.)',
+          };
+        }
+      } catch { /* */ }
+
       setLoading(false);
-      return {
-        error: null,
-        needsEmailConfirm: true as unknown as null,
-      } as { error: string | null };
+      return { error: null };
     } catch (e: any) {
       setLoading(false);
       const msg = e?.message || 'Inscription impossible';

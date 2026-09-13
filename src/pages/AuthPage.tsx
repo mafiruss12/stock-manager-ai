@@ -418,15 +418,10 @@ async function resendConfirmation() {
         return;
       }
       void logSecurityEvent('signup');
-      setSuccess(
-        'Compte créé. Vérifiez votre e-mail (lien de confirmation), puis connectez-vous. Sans confirmation, la connexion peut être refusée.'
-      );
-      setMode('signin');
-      setPassword('');
-      setCaptcha(makeSignupCaptcha());
-      setCaptchaAnswer('');
-      setAcceptedTerms(false);
+      setSuccess('Compte créé. Redirection…');
       setLoading(false);
+      // Si session posée par signUp → dashboard ; sinon message connexion
+      navigate('/dashboard', { replace: true });
       return;
     } catch (ex: any) {
       setError(ex?.message || 'Erreur inattendue. Réessayez.');
