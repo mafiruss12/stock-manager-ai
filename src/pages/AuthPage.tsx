@@ -151,8 +151,11 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Déjà connecté → dashboard
+  // Déjà connecté → dashboard (sauf juste après déconnexion)
   useEffect(() => {
+    try {
+      if (sessionStorage.getItem('mm_signed_out') === '1') return;
+    } catch { /* */ }
     if (user && !authLoading) {
       window.location.replace('/dashboard');
     }
@@ -357,32 +360,22 @@ async function resendConfirmation() {
             .eq('user_id', uid)
             .maybeSingle();
           const role = String(mem?.role || '');
-          // P0 — 2FA admin uniquement (pas propriétaire)
-          if (['super_admin', 'admin'].includes(role)) {
-            if (mem?.mfa_enabled && mem?.mfa_secret) {
-              setPendingMfaUserId(uid);
-              setMode('mfa');
-              setSuccess("Entrez le code 2FA de votre application d'authentification");
-              void logSecurityEvent('mfa_challenge', { role });
-              setLoading(false);
-              return;
-            }
-            // Admin sans 2FA : configuration obligatoire
-            const secret = generateTotpSecret();
-            setSetupSecret(secret);
+          // 2FA admin uniquement si déjà activé (ne bloque plus la connexion sans 2FA)
+          if (['super_admin', 'admin'].includes(role) && mem?.mfa_enabled && mem?.mfa_secret) {
             setPendingMfaUserId(uid);
-            const email = sess.session?.user?.email || 'admin';
-            const url = otpauthUrl(secret, email, 'Stock Manager AI');
-            setSetupQr(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`);
-            setMode('mfa_setup');
-            setSuccess('Configuration 2FA obligatoire pour le compte admin');
-            void logSecurityEvent('mfa_setup', { role, forced: true });
+            setMode('mfa');
+            setSuccess("Entrez le code 2FA de votre application d'authentification");
+            void logSecurityEvent('mfa_challenge', { role });
             setLoading(false);
             return;
           }
-          void logSecurityEvent('login_success', { role });
+          void logSecurityEvent('login_success', { role: role || 'user' });
         }
+        try {
+          sessionStorage.removeItem('mm_signed_out');
+        } catch { /* */ }
         setSuccess('Connexion réussie…');
+        setLoading(false);
         window.location.replace('/dashboard');
         return;
       }

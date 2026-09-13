@@ -623,9 +623,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ne plus bloquer sur e-mail non confirmé (terrain / clients mobiles)
       // L'admin peut forcer la confirmation côté Supabase si besoin.
       registerLoginSuccess();
+      try {
+        sessionStorage.removeItem('mm_signed_out');
+      } catch { /* */ }
       const user = data.user ?? data.session?.user ?? null;
       if (data.session) {
         setSession(data.session);
+      } else {
+        // Relecture session (certains navigateurs)
+        try {
+          const { data: s2 } = await supabase.auth.getSession();
+          if (s2.session) setSession(s2.session);
+        } catch { /* */ }
       }
       if (user) {
         setUser(user);
@@ -635,6 +644,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setMember(buildFallbackMember(user));
           setNeedsAccess(false);
         }
+      } else {
+        setLoading(false);
+        return { error: 'Session non créée. Réessayez.' };
       }
       setLoading(false);
       return { error: null };
@@ -762,9 +774,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    // 1) Marquer déconnexion + vider l'UI immédiatement (évite page blanche figée)
+    // 1) Flag + état React immédiatement (multi-utilisateurs / pas de page blanche)
     try {
       sessionStorage.setItem('mm_signed_out', '1');
+      sessionStorage.removeItem('mm_biometric_unlocked_at');
     } catch { /* */ }
 
     setSession(null);
@@ -777,29 +790,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setViewAsRoleState(null);
     setLoading(false);
 
-    try {
-      const keys = Object.keys(localStorage);
-      for (const k of keys) {
-        if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
-          localStorage.removeItem(k);
-        }
-      }
-    } catch { /* */ }
-
-    // 2) Sign-out Supabase avec timeout (réseau lent / offline ne doit pas bloquer)
+    // 2) Supabase local d'abord (rapide)
     try {
       await Promise.race([
         supabase.auth.signOut({ scope: 'local' }),
-        new Promise((r) => setTimeout(r, 2000)),
+        new Promise((r) => setTimeout(r, 1200)),
       ]);
-    } catch {
-      try {
-        await Promise.race([
-          supabase.auth.signOut({ scope: 'local' }),
-          new Promise((r) => setTimeout(r, 500)),
-        ]);
-      } catch { /* ignore */ }
-    }
+    } catch { /* */ }
+
+    // 3) Nettoyage stockage (sessions d'un autre compte ne doivent pas rester)
+    try {
+      const keys = Object.keys(localStorage);
+      for (const k of keys) {
+        if (
+          k.startsWith('sb-') ||
+          k.startsWith('mm_') ||
+          k.includes('supabase') ||
+          k.includes('auth-token')
+        ) {
+          localStorage.removeItem(k);
+        }
+      }
+      // sessionStorage : garder seulement mm_signed_out
+      const sk = Object.keys(sessionStorage);
+      for (const k of sk) {
+        if (k !== 'mm_signed_out') {
+          try { sessionStorage.removeItem(k); } catch { /* */ }
+        }
+      }
+    } catch { /* */ }
   }
 
   /* Déconnexion auto désactivée : session jusqu'au bouton Déconnexion */

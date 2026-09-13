@@ -138,7 +138,6 @@ function ProtectedRoutes() {
       if (user) return;
       try {
         if (sessionStorage.getItem('mm_signed_out') === '1') {
-          sessionStorage.removeItem('mm_signed_out');
           setBootUser(null);
           return;
         }
@@ -155,7 +154,13 @@ function ProtectedRoutes() {
 
   if (!isSupabaseConfigured) return <ConfigError />;
 
-  const effectiveUser = user || bootUser;
+  // Déconnexion explicite : jamais de restauration de session fantôme
+  let signedOut = false;
+  try {
+    signedOut = sessionStorage.getItem('mm_signed_out') === '1';
+  } catch { /* */ }
+
+  const effectiveUser = signedOut ? null : (user || bootUser);
 
   if (loading && !effectiveUser && !loadTimedOut) {
     return (
@@ -260,7 +265,6 @@ function PublicOrApp() {
       if (user) return;
       try {
         if (sessionStorage.getItem('mm_signed_out') === '1') {
-          sessionStorage.removeItem('mm_signed_out');
           setBootUser(null);
           return;
         }
