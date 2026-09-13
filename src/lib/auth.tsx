@@ -540,6 +540,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
+          try {
+            // Une session valide annule le flag déconnexion
+            sessionStorage.removeItem('mm_signed_out');
+          } catch { /* */ }
           // Ne pas bloquer l'UI : profil en arrière-plan
           void ensureMember(session.user);
         }
@@ -613,6 +617,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Identifiant invalide (e-mail ou login simple sans espaces).' };
       }
       const email = toAuthEmail(login);
+      // Annule toute déconnexion en cours — le login a priorité
+      try {
+        sessionStorage.removeItem('mm_signed_out');
+        sessionStorage.setItem('mm_login_gen', String(Date.now()));
+      } catch { /* */ }
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
@@ -774,9 +783,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    // 1) Flag + état React immédiatement (multi-utilisateurs / pas de page blanche)
+    // Génération : si un login démarre pendant le signOut, on n'efface plus le stockage après coup
+    let logoutGen = '';
     try {
+      logoutGen = String(Date.now());
       sessionStorage.setItem('mm_signed_out', '1');
+      sessionStorage.setItem('mm_logout_gen', logoutGen);
       sessionStorage.removeItem('mm_biometric_unlocked_at');
     } catch { /* */ }
 
@@ -790,15 +802,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setViewAsRoleState(null);
     setLoading(false);
 
-    // 2) Supabase local d'abord (rapide)
-    try {
-      await Promise.race([
-        supabase.auth.signOut({ scope: 'local' }),
-        new Promise((r) => setTimeout(r, 1200)),
-      ]);
-    } catch { /* */ }
-
-    // 3) Nettoyage stockage (sessions d'un autre compte ne doivent pas rester)
+    // Nettoyage stockage TOUT DE SUITE (avant le réseau)
     try {
       const keys = Object.keys(localStorage);
       for (const k of keys) {
@@ -811,13 +815,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.removeItem(k);
         }
       }
-      // sessionStorage : garder seulement mm_signed_out
-      const sk = Object.keys(sessionStorage);
-      for (const k of sk) {
-        if (k !== 'mm_signed_out') {
-          try { sessionStorage.removeItem(k); } catch { /* */ }
-        }
-      }
+    } catch { /* */ }
+
+    // API locale — court ; n'efface plus le storage après (évite d'effacer un nouveau login)
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((r) => setTimeout(r, 800)),
+      ]);
+    } catch { /* */ }
+
+    // Si un login a eu lieu entre-temps, ne rien toucher
+    try {
+      if (sessionStorage.getItem('mm_logout_gen') !== logoutGen) return;
+      if (sessionStorage.getItem('mm_login_gen')) return;
     } catch { /* */ }
   }
 

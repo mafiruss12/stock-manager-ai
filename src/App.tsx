@@ -138,7 +138,14 @@ function ProtectedRoutes() {
       if (user) return;
       try {
         if (sessionStorage.getItem('mm_signed_out') === '1') {
-          setBootUser(null);
+          // Vérifier s'il y a quand même une session (login vient de réussir)
+          const { data: { session: sCheck } } = await supabase.auth.getSession();
+          if (sCheck?.user) {
+            try { sessionStorage.removeItem('mm_signed_out'); } catch { /* */ }
+            if (!cancelled) setBootUser(sCheck.user as any);
+            return;
+          }
+          if (!cancelled) setBootUser(null);
           return;
         }
       } catch { /* */ }
@@ -154,13 +161,8 @@ function ProtectedRoutes() {
 
   if (!isSupabaseConfigured) return <ConfigError />;
 
-  // Déconnexion explicite : jamais de restauration de session fantôme
-  let signedOut = false;
-  try {
-    signedOut = sessionStorage.getItem('mm_signed_out') === '1';
-  } catch { /* */ }
-
-  const effectiveUser = signedOut ? null : (user || bootUser);
+  // Session Supabase = source de vérité (ne pas bloquer un login réussi)
+  const effectiveUser = user || bootUser;
 
   if (loading && !effectiveUser && !loadTimedOut) {
     return (
@@ -265,7 +267,14 @@ function PublicOrApp() {
       if (user) return;
       try {
         if (sessionStorage.getItem('mm_signed_out') === '1') {
-          setBootUser(null);
+          // Vérifier s'il y a quand même une session (login vient de réussir)
+          const { data: { session: sCheck } } = await supabase.auth.getSession();
+          if (sCheck?.user) {
+            try { sessionStorage.removeItem('mm_signed_out'); } catch { /* */ }
+            if (!cancelled) setBootUser(sCheck.user as any);
+            return;
+          }
+          if (!cancelled) setBootUser(null);
           return;
         }
       } catch { /* */ }

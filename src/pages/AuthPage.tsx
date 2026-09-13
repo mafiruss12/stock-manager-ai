@@ -323,8 +323,12 @@ async function resendConfirmation() {
           setLoading(false);
           return;
         }
+        try {
+          sessionStorage.removeItem('mm_signed_out');
+          sessionStorage.setItem('mm_login_gen', String(Date.now()));
+        } catch { /* */ }
         setSuccess('Vérification 2FA OK…');
-        window.location.replace('/dashboard');
+        window.location.href = '/dashboard';
         return;
       }
 
@@ -373,10 +377,12 @@ async function resendConfirmation() {
         }
         try {
           sessionStorage.removeItem('mm_signed_out');
+          sessionStorage.setItem('mm_login_gen', String(Date.now()));
         } catch { /* */ }
         setSuccess('Connexion réussie…');
         setLoading(false);
-        window.location.replace('/dashboard');
+        // replace + reload propre vers le dashboard
+        window.location.href = '/dashboard';
         return;
       }
 
