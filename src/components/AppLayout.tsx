@@ -244,13 +244,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   async function handleSignOut() {
     try {
-      sessionStorage.setItem('mm_signed_out', '1');
+      await signOut();
     } catch { /* */ }
-    // Redirection immédiate — ne pas attendre le réseau
-    try {
-      void signOut();
-    } catch { /* */ }
-    window.location.replace('/');
+    window.location.assign('/');
   }
 
   const allowedRoutes = new Set(MENU_BY_TYPE[bizType] || MENU_BY_TYPE.maquis);

@@ -115,56 +115,10 @@ function DashboardSwitch() {
 
 function ProtectedRoutes() {
   const { user, member, loading, needsAccess } = useAuth();
-  const [bootUser, setBootUser] = useState(user);
-  const [loadTimedOut, setLoadTimedOut] = useState(false);
-
-  useEffect(() => {
-    setBootUser(user);
-  }, [user]);
-
-  // Évite le spinner infini si auth/réseau bloque
-  useEffect(() => {
-    if (!loading) {
-      setLoadTimedOut(false);
-      return;
-    }
-    const t = window.setTimeout(() => setLoadTimedOut(true), 8000);
-    return () => window.clearTimeout(t);
-  }, [loading]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (user) return;
-      try {
-        if (sessionStorage.getItem('mm_signed_out') === '1') {
-          // Vérifier s'il y a quand même une session (login vient de réussir)
-          const { data: { session: sCheck } } = await supabase.auth.getSession();
-          if (sCheck?.user) {
-            try { sessionStorage.removeItem('mm_signed_out'); } catch { /* */ }
-            if (!cancelled) setBootUser(sCheck.user as any);
-            return;
-          }
-          if (!cancelled) setBootUser(null);
-          return;
-        }
-      } catch { /* */ }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!cancelled && session?.user) {
-        setBootUser(session.user as any);
-      } else if (!cancelled) {
-        setBootUser(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
 
   if (!isSupabaseConfigured) return <ConfigError />;
 
-  // Session Supabase = source de vérité (ne pas bloquer un login réussi)
-  const effectiveUser = user || bootUser;
-
-  if (loading && !effectiveUser && !loadTimedOut) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-950">
         <Loader2 className="animate-spin text-primary-500" size={32} />
@@ -172,13 +126,14 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!effectiveUser) return <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/" replace />;
+
   try {
-    const acct = (effectiveUser as any)?.user_metadata?.account_type;
+    const acct = (user as any)?.user_metadata?.account_type;
     if (acct === 'visitor' || acct === 'provider') return <Navigate to="/" replace />;
   } catch { /* */ }
 
-  if (needsAccess && !member && !effectiveUser) return <PendingAccessPage />;
+  if (needsAccess && !member) return <PendingAccessPage />;
 
   return (
     <AppLayout>
@@ -266,17 +221,6 @@ function PublicOrApp() {
     (async () => {
       if (user) return;
       try {
-        if (sessionStorage.getItem('mm_signed_out') === '1') {
-          // Vérifier s'il y a quand même une session (login vient de réussir)
-          const { data: { session: sCheck } } = await supabase.auth.getSession();
-          if (sCheck?.user) {
-            try { sessionStorage.removeItem('mm_signed_out'); } catch { /* */ }
-            if (!cancelled) setBootUser(sCheck.user as any);
-            return;
-          }
-          if (!cancelled) setBootUser(null);
-          return;
-        }
       } catch { /* */ }
       try {
         const { data: { session } } = await supabase.auth.getSession();

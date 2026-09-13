@@ -540,11 +540,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          try {
-            // Une session valide annule le flag déconnexion
-            sessionStorage.removeItem('mm_signed_out');
-          } catch { /* */ }
-          // Ne pas bloquer l'UI : profil en arrière-plan
           void ensureMember(session.user);
         }
       } catch (e) {
@@ -577,14 +572,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveEstablishment(null);
         setViewAsRoleState(null);
         setLoading(false);
-        try {
-          const keys = Object.keys(localStorage);
-          for (const k of keys) {
-            if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
-              localStorage.removeItem(k);
-            }
-          }
-        } catch { /* */ }
         return;
       }
 
@@ -617,11 +604,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Identifiant invalide (e-mail ou login simple sans espaces).' };
       }
       const email = toAuthEmail(login);
-      // Annule toute déconnexion en cours — le login a priorité
-      try {
-        sessionStorage.removeItem('mm_signed_out');
-        sessionStorage.setItem('mm_login_gen', String(Date.now()));
-      } catch { /* */ }
       setLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
@@ -629,33 +611,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return { error: safeErrorMessage(error, 'Identifiant ou mot de passe incorrect') };
       }
-      // Ne plus bloquer sur e-mail non confirmé (terrain / clients mobiles)
-      // L'admin peut forcer la confirmation côté Supabase si besoin.
       registerLoginSuccess();
-      try {
-        sessionStorage.removeItem('mm_signed_out');
-      } catch { /* */ }
-      const user = data.user ?? data.session?.user ?? null;
-      if (data.session) {
-        setSession(data.session);
-      } else {
-        // Relecture session (certains navigateurs)
-        try {
-          const { data: s2 } = await supabase.auth.getSession();
-          if (s2.session) setSession(s2.session);
-        } catch { /* */ }
-      }
-      if (user) {
-        setUser(user);
-        try {
-          await loadMemberData(user);
-        } catch {
-          setMember(buildFallbackMember(user));
-          setNeedsAccess(false);
-        }
-      } else {
+      const signedUser = data.user ?? data.session?.user ?? null;
+      if (data.session) setSession(data.session);
+      if (!signedUser) {
         setLoading(false);
-        return { error: 'Session non créée. Réessayez.' };
+        return { error: 'Identifiant ou mot de passe incorrect' };
+      }
+      setUser(signedUser);
+      try {
+        await loadMemberData(signedUser);
+      } catch {
+        setMember(buildFallbackMember(signedUser));
+        setNeedsAccess(false);
       }
       setLoading(false);
       return { error: null };
@@ -783,15 +751,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    // Génération : si un login démarre pendant le signOut, on n'efface plus le stockage après coup
-    let logoutGen = '';
-    try {
-      logoutGen = String(Date.now());
-      sessionStorage.setItem('mm_signed_out', '1');
-      sessionStorage.setItem('mm_logout_gen', logoutGen);
-      sessionStorage.removeItem('mm_biometric_unlocked_at');
-    } catch { /* */ }
-
     setSession(null);
     setUser(null);
     setMember(null);
@@ -801,35 +760,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveEstablishment(null);
     setViewAsRoleState(null);
     setLoading(false);
-
-    // Nettoyage stockage TOUT DE SUITE (avant le réseau)
-    try {
-      const keys = Object.keys(localStorage);
-      for (const k of keys) {
-        if (
-          k.startsWith('sb-') ||
-          k.startsWith('mm_') ||
-          k.includes('supabase') ||
-          k.includes('auth-token')
-        ) {
-          localStorage.removeItem(k);
-        }
-      }
-    } catch { /* */ }
-
-    // API locale — court ; n'efface plus le storage après (évite d'effacer un nouveau login)
     try {
       await Promise.race([
         supabase.auth.signOut({ scope: 'local' }),
-        new Promise((r) => setTimeout(r, 800)),
+        new Promise((r) => setTimeout(r, 1500)),
       ]);
-    } catch { /* */ }
-
-    // Si un login a eu lieu entre-temps, ne rien toucher
-    try {
-      if (sessionStorage.getItem('mm_logout_gen') !== logoutGen) return;
-      if (sessionStorage.getItem('mm_login_gen')) return;
-    } catch { /* */ }
+    } catch { /* réseau : état déjà vidé */ }
   }
 
   /* Déconnexion auto désactivée : session jusqu'au bouton Déconnexion */

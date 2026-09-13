@@ -95,9 +95,6 @@ function mapAuthError(err: string, context: 'signin' | 'signup' | 'forgot' | 'ot
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  useEffect(() => {
-    if (user) navigate('/dashboard', { replace: true });
-  }, [user, navigate]);
   const [mode, setMode] = useState<Mode>('signin');
   const [newPassword, setNewPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -151,15 +148,12 @@ export default function AuthPage() {
     }
   }, []);
 
-  // Déjà connecté → dashboard (sauf juste après déconnexion)
+  // Déjà connecté → dashboard
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem('mm_signed_out') === '1') return;
-    } catch { /* */ }
     if (user && !authLoading) {
-      window.location.replace('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   // Retour Google OAuth : session puis dashboard
   useEffect(() => {
@@ -179,7 +173,7 @@ export default function AuthPage() {
         if (data.session?.user) {
           setSuccess('Connexion Google réussie…');
           window.history.replaceState({}, '', '/');
-          window.location.replace('/dashboard');
+          navigate('/dashboard', { replace: true });
         }
       } catch (e) {
         console.error('oauth return', e);
@@ -323,12 +317,9 @@ async function resendConfirmation() {
           setLoading(false);
           return;
         }
-        try {
-          sessionStorage.removeItem('mm_signed_out');
-          sessionStorage.setItem('mm_login_gen', String(Date.now()));
-        } catch { /* */ }
         setSuccess('Vérification 2FA OK…');
-        window.location.href = '/dashboard';
+        setLoading(false);
+        navigate('/dashboard', { replace: true });
         return;
       }
 
@@ -375,14 +366,9 @@ async function resendConfirmation() {
           }
           void logSecurityEvent('login_success', { role: role || 'user' });
         }
-        try {
-          sessionStorage.removeItem('mm_signed_out');
-          sessionStorage.setItem('mm_login_gen', String(Date.now()));
-        } catch { /* */ }
         setSuccess('Connexion réussie…');
         setLoading(false);
-        // replace + reload propre vers le dashboard
-        window.location.href = '/dashboard';
+        navigate('/dashboard', { replace: true });
         return;
       }
 
