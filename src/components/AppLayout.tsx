@@ -122,7 +122,9 @@ const SECTION_META: Record<string, { emoji: string; gradient: string; border: st
     text: 'text-sky-200' } };
 
 export default function AppLayout({ children }: { children: ReactNode }) {
-  const { allow, plan: planLimits } = usePlanAccess();
+  const planAccess = usePlanAccess();
+  const allow = planAccess.allow.bind(planAccess);
+  const planLimits = planAccess.plan;
   const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
   // Déconnexion auto après 15 min sans activité
@@ -242,21 +244,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   async function handleSignOut() {
     try {
-      await signOut();
-    } catch {
-      /* ignore */
-    } finally {
-      try {
-        sessionStorage.setItem('mm_signed_out', '1');
-        const keys = Object.keys(localStorage);
-        for (const k of keys) {
-          if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
-            localStorage.removeItem(k);
-          }
-        }
-      } catch { /* */ }
-      window.location.replace('/');
-    }
+      sessionStorage.setItem('mm_signed_out', '1');
+    } catch { /* */ }
+    // Redirection immédiate — ne pas attendre le réseau
+    try {
+      void signOut();
+    } catch { /* */ }
+    window.location.replace('/');
   }
 
   const allowedRoutes = new Set(MENU_BY_TYPE[bizType] || MENU_BY_TYPE.maquis);
@@ -284,9 +278,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       if (!alwaysOn && !allowedRoutes.has(item.to)) return false;
 
       // Limites de palier (Essentiel / Pro / Business)
-      if ((item.to === '/kitchen') && !allow('kitchen')) return false;
-      if ((item.to === '/menu-qr' || item.to === '/print-qr') && !allow('qrOrdering')) return false;
-      if ((item.to === '/vision-scan' || item.to === '/ocr') && !allow('ocrAi')) return false;
+      try {
+        if ((item.to === '/kitchen') && !allow('kitchen')) return false;
+        if ((item.to === '/menu-qr' || item.to === '/print-qr') && !allow('qrOrdering')) return false;
+        if ((item.to === '/vision-scan' || item.to === '/ocr') && !allow('ocrAi')) return false;
+      } catch { /* plan access non bloquant */ }
 
       // Modules location uniquement pour location_event (et dans Outils)
       if (RENT_ONLY.has(item.to) && !isLocation) return false;

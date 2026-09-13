@@ -762,27 +762,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    // 1) Marquer déconnexion + vider l'UI immédiatement (évite page blanche figée)
     try {
       sessionStorage.setItem('mm_signed_out', '1');
-    } catch { /* */ }
-
-    try {
-      await supabase.auth.signOut({ scope: 'global' });
-    } catch {
-      try {
-        await supabase.auth.signOut({ scope: 'local' });
-      } catch {
-        /* ignore network — force local cleanup */
-      }
-    }
-
-    try {
-      const keys = Object.keys(localStorage);
-      for (const k of keys) {
-        if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
-          localStorage.removeItem(k);
-        }
-      }
     } catch { /* */ }
 
     setSession(null);
@@ -794,6 +776,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setActiveEstablishment(null);
     setViewAsRoleState(null);
     setLoading(false);
+
+    try {
+      const keys = Object.keys(localStorage);
+      for (const k of keys) {
+        if (k.startsWith('sb-') || k.startsWith('mm_') || k.includes('supabase')) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch { /* */ }
+
+    // 2) Sign-out Supabase avec timeout (réseau lent / offline ne doit pas bloquer)
+    try {
+      await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((r) => setTimeout(r, 2000)),
+      ]);
+    } catch {
+      try {
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'local' }),
+          new Promise((r) => setTimeout(r, 500)),
+        ]);
+      } catch { /* ignore */ }
+    }
   }
 
   /* Déconnexion auto désactivée : session jusqu'au bouton Déconnexion */

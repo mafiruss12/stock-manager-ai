@@ -116,10 +116,21 @@ function DashboardSwitch() {
 function ProtectedRoutes() {
   const { user, member, loading, needsAccess } = useAuth();
   const [bootUser, setBootUser] = useState(user);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
 
   useEffect(() => {
     setBootUser(user);
   }, [user]);
+
+  // Évite le spinner infini si auth/réseau bloque
+  useEffect(() => {
+    if (!loading) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setLoadTimedOut(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +157,7 @@ function ProtectedRoutes() {
 
   const effectiveUser = user || bootUser;
 
-  if (loading && !effectiveUser) {
+  if (loading && !effectiveUser && !loadTimedOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-950">
         <Loader2 className="animate-spin text-primary-500" size={32} />
@@ -228,10 +239,20 @@ function ProtectedRoutes() {
 function PublicOrApp() {
   const { user, member, loading, needsAccess } = useAuth();
   const [bootUser, setBootUser] = useState(user);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
 
   useEffect(() => {
     setBootUser(user);
   }, [user]);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setLoadTimedOut(true), 6000);
+    return () => window.clearTimeout(t);
+  }, [loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,9 +265,13 @@ function PublicOrApp() {
           return;
         }
       } catch { /* */ }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!cancelled && session?.user) setBootUser(session.user as any);
-      else if (!cancelled) setBootUser(null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!cancelled && session?.user) setBootUser(session.user as any);
+        else if (!cancelled) setBootUser(null);
+      } catch {
+        if (!cancelled) setBootUser(null);
+      }
     })();
     return () => { cancelled = true; };
   }, [user]);
@@ -254,10 +279,14 @@ function PublicOrApp() {
   if (!isSupabaseConfigured) return <ConfigError />;
   const effectiveUser = user || bootUser;
 
-  if (loading && !effectiveUser) {
+  // Après timeout ou déconnexion : afficher login, pas un spinner infini
+  if (loading && !effectiveUser && !loadTimedOut) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-blue-600" size={32} />
+      <div className="min-h-screen flex items-center justify-center bg-stone-950 text-stone-300 text-sm">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="animate-spin text-amber-500" size={32} />
+          <span>Chargement…</span>
+        </div>
       </div>
     );
   }
