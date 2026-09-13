@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Beer, Store, CalendarDays, Loader2, Check, ShoppingBag, Wrench, ShoppingCart, HardHat, UtensilsCrossed } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
+import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import {
   BUSINESS_TYPES,
   BUSINESS_LABELS,
@@ -101,6 +102,12 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
           .from('establishments')
           .update({ owner_user_id: user.id })
           .eq('id', est.id);
+        // Catalogue de démarrage (boissons / produits à 0)
+        try {
+          await seedDefaultStockForEstablishment(est.id, selected);
+        } catch (seedErr) {
+          console.warn('seed stock', seedErr);
+        }
         try {
           localStorage.setItem(
             'mm_active_est',
