@@ -1,28 +1,37 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-/** Toujours ces valeurs en production (évite build Vercel sans env) */
-export const SUPABASE_URL = 'https://ycoaxbgxstxondxxnhhf.supabase.co';
-export const SUPABASE_ANON =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inljb2F4Ymd4c3R4b25keHhuaGhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2MTg5MTgsImV4cCI6MjEwMTE5NDkxOH0.iSPqcC8X1BXlgVYfhtFBY4QFq9UwiMycSisfhkNxV80';
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ?? '';
 
-const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
-const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+    supabaseUrl.startsWith('http') &&
+    !supabaseUrl.includes('placeholder') &&
+    supabaseAnonKey &&
+    supabaseAnonKey.length > 40 &&
+    !supabaseAnonKey.includes('placeholder')
+);
 
-const supabaseUrl =
-  envUrl && envUrl.startsWith('http') && !envUrl.includes('placeholder') ? envUrl : SUPABASE_URL;
-const supabaseAnonKey =
-  envKey && envKey.length > 40 && !envKey.includes('placeholder') ? envKey : SUPABASE_ANON;
+if (!isSupabaseConfigured && import.meta.env.DEV) {
+  console.warn(
+    '[supabase] VITE_SUPABASE_URL ou VITE_SUPABASE_ANON_KEY manquant. Vérifie ton .env local.'
+  );
+}
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const SUPABASE_URL = supabaseUrl;
+export const SUPABASE_ANON = supabaseAnonKey;
 
-export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    // storageKey: défaut Supabase (évite de couper les sessions existantes)
-    // implicit = plus fiable que PKCE sur mobile / redirections
-    flowType: 'implicit',
-  },
-});
+export const supabase: SupabaseClient = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      // implicit = plus fiable que PKCE sur mobile / redirections
+      flowType: 'implicit',
+    },
+  }
+);
