@@ -16,6 +16,7 @@ import { useEstId } from '@/lib/useEstId';
 import type { Product } from '@/lib/types';
 import { EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
+import { applyDefaultImagesToProducts, ensureProductImageCatalog } from '@/lib/productImages';
 import { formatFCFA } from '@/lib/format';
 import { buildWhatsAppLink, normalizeBusinessType } from '@/lib/businessTypes';
 import { notifyOwnerOnReport, getOwnerContacts } from '@/lib/notifyOwner';
@@ -257,7 +258,8 @@ export default function DailyReportPage({ embedded = false }: { embedded?: boole
           /* */
         }
       }
-      setProducts(list);
+      void ensureProductImageCatalog();
+      setProducts(applyDefaultImagesToProducts(list) as Product[]);
       // Prefill POS : quantités caisse du jour si rapport pas encore saisi
       try {
         const ops = await loadDayOpsSummary(estId, date);

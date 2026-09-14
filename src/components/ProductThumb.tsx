@@ -26,24 +26,25 @@ export default function ProductThumb({
   const c = category ?? product?.category ?? '';
   const img = imageUrl ?? product?.image_url ?? null;
 
-  const [catalogReady, setCatalogReady] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
 
+  // Enrichir le catalogue en fond (optionnel)
   useEffect(() => {
-    void ensureProductImageCatalog().then(() => setCatalogReady(true));
+    void ensureProductImageCatalog();
   }, []);
 
   useEffect(() => {
     setFailed(null);
   }, [n, c, img]);
 
+  // resolveProductImage utilise déjà image_url + catalogue + RULES Unsplash
   const src = useMemo(() => {
     const primary = resolveProductImage({ name: n, category: c, image_url: img });
     if (primary && primary !== failed) return primary;
     const fallback = resolveProductImage({ name: n, category: c, image_url: null });
     if (fallback && fallback !== failed) return fallback;
     return null;
-  }, [n, c, img, catalogReady, failed]);
+  }, [n, c, img, failed]);
 
   const emoji = categoryEmoji(c, n);
 
@@ -67,9 +68,8 @@ export default function ProductThumb({
       height={size}
       loading="lazy"
       decoding="async"
-      referrerPolicy="no-referrer"
       onError={() => setFailed(src)}
-      className={`rounded-xl object-cover shrink-0 border border-amber-500/20 bg-stone-800 ${className}`}
+      className={`rounded-xl object-cover shrink-0 border border-amber-500/20 bg-stone-100 ${className}`}
       style={{ width: size, height: size }}
     />
   );

@@ -84,30 +84,32 @@ export default function Inventaire() {
 
   async function loadProducts() {
     if (!estId) {
+      setProducts([]);
       setLoading(false);
       return;
     }
+    // Filet de sécurité : jamais de spinner infini
+    const safety = window.setTimeout(() => setLoading(false), 4000);
     try {
-      const cacheKey = `products:${estId}`;
-      const { data } = await fetchWithCache<Product[]>(cacheKey, async () => {
-        const res = await supabase
-          .from('products')
-          .select('*')
-          .eq('establishment_id', estId)
-          .order('name', { ascending: true });
-        if (res.error) throw res.error;
-        return (res.data ?? []) as Product[];
-      });
-      // Catalogue images en parallèle (ne bloque pas l'affichage des produits)
-      void ensureProductImageCatalog().then(() => {
-        const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
-        setProducts(
-          withImages.sort((a, b) =>
-            (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
-          )
-        );
-      });
-      const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
+      const res = await supabase
+        .from('products')
+        .select('*')
+        .eq('establishment_id', estId)
+        .order('name', { ascending: true });
+      let list = (res.data ?? []) as Product[];
+      if (res.error) {
+        console.error('loadProducts', res.error);
+        // secours cache offline
+        try {
+          const cached = await fetchWithCache<Product[]>(`products:${estId}`, async () => list);
+          if (cached.data?.length) list = cached.data;
+        } catch { /* */ }
+      } else {
+        // cache en arrière-plan (ne bloque pas)
+        void fetchWithCache(`products:${estId}`, async () => list).catch(() => {});
+      }
+      void ensureProductImageCatalog();
+      const withImages = applyDefaultImagesToProducts(list);
       setProducts(
         withImages.sort((a, b) =>
           (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
@@ -115,7 +117,9 @@ export default function Inventaire() {
       );
     } catch (e) {
       console.error('loadProducts', e);
+      setProducts([]);
     } finally {
+      window.clearTimeout(safety);
       setLoading(false);
     }
   }
