@@ -66,21 +66,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return member.role;
   })();
   const [myEstablishments, setMyEstablishments] = useState<MyEstablishment[]>([]);
-  const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(null);
-
-  // Restaurer établissement depuis localStorage pour éviter TypePicker au refresh
-  useEffect(() => {
+  // Init synchrone : au refresh l'établissement est connu immédiatement (pas d'attente réseau)
+  const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(() => {
     try {
       const raw = localStorage.getItem('mm_active_est');
-      if (raw && !activeEstablishment) {
+      if (raw) {
         const parsed = JSON.parse(raw);
-        if (parsed?.id) {
-          setActiveEstablishment((prev) => prev ?? ({ ...parsed, member_role: member?.role } as any));
-        }
+        if (parsed?.id) return parsed as MyEstablishment;
       }
     } catch { /* */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return null;
+  });
 
 
   async function loadMyEstablishments(currentUser: User, currentMember: Member | null) {

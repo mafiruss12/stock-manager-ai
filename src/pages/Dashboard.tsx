@@ -74,9 +74,36 @@ export default function Dashboard() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
   const role = String(effectiveRole || member?.role || '');
   const canSeeFinance = ['super_admin', 'admin', 'owner'].includes(role);
-  const [data, setData] = useState<DashboardData | null>(null);
+  const estIdInit = activeEstablishment?.id || member?.establishment_id || null;
+  const [data, setData] = useState<DashboardData | null>(() => {
+    try {
+      if (!estIdInit) return null;
+      const raw = sessionStorage.getItem('mm_dash_' + estIdInit);
+      return raw ? (JSON.parse(raw) as DashboardData) : null;
+    } catch {
+      return null;
+    }
+  });
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Si cache présent → pas de spinner plein écran
+  const [loading, setLoading] = useState(() => {
+    try {
+      if (!estIdInit) return false;
+      return !sessionStorage.getItem('mm_dash_' + estIdInit);
+    } catch {
+      return true;
+    }
+  });
+
+  // Persister le dernier dashboard pour affichage immédiat au prochain refresh
+  useEffect(() => {
+    const id = activeEstablishment?.id || member?.establishment_id;
+    if (id && data) {
+      try {
+        sessionStorage.setItem('mm_dash_' + id, JSON.stringify(data));
+      } catch { /* quota */ }
+    }
+  }, [data, activeEstablishment?.id, member?.establishment_id]);
 
   const bizType: BusinessType = normalizeBusinessType(activeEstablishment?.type);
   const theme = BUSINESS_THEMES[bizType];
@@ -87,11 +114,12 @@ export default function Dashboard() {
     (async () => {
       const estId = activeEstablishment?.id || member?.establishment_id || null;
       if (!estId) {
-        setData(null);
+        // Ne pas effacer un dashboard déjà affiché (évite flash au refresh)
         setLoading(false);
         return;
       }
-      setLoading(true);
+      // Rafraîchir en arrière-plan si on a déjà des données (pas de flash blanc)
+      if (!data) setLoading(true);
       setError(null);
 
       const emptyFallback: DashboardData = {
