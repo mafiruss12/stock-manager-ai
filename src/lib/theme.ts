@@ -9,7 +9,7 @@ export function getStoredTheme(): ThemeMode {
   } catch {
     /* */
   }
-  return 'dark';
+  return 'light';
 }
 
 export function applyTheme(mode: ThemeMode) {
@@ -28,7 +28,7 @@ export function applyTheme(mode: ThemeMode) {
     /* */
   }
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', mode === 'light' ? '#FBF7F0' : '#0D0D0D');
+  if (meta) meta.setAttribute('content', mode === 'light' ? '#F5F5F5' : '#0D0D0D');
 }
 
 export function initTheme() {

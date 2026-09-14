@@ -431,7 +431,7 @@ async function resendConfirmation() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950/30 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-[#F5F5F5] flex items-center justify-center p-4 relative overflow-hidden">
       <div className="absolute top-0 left-0 right-0 h-10 bg-primary-600/90 overflow-hidden flex items-center z-20">
         <div className="flex whitespace-nowrap animate-marquee">
           {MARQUEE_MESSAGES.concat(MARQUEE_MESSAGES).map((msg, i) => (
@@ -482,33 +482,33 @@ async function resendConfirmation() {
             <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-400/90">
               <Sparkles size={14} className="auth-pulse" /> Pourquoi Stock Manager AI ?
             </p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-stone-50 leading-tight font-display">
+            <h2 className="text-2xl sm:text-3xl font-bold text-stone-900 leading-tight font-display">
               La solution qui fait gagner du temps
               <span className="block text-amber-400">et de l’argent à votre établissement</span>
             </h2>
-            <p className="text-sm text-stone-400 max-w-lg leading-relaxed">
+            <p className="text-sm text-stone-600 max-w-lg leading-relaxed">
               Inventaire, caisse, rapport du jour, équipe et suivi propriétaire — une seule app pensée
               pour les maquis, bars, restaurants et commerces en Afrique de l’Ouest.
             </p>
           </div>
 
           {/* Carte mise en avant (rotation) */}
-          <div className="auth-feature-hero relative overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/50 via-stone-900/80 to-stone-950 p-5 shadow-xl">
+          <div className="auth-feature-hero relative overflow-hidden rounded-2xl border border-orange-200 bg-white p-5 shadow-md">
             <div className="auth-feature-shine pointer-events-none" />
             {(() => {
               const h = AUTH_HIGHLIGHTS[highlightIdx];
               const Icon = h.icon;
               return (
                 <div key={highlightIdx} className="auth-feature-swap flex gap-4 items-start">
-                  <div className="shrink-0 w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300">
+                  <div className="shrink-0 w-12 h-12 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#FF7900]">
                     <Icon size={24} />
                   </div>
                   <div>
                     <p className="text-xs text-amber-400/80 mb-1">
                       Avantage {highlightIdx + 1} / {AUTH_HIGHLIGHTS.length}
                     </p>
-                    <h3 className="text-lg font-semibold text-stone-100">{h.title}</h3>
-                    <p className="text-sm text-stone-400 mt-1 leading-relaxed">{h.text}</p>
+                    <h3 className="text-lg font-semibold text-stone-900">{h.title}</h3>
+                    <p className="text-sm text-stone-600 mt-1 leading-relaxed">{h.text}</p>
                   </div>
                 </div>
               );
@@ -535,14 +535,14 @@ async function resendConfirmation() {
               return (
                 <div
                   key={h.title}
-                  className="auth-feature-card rounded-xl border border-stone-700/60 bg-stone-900/60 backdrop-blur-sm p-3.5 flex gap-3"
+                  className="auth-feature-card rounded-xl border border-stone-200 bg-white shadow-sm p-3.5 flex gap-3"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 >
                   <div className="shrink-0 w-9 h-9 rounded-lg bg-stone-800 text-amber-400 flex items-center justify-center">
                     <Icon size={18} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-stone-100">{h.title}</p>
+                    <p className="text-sm font-semibold text-stone-900">{h.title}</p>
                     <p className="text-[11px] text-stone-500 leading-snug mt-0.5">{h.text}</p>
                   </div>
                 </div>
@@ -559,15 +559,15 @@ async function resendConfirmation() {
 
         {/* Formulaire connexion */}
         <div className="order-1 lg:order-2 w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-        <div className="bg-stone-900/90 backdrop-blur-xl border border-stone-700/50 rounded-3xl p-8 shadow-2xl auth-form-card">
+        <div className="bg-white border border-stone-200 rounded-3xl p-8 shadow-xl auth-form-card">
           <div className="flex flex-col items-center mb-6">
             <img
               src="/logo-sm.png"
               alt="Stock Manager AI"
-              className="h-20 w-20 rounded-full object-cover mb-3 shadow-lg shadow-amber-900/40 border border-amber-500/30"
+              className="h-20 w-20 rounded-full object-cover mb-3 shadow-md border border-orange-200"
             />
-            <h1 className="text-3xl font-bold font-display text-stone-100">Stock Manager AI</h1>
-            <p className="text-sm text-stone-400 mt-1">
+            <h1 className="text-3xl font-bold font-display text-stone-900">Stock Manager AI</h1>
+            <p className="text-sm text-stone-500 mt-1">
               {mode === 'forgot' ? 'Réinitialiser le mot de passe' : 'Gestion intelligente multi-métiers'}
             </p>
           </div>
@@ -579,7 +579,7 @@ async function resendConfirmation() {
               </button>
             )}
             {error && (
-            <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 flex gap-2">
+            <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 flex gap-2">
               <AlertCircle size={18} className="shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium">{error}</p>
@@ -599,7 +599,7 @@ async function resendConfirmation() {
             </div>
           )}
           {success && (
-            <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200 flex gap-2">
+            <div className="mb-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 flex gap-2">
               <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
               <p>{success}</p>
             </div>
@@ -608,7 +608,7 @@ async function resendConfirmation() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
             {(mode === 'signin' || mode === 'signup') && (
-              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-stone-800/80 border border-stone-700 mb-1">
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-stone-100 border border-stone-700 mb-1">
                 <button
                   type="button"
                   onClick={() => { setMode('signin'); setError(null); setSuccess(null); }}

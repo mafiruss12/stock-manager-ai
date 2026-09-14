@@ -617,3 +617,45 @@ html.theme-light .startup-guide-card .bg-stone-800,
 html.theme-light .startup-guide-card .bg-stone-950\/40 {
   background-color: #F7F0E6 !important;
 }
+
+
+/* —— Auth page toujours lisible (fond clair) —— */
+.auth-form-card h1,
+.auth-form-card .label {
+  color: #1A1A1A !important;
+}
+.auth-form-card .text-stone-100,
+.auth-form-card .text-stone-200 {
+  color: #1A1A1A !important;
+}
+.auth-form-card .text-stone-400,
+.auth-form-card .text-stone-500 {
+  color: #666666 !important;
+}
+.auth-form-card .input-field {
+  background: #ffffff !important;
+  color: #1A1A1A !important;
+  border: 1px solid #E0E0E0 !important;
+}
+.auth-form-card .btn-primary {
+  background: #FF7900 !important;
+  color: #fff !important;
+}
+
+/* Mode jour : supprimer les cartes dégradé sombre */
+html.theme-light .from-amber-950\/50,
+html.theme-light .from-stone-900,
+html.theme-light .via-stone-900\/80,
+html.theme-light .to-stone-950,
+html.theme-light [class*="from-amber-950"],
+html.theme-light [class*="from-stone-900"] {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: #ffffff !important;
+  --tw-gradient-stops: #ffffff, #ffffff !important;
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+html.theme-light .bg-stone-900\/90,
+html.theme-light .bg-stone-900\/80 {
+  background-color: #ffffff !important;
+}
