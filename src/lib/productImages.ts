@@ -154,13 +154,28 @@ export async function ensureProductImageCatalog(): Promise<void> {
   return catalogPromise;
 }
 
-export function applyDefaultImagesToProducts<T extends { name: string; image_url?: string | null }>(
+export function applyDefaultImagesToProducts<T extends { name: string; image_url?: string | null; category?: string | null }>(
   products: T[],
 ): T[] {
   return products.map((p) => {
     if (isValidImageSrc(p.image_url)) return p;
-    const url = lookupCatalogImage(p.name);
-    return url ? { ...p, image_url: url } : p;
+    const fromCatalog = lookupCatalogImage(p.name);
+    if (fromCatalog) return { ...p, image_url: fromCatalog };
+    const name = (p.name || '').toLowerCase();
+    for (const rule of RULES) {
+      if (rule.keys.some((k) => name.includes(k))) return { ...p, image_url: rule.url };
+    }
+    const cat = String((p as { category?: string | null }).category || '').toLowerCase();
+    for (const [k, url] of Object.entries(CATEGORY_URL)) {
+      if (cat.includes(k)) return { ...p, image_url: url };
+    }
+    if (/bière|biere|beer|bock|castel|beaufort|flag|guinness|heineken/.test(name + ' ' + cat)) {
+      return { ...p, image_url: IMG.beerBottle };
+    }
+    if (/soda|boisson|jus|eau|énergie|energie/.test(name + ' ' + cat)) {
+      return { ...p, image_url: IMG.sodaGreen };
+    }
+    return { ...p, image_url: IMG.beerBottle };
   });
 }
 

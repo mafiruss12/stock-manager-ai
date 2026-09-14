@@ -87,23 +87,37 @@ export default function Inventaire() {
       setLoading(false);
       return;
     }
-    const cacheKey = `products:${estId}`;
-    const { data } = await fetchWithCache<Product[]>(cacheKey, async () => {
-      const res = await supabase
-        .from('products')
-        .select('*')
-        .eq('establishment_id', estId)
-        .order('name', { ascending: true });
-      return (res.data ?? []) as Product[];
-    });
-    await ensureProductImageCatalog();
-    const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
-    setProducts(
-      withImages.sort((a, b) =>
-        (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
-      )
-    );
-    setLoading(false);
+    try {
+      const cacheKey = `products:${estId}`;
+      const { data } = await fetchWithCache<Product[]>(cacheKey, async () => {
+        const res = await supabase
+          .from('products')
+          .select('*')
+          .eq('establishment_id', estId)
+          .order('name', { ascending: true });
+        if (res.error) throw res.error;
+        return (res.data ?? []) as Product[];
+      });
+      // Catalogue images en parallèle (ne bloque pas l'affichage des produits)
+      void ensureProductImageCatalog().then(() => {
+        const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
+        setProducts(
+          withImages.sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+          )
+        );
+      });
+      const withImages = applyDefaultImagesToProducts([...(data ?? [])]);
+      setProducts(
+        withImages.sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+        )
+      );
+    } catch (e) {
+      console.error('loadProducts', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadProofs() {
