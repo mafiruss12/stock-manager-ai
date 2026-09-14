@@ -93,6 +93,28 @@ export default function Dashboard() {
       }
       setLoading(true);
       setError(null);
+
+      const emptyFallback: DashboardData = {
+        todaySales: 0, todayExpenses: 0, todayProfit: 0, monthSales: 0, monthExpenses: 0,
+        monthPurchases: 0, monthProfit: 0, stockValue: 0, todayCogs: 0, weekExpenses: 0,
+        weekPurchases: 0, weekProfit: 0,
+        bevToday: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 },
+        bevWeek: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 },
+        bevMonth: { lines: [], totalQty: 0, totalCA: 0, totalCost: 0, totalProfit: 0 },
+        weekSalesTotal: 0, lowStockCount: 0, employeeCount: 0, activeOrders: 0,
+        freeTables: 0, occupiedTables: 0, weeklyData: [], weekValues: [],
+        recentSales: [], activeOrdersList: [], topProducts: [], aiAlerts: [], dataPartial: true,
+      };
+
+      // Sécurité : jamais rester sur « Chargement... » plus de 5 s
+      const safety = window.setTimeout(() => {
+        if (!cancelled) {
+          setData((prev) => prev ?? emptyFallback);
+          setLoading(false);
+          setError((e) => e || 'Chargement partiel — vérifiez la connexion');
+        }
+      }, 5000);
+
       try {
       const today = todayISO();
 
@@ -249,17 +271,35 @@ export default function Dashboard() {
           });
         }
       } finally {
+        window.clearTimeout(safety);
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [activeEstablishment?.id, member?.establishment_id]);
 
-  if (loading) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
   if (!(activeEstablishment?.id || member?.establishment_id)) {
     return <EmptyState icon={<LayoutDashboard size={48} />} title="Aucun établissement" message="Créez votre activité dans Paramètres." />;
   }
-  if (!data) return <div className="flex items-center justify-center py-20 text-stone-400">Chargement du tableau de bord…</div>;
+  if (loading && !data) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-stone-500">
+        <div className="h-8 w-8 rounded-full border-2 border-[#FF7900] border-t-transparent animate-spin" />
+        <p className="text-sm">Chargement du tableau de bord…</p>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <EmptyState
+        icon={<LayoutDashboard size={48} />}
+        title="Tableau de bord"
+        message="Aucune donnée pour le moment. Ajoutez du stock ou enregistrez une vente."
+      />
+    );
+  }
 
   const shortcuts =
     bizType === 'restaurant' ? [

@@ -1134,7 +1134,12 @@ export default function Inventaire() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center py-20 text-stone-400">Chargement inventaire…</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-3 text-stone-500">
+        <div className="h-8 w-8 rounded-full border-2 border-[#FF7900] border-t-transparent animate-spin" />
+        <p className="text-sm">Chargement inventaire…</p>
+      </div>
+    );
   }
 
   if (!estId) {
