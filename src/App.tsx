@@ -115,13 +115,24 @@ function DashboardSwitch() {
 
 function ProtectedRoutes() {
   const { user, member, loading, needsAccess } = useAuth();
+  const [bootDone, setBootDone] = useState(!loading);
+
+  // Ne jamais bloquer plus de 2.5s — session lente ≠ écran blanc infini
+  useEffect(() => {
+    if (!loading) {
+      setBootDone(true);
+      return;
+    }
+    const t = window.setTimeout(() => setBootDone(true), 2500);
+    return () => window.clearTimeout(t);
+  }, [loading]);
 
   if (!isSupabaseConfigured) return <ConfigError />;
 
-  if (loading) {
+  if (loading && !bootDone) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-950">
-        <Loader2 className="animate-spin text-primary-500" size={32} />
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">
+        <Loader2 className="animate-spin text-[#FF7900]" size={32} />
       </div>
     );
   }
@@ -199,60 +210,9 @@ function ProtectedRoutes() {
 }
 
 function PublicOrApp() {
-  const { user, member, loading, needsAccess } = useAuth();
-  const [bootUser, setBootUser] = useState(user);
-  const [loadTimedOut, setLoadTimedOut] = useState(false);
-
-  useEffect(() => {
-    setBootUser(user);
-  }, [user]);
-
-  useEffect(() => {
-    if (!loading) {
-      setLoadTimedOut(false);
-      return;
-    }
-    const t = window.setTimeout(() => setLoadTimedOut(true), 6000);
-    return () => window.clearTimeout(t);
-  }, [loading]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (user) return;
-      try {
-      } catch { /* */ }
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!cancelled && session?.user) setBootUser(session.user as any);
-        else if (!cancelled) setBootUser(null);
-      } catch {
-        if (!cancelled) setBootUser(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
-
+  // Les routes publiques (login, etc.) s'affichent immédiatement.
+  // Seules les routes protégées attendent la session.
   if (!isSupabaseConfigured) return <ConfigError />;
-  const effectiveUser = user || bootUser;
-
-  // Après timeout ou déconnexion : afficher login, pas un spinner infini
-  if (loading && !effectiveUser && !loadTimedOut) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-950 text-stone-300 text-sm">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="animate-spin text-amber-500" size={32} />
-          <span>Chargement…</span>
-        </div>
-      </div>
-    );
-  }
-
-  const acct = (effectiveUser as any)?.user_metadata?.account_type;
-  const isVisitorLike = !effectiveUser || acct === 'visitor' || acct === 'provider';
-
-  // Routes publiques toujours accessibles
-  // Si pro connecté et va sur /dashboard → ProtectedRoutes via nested
 
   return (
     <Routes>

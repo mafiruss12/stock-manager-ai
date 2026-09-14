@@ -530,12 +530,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function boot() {
       try {
-        // Double lecture session (corrige race localStorage juste après login)
-        let session = (await supabase.auth.getSession()).data.session;
-        if (!session) {
-          await new Promise((r) => setTimeout(r, 150));
-          session = (await supabase.auth.getSession()).data.session;
-        }
+        const session = await Promise.race([
+          supabase.auth.getSession().then((r) => r.data.session),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
+        ]);
         if (!mounted) return;
         setSession(session);
         setUser(session?.user ?? null);
@@ -804,9 +802,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function refresh() {
     if (user) {
-      setLoading(true);
-      await loadMemberData(user);
-      setLoading(false);
+      try {
+        await loadMemberData(user);
+      } catch (e) {
+        console.error('refresh', e);
+      }
     }
   }
 
