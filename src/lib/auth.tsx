@@ -529,12 +529,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     async function boot() {
+      // Restaure la session depuis localStorage (persistSession: true).
+      // Ne JAMAIS forcer null par timeout — c'est ce qui déconnectait au refresh.
       try {
-        const session = await Promise.race([
-          supabase.auth.getSession().then((r) => r.data.session),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
-        ]);
+        const { data, error } = await supabase.auth.getSession();
+        if (error) console.error('getSession', error);
         if (!mounted) return;
+        const session = data?.session ?? null;
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -551,14 +552,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
-      if (event === 'INITIAL_SESSION') return;
-
-      // Ne jamais effacer un user valide sur TOKEN_REFRESHED raté
-      if (event === 'TOKEN_REFRESHED' && newSession?.user) {
-        setSession(newSession);
-        setUser(newSession.user);
-        return;
-      }
 
       if (event === 'SIGNED_OUT') {
         setSession(null);
@@ -573,11 +566,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // TOKEN_REFRESHED sans session : garder l'utilisateur actuel (réseau instable)
+      if (event === 'TOKEN_REFRESHED' && !newSession?.user) {
+        return;
+      }
+
       if (newSession?.user) {
         setSession(newSession);
         setUser(newSession.user);
         setLoading(false);
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        // INITIAL_SESSION / SIGNED_IN / USER_UPDATED → charger le profil
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
           void ensureMember(newSession.user);
         }
       }
