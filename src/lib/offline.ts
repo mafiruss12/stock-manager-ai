@@ -21,6 +21,8 @@ export interface QueueItem {
   createdAt: string;
   retries: number;
   lastError?: string;
+  /** Opération financière en échec répété — à résoudre manuellement */
+  needs_resolution?: boolean;
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -268,9 +270,16 @@ export async function flushQueue(
       const msg = e instanceof Error ? e.message : String(e);
       item.retries = (item.retries || 0) + 1;
       item.lastError = msg;
-      // Abandon après 8 échecs pour ne pas bloquer la file
+      // Opérations financières / sensibles : ne jamais supprimer silencieusement
+      const financialTables = ['sales', 'orders', 'order_items', 'expenses', 'daily_reports', 'cash_sessions', 'stock_movements'];
       if (item.retries >= 8) {
-        await queueRemove(item.id);
+        if (financialTables.includes(item.table)) {
+          (item as any).needs_resolution = true;
+          item.lastError = `needs_resolution: ${msg}`;
+          await queueUpdate(item);
+        } else {
+          await queueRemove(item.id);
+        }
       } else {
         await queueUpdate(item);
       }
