@@ -154,3 +154,35 @@ export function getTiunUser() {
     return { isAuthenticated: false, user: null };
   }
 }
+
+/** Vérifie côté serveur via /api/tiun/verify (utilise TIUN_API_KEY) */
+export async function verifyTiunOnServer(establishmentId?: string): Promise<{
+  ok: boolean;
+  isAuthenticated?: boolean;
+  userInfo?: { userId?: string; email?: string; productAccess?: string[] } | null;
+  error?: string;
+}> {
+  try {
+    // @ts-expect-error method may exist on SDK
+    const token = await tiun.getUserVerificationToken?.();
+    if (!token) return { ok: false, error: 'Pas de token Tiun (utilisateur non connecté Tiun)' };
+
+    const r = await fetch('/api/tiun/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userVerificationToken: token,
+        establishmentId: establishmentId || undefined,
+      }),
+    });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, error: data?.error || `HTTP ${r.status}` };
+    return {
+      ok: true,
+      isAuthenticated: data.isAuthenticated,
+      userInfo: data.userInfo,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'verify failed' };
+  }
+}
