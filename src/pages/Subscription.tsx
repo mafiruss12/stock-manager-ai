@@ -13,6 +13,8 @@ import {
 } from '@/lib/payments';
 import { sendSms } from '@/lib/sms';
 import { sendWhatsAppCloud } from '@/lib/whatsappCloud';
+import { isTiunConfigured, checkoutTiunPlan, type TiunPlan } from '@/lib/tiun';
+import { PLANS } from '@/lib/subscription';
 
 export default function SubscriptionPage() {
   const { member, activeEstablishment } = useAuth();
@@ -46,6 +48,18 @@ export default function SubscriptionPage() {
       return;
     }
     setStatus(r.error || 'CinetPay indisponible — utilisez WhatsApp');
+  }
+
+  function payTiun(plan: TiunPlan = 'pro') {
+    setBusy(true);
+    setStatus(null);
+    const r = checkoutTiunPlan(plan);
+    setBusy(false);
+    if (r.ok) {
+      setStatus('Ouverture du paiement Tiun…');
+    } else {
+      setStatus(r.error || 'Tiun indisponible — utilisez CinetPay ou WhatsApp');
+    }
   }
 
   function payWhatsApp() {
@@ -97,7 +111,7 @@ export default function SubscriptionPage() {
           <Wallet className="text-amber-400" size={26} /> Abonnement
         </h1>
         <p className="text-sm text-stone-400 mt-1">
-          CinetPay · Africa’s Talking · WhatsApp Cloud · {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois
+          {isTiunConfigured() ? 'Tiun · ' : ''}CinetPay · WhatsApp · {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois
         </p>
       </div>
 
@@ -151,14 +165,40 @@ export default function SubscriptionPage() {
           ))}
         </div>
 
+        {isTiunConfigured() && (
+          <div className="space-y-2">
+            <p className="text-xs text-emerald-300/90">Paiement international sécurisé (Tiun)</p>
+            <button
+              type="button"
+              disabled={busy}
+              className="btn-primary w-full flex items-center justify-center gap-2"
+              onClick={() => payTiun('pro')}
+            >
+              {busy ? <Loader2 className="animate-spin" size={18} /> : <Wallet size={18} />}
+              Payer avec Tiun (recommandé)
+            </button>
+            <div className="grid grid-cols-3 gap-2">
+              <button type="button" disabled={busy} onClick={() => payTiun('starter')} className="rounded-lg border border-stone-700 px-2 py-1.5 text-xs text-stone-300 hover:border-amber-500/40">
+                Essentiel
+              </button>
+              <button type="button" disabled={busy} onClick={() => payTiun('pro')} className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100">
+                Pro
+              </button>
+              <button type="button" disabled={busy} onClick={() => payTiun('business')} className="rounded-lg border border-stone-700 px-2 py-1.5 text-xs text-stone-300 hover:border-amber-500/40">
+                Business
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           disabled={busy}
-          className="btn-primary w-full flex items-center justify-center gap-2"
+          className={`${isTiunConfigured() ? 'btn-secondary' : 'btn-primary'} w-full flex items-center justify-center gap-2`}
           onClick={() => void payCinetPay()}
         >
           {busy ? <Loader2 className="animate-spin" size={18} /> : <Wallet size={18} />}
-          Payer avec CinetPay (Wave / OM / MTN / Moov)
+          {isTiunConfigured() ? 'Ou CinetPay (Wave / OM / MTN)' : 'Payer avec CinetPay (Wave / OM / MTN / Moov)'}
         </button>
 
         <button
@@ -181,9 +221,8 @@ export default function SubscriptionPage() {
           <CheckCircle2 size={14} className="text-amber-400" /> Canaux configurables
         </p>
         <ul className="space-y-1 list-disc list-inside">
-          <li>CinetPay — POST /api/cinetpay/init + notify</li>
-          <li>Africa’s Talking SMS — POST /api/sms/send</li>
-          <li>WhatsApp Cloud — POST /api/whatsapp/send</li>
+          <li>Tiun — checkout overlay (si configuré)</li>
+          <li>CinetPay — Wave / Orange Money / MTN / Moov</li>
           <li>WhatsApp gratuit wa.me — toujours disponible</li>
         </ul>
         <div className="flex flex-wrap gap-2 pt-1">
