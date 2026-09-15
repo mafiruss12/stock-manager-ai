@@ -2,20 +2,46 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
  * POST /api/sms/send
+ * Protégé par INTERNAL_API_SECRET (Bearer)
  * Body: { to: string | string[], message: string, from?: string }
- * Env: AT_USERNAME, AT_API_KEY, AT_FROM (sender id optionnel)
+ * Env: AT_USERNAME, AT_API_KEY, AT_FROM, INTERNAL_API_SECRET
  */
+const rateMap = new Map<string, { count: number; reset: number }>();
+
+function rateLimit(key: string, limit = 20, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const entry = rateMap.get(key);
+  if (!entry || now > entry.reset) {
+    rateMap.set(key, { count: 1, reset: now + windowMs });
+    return true;
+  }
+  if (entry.count >= limit) return false;
+  entry.count++;
+  return true;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const username = process.env.AT_USERNAME || process.env.VITE_AT_USERNAME;
-  const apiKey = process.env.AT_API_KEY || process.env.VITE_AT_API_KEY;
-  const sender = process.env.AT_FROM || process.env.VITE_AT_FROM || 'StockMgr';
+  const internalSecret = process.env.INTERNAL_API_SECRET || process.env.CRON_SECRET;
+  const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!internalSecret || auth !== internalSecret) {
+    return res.status(401).json({ error: 'Unauthorized – internal use only' });
+  }
+
+  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || 'unknown';
+  if (!rateLimit(`sms:${clientIp}`)) {
+    return res.status(429).json({ error: 'Rate limit exceeded' });
+  }
+
+  const username = process.env.AT_USERNAME;
+  const apiKey = process.env.AT_API_KEY;
+  const sender = process.env.AT_FROM || 'StockMgr';
 
   if (!username || !apiKey) {
     return res.status(503).json({
       error: 'Africa’s Talking non configuré',
-      hint: 'Ajoutez AT_USERNAME et AT_API_KEY dans Vercel Environment Variables',
+      hint: 'Ajoutez AT_USERNAME et AT_API_KEY',
     });
   }
 
@@ -25,10 +51,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!to || !message) return res.status(400).json({ error: 'to et message requis' });
 
   if (Array.isArray(to)) to = to.join(',');
-  // Normalise CI : 07... → +22507...
   to = String(to)
     .split(',')
-    .map((n) => {
+    .map((n: string) => {
       let d = n.replace(/\D/g, '');
       if (d.startsWith('00')) d = d.slice(2);
       if (d.startsWith('0') && d.length === 10) d = '225' + d;
@@ -60,9 +85,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch {
       /* */
     }
+    console.log(JSON.stringify({ ts: new Date().toISOString(), channel: 'sms', to, ok: r.ok, status: r.status }));
     if (!r.ok) return res.status(r.status).json({ ok: false, error: data });
     return res.status(200).json({ ok: true, data });
   } catch (e) {
+    console.error('SMS error', e);
     return res.status(500).json({ error: e instanceof Error ? e.message : 'SMS error' });
   }
 }

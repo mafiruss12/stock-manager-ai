@@ -1,7 +1,8 @@
 /**
  * Cron lundi : rapport bénéfice semaine → notifications propriétaire
  * GET/POST /api/cron/weekly-profit-report
- * Schedule: 0 7 * * 1 (lundi 07:00 UTC ≈ 07:00–08:00 Abidjan selon saison)
+ * Header obligatoire: Authorization: Bearer <CRON_SECRET>
+ * Schedule: 0 7 * * 1
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -27,10 +28,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
-  const secret = getEnv('CRON_SECRET') || 'stock-manager-cron-dev';
+
+  const secret = getEnv('CRON_SECRET');
+  if (!secret) {
+    return res.status(500).json({ error: 'CRON_SECRET manquant (obligatoire)' });
+  }
+
   const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const q = typeof req.query.secret === 'string' ? req.query.secret : '';
-  if (auth !== secret && q !== secret) {
+  if (auth !== secret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -40,7 +45,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(503).json({ error: 'SUPABASE_SERVICE_ROLE_KEY manquant' });
   }
 
-  // Semaine précédente (lun → dim)
   const thisMon = mondayOf(new Date());
   const lastMon = addDaysISO(thisMon, -7);
   const lastSun = addDaysISO(lastMon, 6);
@@ -51,9 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     'Content-Type': 'application/json',
   };
 
-  // Établissements
   const estRes = await fetch(
-    `${supabaseUrl}/rest/v1/establishments?select=id,name,owner_id,type&type=eq.maquis`,
+    `${supabaseUrl}/rest/v1/establishments?select=id,name,owner_id,type&status=eq.active`,
     { headers }
   );
   const establishments = (await estRes.json()) as { id: string; name: string; owner_id?: string }[];
@@ -65,40 +68,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   for (const est of establishments) {
     const repRes = await fetch(
-      `${supabaseUrl}/rest/v1/daily_reports?establishment_id=eq.${est.id}&date=gte.${lastMon}&date=lte.${lastSun}&select=date,notes,total_sales`,
+      `${supabaseUrl}/rest/v1/daily_reports?establishment_id=eq.${est.id}&date=gte.${lastMon}&date=lte.${lastSun}&select=*`,
       { headers }
     );
-    const reports = (await repRes.json()) as { notes?: string; total_sales?: number }[];
+    const reports = (await repRes.json()) as any[];
+
     let totalCA = 0;
     let totalCost = 0;
     let totalProfit = 0;
+
     if (Array.isArray(reports)) {
       for (const r of reports) {
         try {
-          const notes = String(r.notes || '');
-          if (!notes.trim().startsWith('{')) {
-            totalCA += Number(r.total_sales || 0);
-            continue;
-          }
-          const parsed = JSON.parse(notes) as {
-            items?: { qty?: number; price?: number; cost?: number; name?: string }[];
-          };
-          for (const it of parsed.items || []) {
-            const qty = Math.max(0, Math.floor(Number(it.qty) || 0));
-            if (!qty) continue;
-            const price = Number(it.price) || 0;
-            const cost = Number(it.cost) || 0;
-            totalCA += qty * price;
-            totalCost += qty * cost;
-            totalProfit += qty * (price - cost);
-          }
+          totalCA += Number(r.total_sales || r.ca || 0);
+          totalCost += Number(r.total_cost || r.cost || 0);
+          totalProfit += Number(r.profit || r.benefice || (Number(r.total_sales || 0) - Number(r.total_cost || 0)));
         } catch {
           totalCA += Number(r.total_sales || 0);
         }
       }
     }
 
-    // Owner phone / user
     let ownerUserId = est.owner_id;
     let ownerPhone = '';
     const memRes = await fetch(
@@ -118,7 +108,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `Coût vendu: ${Math.round(totalCost).toLocaleString('fr-FR')} F`,
       `✅ Bénéfice (marge): ${Math.round(totalProfit).toLocaleString('fr-FR')} F`,
       '',
-      'Les achats stock ne sont pas déduits (fonds de commerce).',
       'Stock Manager AI',
     ].join('\n');
 
@@ -139,7 +128,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       notified = true;
     }
 
-    // WhatsApp Cloud si configuré
     const waToken = getEnv('WA_TOKEN');
     const waPhoneId = getEnv('WA_PHONE_NUMBER_ID');
     if (waToken && waPhoneId && ownerPhone) {

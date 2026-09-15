@@ -1,13 +1,12 @@
 /**
- * Cron gratuit Vercel : rappel rapport journalier obligatoire
+ * Cron Vercel : rappel rapport journalier obligatoire
  * GET/POST /api/cron/daily-report-reminder
- * Header: Authorization: Bearer <CRON_SECRET>
- * ou ?secret=<CRON_SECRET>
+ * Header obligatoire: Authorization: Bearer <CRON_SECRET>
  *
  * Variables Vercel :
- * - VITE_SUPABASE_URL ou SUPABASE_URL
+ * - SUPABASE_URL ou VITE_SUPABASE_URL
  * - SUPABASE_SERVICE_ROLE_KEY
- * - CRON_SECRET
+ * - CRON_SECRET (obligatoire)
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -26,10 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const secret = getEnv('CRON_SECRET') || 'stock-manager-cron-dev';
+  const secret = getEnv('CRON_SECRET');
+  if (!secret) {
+    return res.status(500).json({ error: 'CRON_SECRET manquant (obligatoire)' });
+  }
+
   const auth = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  const q = typeof req.query.secret === 'string' ? req.query.secret : '';
-  if (auth !== secret && q !== secret) {
+  if (auth !== secret) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -40,7 +42,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!serviceKey) {
     return res.status(500).json({
       error: 'SUPABASE_SERVICE_ROLE_KEY manquant sur Vercel',
-      hint: 'Project Settings → API → service_role → ajouter dans Vercel Environment Variables',
     });
   }
 
@@ -67,7 +68,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Établissements actifs
     const establishments = (await sbGet(
       'establishments?select=id,name,phone,owner_email,owner_user_id,owner_phone&status=eq.active'
     )) as Array<{
@@ -79,18 +79,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       owner_phone?: string;
     }>;
 
-    // Rapports du jour
+    if (!Array.isArray(establishments)) {
+      return res.status(500).json({ error: 'establishments fetch failed' });
+    }
+
+    // Rapports déjà faits aujourd'hui
     const reports = (await sbGet(
       `daily_reports?select=establishment_id&date=eq.${date}`
     )) as Array<{ establishment_id: string }>;
-    const done = new Set(reports.map((r) => r.establishment_id));
+    const done = new Set((reports || []).map((r) => r.establishment_id));
 
     const missingEst = establishments.filter((e) => !done.has(e.id));
     let notifications = 0;
     const details: Array<{ est: string; staff: number }> = [];
 
     for (const est of missingEst) {
-      // Staff concernés
       const members = (await sbGet(
         `members?select=user_id,full_name,email,role,phone&establishment_id=eq.${est.id}&status=eq.active`
       )) as Array<{
@@ -125,7 +128,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      // Notifier aussi le propriétaire (info)
       if (est.owner_user_id) {
         try {
           await sbPost('notifications', {
@@ -154,10 +156,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       missing_reports: missingEst.length,
       notifications_sent: notifications,
       details,
-      channels: {
-        app: true,
-        note: 'WhatsApp/SMS push auto nécessite Meta/Twilio (payant). App + bandeau à la prochaine ouverture = gratuit.',
-      },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
