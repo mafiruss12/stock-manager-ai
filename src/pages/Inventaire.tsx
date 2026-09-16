@@ -22,7 +22,7 @@ import {
   type ProofKind,
 } from '@/lib/proofPhotos';
 import { qrCodeImageUrl } from '@/lib/exchangeRates';
-import { cacheSet, fetchWithCache, isOnline, queueAdd } from '@/lib/offline';
+import { cacheSet, cacheGet, isOnline, queueAdd } from '@/lib/offline';
 import { speakFrench, playTone } from '@/lib/a11yVoice';
 
 function aiStatus(stock: number, min: number): { label: string; color: 'error' | 'warning' | 'success' | 'primary' } {
@@ -91,33 +91,44 @@ export default function Inventaire() {
     // Filet de sécurité : jamais de spinner infini
     const safety = window.setTimeout(() => setLoading(false), 4000);
     try {
+      // Afficher le cache immédiatement pour un rendu rapide
+      try {
+        // cacheGet déjà importé
+        const cached = await cacheGet<Product[]>(`products:${estId}`);
+        if (cached?.length) {
+          setProducts(
+            applyDefaultImagesToProducts(cached).sort((a, b) =>
+              (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+            )
+          );
+          setLoading(false);
+        }
+      } catch { /* pas de cache */ }
+
+      // Colonnes utiles seulement (plus rapide que select *)
       const res = await supabase
         .from('products')
-        .select('*')
+        .select('id,establishment_id,name,category,price,cost,stock,min_stock,unit,image_url,units_per_package,consigne_unit,empty_bottles,casier_size,created_at')
         .eq('establishment_id', estId)
         .order('name', { ascending: true });
+
       let list = (res.data ?? []) as Product[];
       if (res.error) {
         console.error('loadProducts', res.error);
-        // secours cache offline
-        try {
-          const cached = await fetchWithCache<Product[]>(`products:${estId}`, async () => list);
-          if (cached.data?.length) list = cached.data;
-        } catch { /* */ }
+        // garder le cache affiché si erreur réseau
       } else {
-        // cache en arrière-plan (ne bloque pas)
-        void fetchWithCache(`products:${estId}`, async () => list).catch(() => {});
+        void cacheSet(`products:${estId}`, list).catch(() => {});
+        const withImages = applyDefaultImagesToProducts(list);
+        setProducts(
+          withImages.sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
+          )
+        );
       }
+      // catalogue images en fond (ne bloque pas l'UI)
       void ensureProductImageCatalog();
-      const withImages = applyDefaultImagesToProducts(list);
-      setProducts(
-        withImages.sort((a, b) =>
-          (a.name || '').localeCompare(b.name || '', 'fr', { sensitivity: 'base' })
-        )
-      );
     } catch (e) {
       console.error('loadProducts', e);
-      setProducts([]);
     } finally {
       window.clearTimeout(safety);
       setLoading(false);

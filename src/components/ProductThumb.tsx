@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { categoryEmoji, resolveProductImage, ensureProductImageCatalog } from '@/lib/productImages';
+import { categoryEmoji, resolveProductImage } from '@/lib/productImages';
 
 type ProductLike = {
   name?: string | null;
@@ -27,11 +27,6 @@ export default function ProductThumb({
   const img = imageUrl ?? product?.image_url ?? null;
 
   const [failed, setFailed] = useState<string | null>(null);
-
-  // Enrichir le catalogue en fond (optionnel)
-  useEffect(() => {
-    void ensureProductImageCatalog();
-  }, []);
 
   useEffect(() => {
     setFailed(null);
