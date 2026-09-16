@@ -199,6 +199,8 @@ const BY_TYPE: Record<BusinessType, SeedProduct[]> = {
   superette: SUPERETTE,
   quincaillerie: QUINCAILLERIE,
   location_event: LOCATION,
+  btp: [],
+  depot: MAQUIS,
 };
 
 export function getSeedCatalog(type: string | null | undefined): SeedProduct[] {
@@ -217,6 +219,7 @@ export function catalogLabel(type: string | null | undefined): string {
     quincaillerie: 'Catalogue quincaillerie (outils & matériaux)',
     location_event: 'Parc type location (chaises, tables, sono)',
     btp: 'Catalogue matériaux BTP',
+    depot: 'Catalogue dépôt (boissons gros)',
   };
   return map[t] || 'Catalogue de démarrage';
 }

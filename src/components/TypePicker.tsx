@@ -63,46 +63,42 @@ export default function TypePicker({ mode, onDone, defaultName = '' }: Props) {
           .single();
         if (e1 || !est) throw new Error(e1?.message || 'Création impossible');
 
-        // Lier le membre à l'établissement (owner si employé sans établissement)
-        const nextRole = member && ['employee', 'cashier'].includes(member.role) ? 'owner' : (member?.role || 'owner');
-        const { error: eMember } = await supabase
-          .from('members')
-          .update({ establishment_id: est.id, role: nextRole })
-          .eq('user_id', user.id);
-        // Si le trigger bloque le rôle, au moins lier l'établissement
-        if (eMember) {
+        // Lien propriétaire robuste (RPC contourne triggers/RLS fragiles)
+        const { error: linkErr } = await supabase.rpc('ensure_owner_establishment', {
+          p_establishment_id: est.id,
+          p_full_name: member?.full_name || user.user_metadata?.full_name || name.trim() || null,
+        });
+        if (linkErr) {
+          console.warn('ensure_owner_establishment', linkErr);
+          // secours direct
+          const nextRole =
+            member && ['employee', 'cashier'].includes(String(member.role))
+              ? 'owner'
+              : member?.role || 'owner';
           await supabase
             .from('members')
-            .update({ establishment_id: est.id })
-            .eq('user_id', user.id);
-        } else {
-          // Vérifier si le rôle a bien été appliqué
-          const { data: check } = await supabase
-            .from('members')
-            .select('role, establishment_id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (check && !check.establishment_id) {
-            await supabase
-              .from('members')
-              .update({ establishment_id: est.id })
-              .eq('user_id', user.id);
-          }
+            .upsert(
+              {
+                user_id: user.id,
+                email: user.email || null,
+                full_name: member?.full_name || name.trim() || 'Propriétaire',
+                role: nextRole,
+                status: 'active',
+                establishment_id: est.id,
+              },
+              { onConflict: 'user_id' }
+            );
+          await supabase.from('member_establishments').upsert(
+            {
+              user_id: user.id,
+              establishment_id: est.id,
+              role: nextRole,
+              status: 'active',
+            },
+            { onConflict: 'user_id,establishment_id' }
+          );
+          await supabase.from('establishments').update({ owner_user_id: user.id, created_by: user.id }).eq('id', est.id);
         }
-
-        await supabase.from('member_establishments').upsert(
-          {
-            user_id: user.id,
-            establishment_id: est.id,
-            role: nextRole,
-            status: 'active',
-          },
-          { onConflict: 'user_id,establishment_id' }
-        );
-        await supabase
-          .from('establishments')
-          .update({ owner_user_id: user.id })
-          .eq('id', est.id);
         // Catalogue de démarrage (boissons / produits à 0)
         try {
           await seedDefaultStockForEstablishment(est.id, selected);
