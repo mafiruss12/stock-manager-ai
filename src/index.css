@@ -740,10 +740,7 @@ html.theme-light .bg-red-500\/20 {
   color: #dc2626 !important;
 }
 
-/* Éviter texte blanc sur fond blanc (sauf boutons primaires) */
-html.theme-light .btn-primary,
-html.theme-light .btn-primary .text-white,
-html.theme-light button.bg-primary-500,
-html.theme-light button.bg-amber-500 {
+/* Boutons primaires restent blanc sur orange */
+html.theme-light .btn-primary {
   color: #ffffff !important;
 }
