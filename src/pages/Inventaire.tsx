@@ -89,11 +89,10 @@ export default function Inventaire() {
       return;
     }
     // Filet de sécurité : jamais de spinner infini
-    const safety = window.setTimeout(() => setLoading(false), 4000);
+    const safety = window.setTimeout(() => setLoading(false), 6000);
     try {
       // Afficher le cache immédiatement pour un rendu rapide
       try {
-        // cacheGet déjà importé
         const cached = await cacheGet<Product[]>(`products:${estId}`);
         if (cached?.length) {
           setProducts(
@@ -105,18 +104,47 @@ export default function Inventaire() {
         }
       } catch { /* pas de cache */ }
 
-      // Colonnes utiles seulement (plus rapide que select *)
-      const res = await supabase
-        .from('products')
-        .select('id,establishment_id,name,category,price,cost,stock,min_stock,unit,image_url,units_per_package,consigne_unit,empty_bottles,casier_size,created_at')
-        .eq('establishment_id', estId)
-        .order('name', { ascending: true });
+      let list: Product[] = [];
 
-      let list = (res.data ?? []) as Product[];
-      if (res.error) {
-        console.error('loadProducts', res.error);
-        // garder le cache affiché si erreur réseau
-      } else {
+      // 1) RPC sécurisée (contourne les RLS fragiles)
+      try {
+        const rpc = await supabase.rpc('list_products_for_est', { p_est_id: estId });
+        if (!rpc.error && Array.isArray(rpc.data)) {
+          list = rpc.data as Product[];
+        } else if (rpc.error) {
+          console.warn('list_products_for_est', rpc.error);
+        }
+      } catch (e) {
+        console.warn('rpc products', e);
+      }
+
+      // 2) Fallback select direct
+      if (list.length === 0) {
+        const res = await supabase
+          .from('products')
+          .select('id,establishment_id,name,category,price,cost,stock,min_stock,unit,image_url,units_per_package,consigne_unit,empty_bottles,casier_size,created_at')
+          .eq('establishment_id', estId)
+          .order('name', { ascending: true });
+        if (res.error) {
+          console.error('loadProducts', res.error);
+        } else {
+          list = (res.data ?? []) as Product[];
+        }
+      }
+
+      // 3) Dernier recours select *
+      if (list.length === 0) {
+        const res2 = await supabase
+          .from('products')
+          .select('*')
+          .eq('establishment_id', estId)
+          .order('name', { ascending: true });
+        if (!res2.error && res2.data?.length) {
+          list = res2.data as Product[];
+        }
+      }
+
+      if (list.length > 0) {
         void cacheSet(`products:${estId}`, list).catch(() => {});
         const withImages = applyDefaultImagesToProducts(list);
         setProducts(
@@ -125,7 +153,6 @@ export default function Inventaire() {
           )
         );
       }
-      // catalogue images en fond (ne bloque pas l'UI)
       void ensureProductImageCatalog();
     } catch (e) {
       console.error('loadProducts', e);
