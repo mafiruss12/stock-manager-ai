@@ -127,7 +127,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const planAccess = usePlanAccess();
   const allow = planAccess.allow.bind(planAccess);
   const planLimits = planAccess.plan;
-  const { member, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
+  const { member, user, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
   // Déconnexion auto après 15 min sans activité
   useIdleTimeout(() => {
@@ -319,51 +319,58 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return { ...section, items };
   }).filter((section) => section.items.length > 0);
 
-  // Cache local : une fois un établissement vu, ne plus JAMAIS imposer TypePicker
-  let cachedEst = false;
+  // Cache local UNIQUEMENT s'il correspond au membre connecté (sinon fuite RCO → nouveau compte)
   let cachedEstPayload: { id?: string; type?: string; name?: string } | null = null;
+  let cachedEstForThisUser = false;
   try {
-    const raw = localStorage.getItem('mm_active_est');
-    const ids = localStorage.getItem('mm_est_ids');
-    cachedEst = Boolean(raw || ids);
-    if (raw) cachedEstPayload = JSON.parse(raw);
+    const uid = user?.id || member?.user_id;
+    const raw =
+      (uid && localStorage.getItem(`mm_active_est:${uid}`)) ||
+      null;
+    // Ne jamais utiliser mm_active_est global s'il ne matche pas le member.establishment_id
+    if (raw) {
+      cachedEstPayload = JSON.parse(raw);
+      if (
+        cachedEstPayload?.id &&
+        member?.establishment_id &&
+        cachedEstPayload.id === member.establishment_id
+      ) {
+        cachedEstForThisUser = true;
+      }
+    }
   } catch { /* */ }
 
+  // Source de vérité = serveur (member + liste), pas le localStorage d'un autre compte
   const hasEstablishment = Boolean(
     member?.establishment_id ||
-    activeEstablishment?.id ||
     (myEstablishments && myEstablishments.length > 0) ||
-    cachedEst
+    (activeEstablishment?.id &&
+      member?.establishment_id &&
+      activeEstablishment.id === member.establishment_id)
   );
 
-  // Persiste en session React : évite le clignotement à chaque refresh()
   const hadEstRef = useRef(false);
   if (hasEstablishment) hadEstRef.current = true;
+  // Nouveau user sans établissement : reset le ref
+  if (member && !member.establishment_id && (!myEstablishments || myEstablishments.length === 0)) {
+    hadEstRef.current = false;
+  }
 
-  // TypePicker UNIQUEMENT si :
-  // - membre chargé
-  // - aucun établissement (membre + liste + cache)
-  // - jamais eu d'établissement dans cette session
-  // - pas admin / super_admin
-  // - pas owner déjà lié (owner avec establishment_id ne doit jamais revoir l'écran)
   const isPrivileged = ['super_admin', 'admin'].includes(member?.role || '');
   const isExistingStaff =
     ['owner', 'manager', 'cashier', 'employee'].includes(member?.role || '') &&
-    (Boolean(member?.establishment_id) || hadEstRef.current || cachedEst);
+    Boolean(member?.establishment_id);
 
-  // Staff invité (gérant/caissier/employé) : JAMAIS l'écran "créer une activité"
   const isInvitedStaffRole = ['manager', 'cashier', 'employee'].includes(member?.role || '');
 
-  // TypePicker uniquement pour un vrai nouveau propriétaire sans établissement
+  // TypePicker = nouveau propriétaire sans aucun établissement serveur
   const showTypePicker =
     Boolean(member) &&
     !isPrivileged &&
     !isInvitedStaffRole &&
-    !hasEstablishment &&
-    !hadEstRef.current &&
-    !isExistingStaff &&
     !member?.establishment_id &&
-    !cachedEst;
+    !(myEstablishments && myEstablishments.length > 0) &&
+    !hasEstablishment;
 
   if (isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
     return (

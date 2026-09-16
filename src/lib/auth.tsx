@@ -67,16 +67,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   })();
   const [myEstablishments, setMyEstablishments] = useState<MyEstablishment[]>([]);
   // Init synchrone : au refresh l'établissement est connu immédiatement (pas d'attente réseau)
-  const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(() => {
+  const [activeEstablishment, setActiveEstablishment] = useState<MyEstablishment | null>(null);
+
+  /** Nettoie le cache établissement (évite de coller un maquis d'un autre compte) */
+  function clearEstablishmentCache() {
     try {
-      const raw = localStorage.getItem('mm_active_est');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.id) return parsed as MyEstablishment;
+      localStorage.removeItem('mm_active_est');
+      localStorage.removeItem('mm_est_ids');
+      // anciennes clés par user
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('mm_active_est:') || k.startsWith('mm_est_ids:'))) keys.push(k);
       }
+      keys.forEach((k) => localStorage.removeItem(k));
     } catch { /* */ }
-    return null;
-  });
+  }
+
+  function saveActiveEstForUser(userId: string | undefined, est: { id: string; type?: string; name?: string } | null) {
+    try {
+      if (!userId || !est?.id) return;
+      const payload = JSON.stringify({ id: est.id, type: est.type, name: est.name });
+      localStorage.setItem(`mm_active_est:${userId}`, payload);
+      localStorage.setItem('mm_active_est', payload); // compat
+    } catch { /* */ }
+  }
+
 
 
   async function loadMyEstablishments(currentUser: User, currentMember: Member | null) {
@@ -130,20 +146,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         list.find((e) => e.id === currentMember?.establishment_id) ?? list[0] ?? null;
       setActiveEstablishment(active);
       try {
-        if (list.length > 0) {
+        if (list.length > 0 && active) {
           localStorage.setItem('mm_est_ids', JSON.stringify(list.map((e) => e.id)));
-          const act = list.find((e) => e.id === currentMember?.establishment_id) ?? list[0];
-          if (act) localStorage.setItem('mm_active_est', JSON.stringify({ id: act.id, type: act.type, name: act.name }));
+          localStorage.setItem(`mm_est_ids:${currentUser.id}`, JSON.stringify(list.map((e) => e.id)));
+          saveActiveEstForUser(currentUser.id, active);
+        } else {
+          // Nouveau compte sans établissement : NE PAS conserver un cache d'un autre user
+          clearEstablishmentCache();
+          setActiveEstablishment(null);
         }
       } catch { /* */ }
     } catch (e) {
       console.error('loadMyEstablishments', e);
-      // Ne PAS vider l'établissement actif : évite TypePicker récursif pour tout le monde
+      // En erreur réseau : seulement restaurer cache SI lié à ce user et à son member
       try {
-        const raw = localStorage.getItem('mm_active_est');
-        if (raw) {
+        const uid = currentUser.id;
+        const raw = localStorage.getItem(`mm_active_est:${uid}`) || null;
+        if (raw && currentMember?.establishment_id) {
           const cached = JSON.parse(raw);
-          setActiveEstablishment((prev) => prev || ({ ...cached, member_role: member?.role } as MyEstablishment));
+          if (cached?.id && cached.id === currentMember.establishment_id) {
+            setActiveEstablishment((prev) => prev || ({ ...cached, member_role: currentMember?.role } as MyEstablishment));
+          }
         }
       } catch { /* */ }
     }
@@ -477,17 +500,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (recoveredEstId) {
         try { await loadMyEstablishments(currentUser, fb); } catch { /* */ }
       } else {
-        // Ne pas vider si localStorage a un établissement (évite TypePicker)
-        try {
-          const raw = localStorage.getItem('mm_active_est');
-          if (!raw) {
-            setMyEstablishments([]);
-            setActiveEstablishment(null);
-          }
-        } catch {
-          setMyEstablishments([]);
-          setActiveEstablishment(null);
-        }
+        // Nouveau propriétaire : vider tout cache établissement (sinon RCO d'un autre compte)
+        clearEstablishmentCache();
+        setMyEstablishments([]);
+        setActiveEstablishment(null);
       }
       return fb;
     } catch (e) {
@@ -585,6 +601,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signIn(login: string, password: string) {
+    // Ne pas réutiliser l'établissement d'un compte précédent sur cet appareil
+    clearEstablishmentCache();
+    setActiveEstablishment(null);
+    setMyEstablishments([]);
+
     try {
       const lockLeft = getLoginLockRemaining();
       if (lockLeft > 0) {
@@ -628,6 +649,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signUp(login: string, password: string, fullName: string) {
+    clearEstablishmentCache();
+    setActiveEstablishment(null);
+    setMyEstablishments([]);
     if (!login.trim()) return { error: 'E-mail ou identifiant requis.' };
     if (!isSafeLogin(login)) {
       return { error: 'Identifiant invalide (e-mail ou login simple).' };
@@ -775,6 +799,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    clearEstablishmentCache();
     setSession(null);
     setUser(null);
     setMember(null);
