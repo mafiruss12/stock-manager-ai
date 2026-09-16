@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Beer, Store, CalendarDays, Loader2, Check, ShoppingBag, Wrench, ShoppingCart, HardHat, UtensilsCrossed } from 'lucide-react';
+import { Beer, Store, CalendarDays, Loader2, Check, ShoppingBag, Wrench, ShoppingCart, HardHat, UtensilsCrossed, Warehouse } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
@@ -20,6 +20,7 @@ const ICONS: Record<BusinessType, typeof Beer> = {
   quincaillerie: Wrench,
   location_event: CalendarDays,
   btp: HardHat,
+  depot: Warehouse,
 };
 
 interface Props {

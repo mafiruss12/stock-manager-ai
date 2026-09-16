@@ -16,6 +16,8 @@ import Documents from '@/pages/Documents';
 import Caisse from '@/pages/Caisse';
 import Inventaire from '@/pages/Inventaire';
 import ScanInventaire from '@/pages/ScanInventaire';
+import DepotClients from '@/pages/DepotClients';
+import DepotDeliveries from '@/pages/DepotDeliveries';
 import LiveDaySales from '@/pages/LiveDaySales';
 import MonService from '@/pages/MonService';
 import PrintTableQR from '@/pages/PrintTableQR';
@@ -167,6 +169,8 @@ function ProtectedRoutes() {
         <Route path="/orders" element={<Orders />} />
         <Route path="/kitchen" element={<PlanGate feature="kitchen" label="Cuisine / Grill"><Kitchen /></PlanGate>} />
         <Route path="/inventory" element={<Inventaire />} />
+        <Route path="/depot/clients" element={<DepotClients />} />
+        <Route path="/depot/deliveries" element={<DepotDeliveries />} />
         <Route path="/inventory/scan" element={<ScanInventaire />} />
         <Route path="/inventaire" element={<Navigate to="/inventory" replace />} />
         <Route path="/point-manuel" element={<PointManuel />} />

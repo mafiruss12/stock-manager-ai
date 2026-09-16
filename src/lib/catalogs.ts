@@ -19,7 +19,8 @@ export type SeedProduct = {
 /** Uniquement maquis / boissons : logique casiers */
 export function usesCasiers(type: string | null | undefined): boolean {
   // restaurant : casiers seulement si besoin bar — par défaut portions
-  return normalizeBusinessType(type) === 'maquis';
+  const t = normalizeBusinessType(type);
+  return t === 'maquis' || t === 'depot';
 }
 
 export function casierSize(type: string | null | undefined): number {

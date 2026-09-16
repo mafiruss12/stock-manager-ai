@@ -61,6 +61,8 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/mes-employes', label: 'Mes employés', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/calendar', label: 'Planning', icon: <Calendar size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
       { to: '/customers', label: 'Clients', icon: <UserCircle size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
+      { to: '/depot/clients', label: 'Clients dépôt', icon: <Users size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager'] },
+      { to: '/depot/deliveries', label: 'Livraisons dépôt', icon: <Truck size={20} />, roles: ['super_admin', 'admin', 'owner', 'manager', 'cashier'] },
     ] },
   {
     label: 'Finances',
@@ -396,7 +398,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   // Type inconnu : ne pas bloquer toute l'app — fallback type "maquis"
   const knownTypes = new Set([
-    'maquis', 'restaurant', 'magasin', 'boutique', 'superette',
+    'maquis', 'restaurant', 'magasin', 'boutique', 'superette', 'depot',
     'quincaillerie', 'location_event', 'btp',
   ]);
   const rawType = (activeEstablishment?.type || cachedEstPayload?.type || '').toLowerCase().trim();
@@ -622,7 +624,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Barre bas mobile — adaptée au type d'établissement */}
       <nav data-no-print className="bottom-nav-maquis lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-stone-800 bg-stone-900/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
         <div className="grid grid-cols-5 gap-0 max-w-lg mx-auto">
-          {(bizType === 'btp'
+          {(bizType === 'depot'
+            ? [
+                { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
+                { to: '/depot/deliveries', label: 'Livraisons', icon: <Truck size={22} /> },
+                { to: '/depot/clients', label: 'Clients', icon: <Users size={22} /> },
+                { to: '/inventory', label: 'Stock', icon: <Package size={22} /> },
+                { to: '/daily-report', label: 'Journal', icon: <ClipboardCheck size={22} /> },
+              ]
+            : bizType === 'btp'
             ? [
                 { to: '/dashboard', label: 'Accueil', icon: <LayoutDashboard size={22} /> },
                 { to: '/btp/documents', label: 'Devis', icon: <FileText size={22} /> },
