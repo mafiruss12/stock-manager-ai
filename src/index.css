@@ -158,32 +158,76 @@ html[data-theme='light'] body {
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
 }
 
-/* —— Fonds (type app opérateur mobile) —— */
+/* —— Fonds mode jour : blanc / gris très clair (plus de cartes noires) —— */
 html.theme-light .bg-stone-950,
+html.theme-light .bg-stone-950\/40,
 html.theme-light .bg-stone-950\/50,
+html.theme-light .bg-stone-950\/60,
+html.theme-light .bg-stone-950\/70,
 html.theme-light .bg-stone-950\/80,
 html.theme-light .bg-stone-950\/90,
-html[data-theme='light'] .bg-stone-950 {
+html[data-theme='light'] .bg-stone-950,
+html[data-theme='light'] [class*="bg-stone-950"] {
   background-color: #F5F5F5 !important;
 }
 
 html.theme-light .bg-stone-900,
+html.theme-light .bg-stone-900\/40,
 html.theme-light .bg-stone-900\/50,
+html.theme-light .bg-stone-900\/60,
+html.theme-light .bg-stone-900\/70,
 html.theme-light .bg-stone-900\/80,
+html.theme-light .bg-stone-900\/90,
 html.theme-light .bg-stone-900\/95,
-html[data-theme='light'] .bg-stone-900 {
+html[data-theme='light'] .bg-stone-900,
+html.theme-light [class*="bg-stone-900"],
+html[data-theme='light'] [class*="bg-stone-900"] {
   background-color: #ffffff !important;
 }
 
 html.theme-light .bg-stone-800,
 html.theme-light .bg-stone-800\/40,
 html.theme-light .bg-stone-800\/50,
-html[data-theme='light'] .bg-stone-800 {
+html.theme-light .bg-stone-800\/60,
+html.theme-light .bg-stone-800\/70,
+html.theme-light .bg-stone-800\/80,
+html.theme-light .bg-stone-800\/90,
+html[data-theme='light'] .bg-stone-800,
+html.theme-light [class*="bg-stone-800"],
+html[data-theme='light'] [class*="bg-stone-800"] {
+  background-color: #F7F7F7 !important;
+}
+
+html.theme-light .bg-stone-700,
+html.theme-light .bg-stone-700\/40,
+html.theme-light .bg-stone-700\/50,
+html.theme-light [class*="bg-stone-700"] {
+  background-color: #EEEEEE !important;
+}
+
+html.theme-light .bg-black\/40,
+html.theme-light .bg-black\/50,
+html.theme-light .bg-black\/60,
+html.theme-light .bg-black\/70 {
+  background-color: rgba(0, 0, 0, 0.25) !important;
+}
+
+/* listes inventaire / tableaux */
+html.theme-light .divide-stone-800,
+html.theme-light .divide-stone-800\/80 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #E8E8E8 !important;
+}
+
+html.theme-light .hover\:bg-stone-800\/40:hover,
+html.theme-light .hover\:bg-stone-800:hover,
+html.theme-light .hover\:bg-stone-700:hover {
   background-color: #F0F0F0 !important;
 }
 
-html.theme-light .bg-black\/60 {
-  background-color: rgba(0, 0, 0, 0.35) !important;
+/* tuiles internes (valeur stock, stats) */
+html.theme-light .theme-inner-card {
+  background-color: #ffffff !important;
+  border-color: #EEEEEE !important;
 }
 
 /* —— Bordures —— */
@@ -658,4 +702,48 @@ html.theme-light [class*="from-stone-900"] {
 html.theme-light .bg-stone-900\/90,
 html.theme-light .bg-stone-900\/80 {
   background-color: #ffffff !important;
+}
+
+
+/* ========== Mode jour — filet de sécurité global ========== */
+html.theme-light main,
+html[data-theme='light'] main {
+  background-color: #F5F5F5 !important;
+}
+
+/* Cartes / listes inventaire, finance, gestion */
+html.theme-light ul.rounded-2xl,
+html.theme-light .rounded-2xl.border.border-stone-800,
+html.theme-light div.rounded-2xl.border {
+  background-color: #ffffff !important;
+}
+
+html.theme-light .rounded-xl.bg-stone-800\/80,
+html.theme-light .rounded-xl.bg-stone-800\/50,
+html.theme-light .rounded-xl.bg-stone-900\/60 {
+  background-color: #ffffff !important;
+  border-color: #EEEEEE !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Badges OK restent verts lisibles */
+html.theme-light .text-emerald-300,
+html.theme-light .text-emerald-400,
+html.theme-light .text-green-400 {
+  color: #059669 !important;
+}
+
+/* Rupture reste visible */
+html.theme-light .text-red-300,
+html.theme-light .text-red-400,
+html.theme-light .bg-red-500\/20 {
+  color: #dc2626 !important;
+}
+
+/* Éviter texte blanc sur fond blanc (sauf boutons primaires) */
+html.theme-light .btn-primary,
+html.theme-light .btn-primary .text-white,
+html.theme-light button.bg-primary-500,
+html.theme-light button.bg-amber-500 {
+  color: #ffffff !important;
 }

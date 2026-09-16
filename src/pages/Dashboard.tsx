@@ -400,7 +400,7 @@ export default function Dashboard() {
 {canSeeFinance && (
       <>
       {/* Comptabilité */}
-      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4">
+      <div className="mb-6 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 theme-card-light">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <h2 className="text-lg font-semibold text-stone-100">Comptabilité</h2>
@@ -506,11 +506,11 @@ export default function Dashboard() {
       </div>
 
       <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm theme-inner-card">
           <p className="text-stone-500 text-xs">Valeur du stock (au coût d&apos;achat)</p>
           <p className="text-amber-300 font-semibold text-lg">{formatFCFA(data.stockValue ?? 0)}</p>
         </div>
-        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm">
+        <div className="rounded-xl bg-stone-800/80 px-3 py-2 text-sm theme-inner-card">
           <p className="text-stone-500 text-xs">Résultat du jour (CA − dépenses)</p>
           <p className={`font-semibold text-lg ${(data.todayProfit ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {formatFCFA(data.todayProfit ?? 0)}
