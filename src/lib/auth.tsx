@@ -336,6 +336,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadMemberData(currentUser: User): Promise<Member> {
     const fallback = buildFallbackMember(currentUser);
     try {
+      // 1) RPC SECURITY DEFINER : fiable mobile (bypass RLS race session)
+      try {
+        const { data: boot, error: bootErr } = await supabase.rpc('bootstrap_my_session');
+        if (!bootErr && boot && typeof boot === 'object') {
+          const payload = boot as { member?: Member; establishment?: { id: string; name?: string; type?: string } | null; error?: string };
+          if (payload.member && payload.member.user_id) {
+            const m = payload.member as Member;
+            setMember(m);
+            setAccessRequest(null);
+            setNeedsAccess(false);
+            if (payload.establishment?.id) {
+              const est = {
+                id: payload.establishment.id,
+                name: payload.establishment.name || 'Mon établissement',
+                type: payload.establishment.type || 'maquis',
+                member_role: m.role,
+              } as MyEstablishment;
+              setActiveEstablishment(est);
+              setMyEstablishments([est]);
+              try {
+                saveActiveEstForUser(currentUser.id, est);
+                localStorage.setItem('mm_est_ids', JSON.stringify([est.id]));
+                localStorage.setItem(`mm_est_ids:${currentUser.id}`, JSON.stringify([est.id]));
+              } catch { /* */ }
+            } else if (m.establishment_id) {
+              try { await loadMyEstablishments(currentUser, m); } catch { /* */ }
+            }
+            try { await cacheAuthProfile({ userId: currentUser.id, member: m }); } catch { /* */ }
+            return m;
+          }
+        } else if (bootErr) {
+          console.warn('bootstrap_my_session', bootErr);
+        }
+      } catch (e) {
+        console.warn('bootstrap_my_session throw', e);
+      }
+
       try {
         if (!isOnline()) {
           const cached = await getCachedAuthProfile(currentUser.id);
@@ -663,7 +700,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       registerLoginSuccess();
       const signedUser = data.user ?? data.session?.user ?? null;
-      if (data.session) setSession(data.session);
+      if (data.session) {
+        setSession(data.session);
+        // Mobile : forcer la session sur le client Supabase avant tout SELECT RLS
+        try {
+          await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+        } catch (e) {
+          console.warn('setSession', e);
+        }
+      }
       if (!signedUser) {
         setLoading(false);
         return { error: 'Identifiant ou mot de passe incorrect' };
