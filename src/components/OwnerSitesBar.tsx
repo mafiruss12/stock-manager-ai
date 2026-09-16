@@ -12,9 +12,9 @@ export default function OwnerSitesBar() {
   if (!canSwitch || myEstablishments.length === 0) return null;
 
   return (
-    <div className="mb-5 rounded-2xl border border-amber-500/30 bg-stone-900/70 p-3">
-      <p className="text-[11px] uppercase tracking-wide text-amber-200/80 mb-2 flex items-center gap-1">
-        <Building2 size={13} /> Mes établissements
+    <div className="mb-5 rounded-2xl border border-amber-500/40 bg-white dark:bg-stone-900/70 p-3 shadow-sm sites-bar">
+      <p className="text-[11px] uppercase tracking-wide text-stone-700 font-semibold mb-2 flex items-center gap-1 sites-bar-title">
+        <Building2 size={13} className="text-amber-600" /> Mes établissements
       </p>
       <div className="flex flex-wrap gap-2">
         {myEstablishments.map((e) => {
@@ -27,23 +27,23 @@ export default function OwnerSitesBar() {
               onClick={() => {
                 if (!active) void switchEstablishment(e.id);
               }}
-              className={`min-h-[44px] px-3 py-2 rounded-xl text-left text-sm border transition ${
+              className={`min-h-[44px] px-3 py-2 rounded-xl text-left text-sm border transition sites-bar-btn ${
                 active
-                  ? 'border-amber-400 bg-amber-500/20 text-amber-100'
-                  : 'border-stone-700 bg-stone-800/60 text-stone-300 hover:border-amber-500/40'
+                  ? 'border-amber-500 bg-amber-50 text-stone-900 ring-1 ring-amber-400/50'
+                  : 'border-stone-200 bg-stone-50 text-stone-800 hover:border-amber-400 hover:bg-amber-50/80'
               }`}
             >
-              <span className="font-semibold flex items-center gap-1">
-                {active && <Check size={14} />}
+              <span className="font-semibold flex items-center gap-1 text-stone-900">
+                {active && <Check size={14} className="text-amber-600 shrink-0" />}
                 {e.name}
               </span>
-              <span className="block text-[11px] opacity-80">{label}</span>
+              <span className="block text-[11px] text-stone-600 font-medium">{label}</span>
             </button>
           );
         })}
       </div>
       {myEstablishments.length === 1 && (
-        <p className="text-[11px] text-stone-500 mt-2">
+        <p className="text-[11px] text-stone-600 mt-2 leading-snug">
           Un seul site pour l’instant. Créez un 2ᵉ établissement depuis le choix d’activité à l’inscription / Super-admin.
         </p>
       )}
