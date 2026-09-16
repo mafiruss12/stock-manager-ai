@@ -309,7 +309,14 @@ export default function Dashboard() {
   }, [activeEstablishment?.id, member?.establishment_id]);
 
   if (!(activeEstablishment?.id || member?.establishment_id)) {
-    return <EmptyState icon={<LayoutDashboard size={48} />} title="Aucun établissement" message="Créez votre activité dans Paramètres." />;
+    // Sur mobile le membre charge après : ne pas afficher "aucun" trop tôt
+    return (
+      <EmptyState
+        icon={<LayoutDashboard size={48} />}
+        title="Chargement…"
+        message="Récupération de votre établissement en cours. Si cela dure, tirez pour actualiser."
+      />
+    );
   }
   if (loading && !data) {
     return (

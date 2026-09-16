@@ -142,31 +142,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setMyEstablishments(list);
-      const active =
+      let active =
         list.find((e) => e.id === currentMember?.establishment_id) ?? list[0] ?? null;
+
+      // Mobile / réseau : si la liste est vide mais le membre a un establishment_id, ne JAMAIS effacer
+      if (!active && currentMember?.establishment_id) {
+        active = {
+          id: currentMember.establishment_id,
+          name: 'Mon établissement',
+          type: 'maquis',
+          member_role: currentMember.role,
+        } as MyEstablishment;
+        // Enrichir depuis le cache user si dispo
+        try {
+          const raw = localStorage.getItem(`mm_active_est:${currentUser.id}`);
+          if (raw) {
+            const c = JSON.parse(raw);
+            if (c?.id === currentMember.establishment_id) {
+              active = { ...active, name: c.name || active.name, type: c.type || active.type };
+            }
+          }
+        } catch { /* */ }
+      }
+
       setActiveEstablishment(active);
       try {
-        if (list.length > 0 && active) {
-          localStorage.setItem('mm_est_ids', JSON.stringify(list.map((e) => e.id)));
-          localStorage.setItem(`mm_est_ids:${currentUser.id}`, JSON.stringify(list.map((e) => e.id)));
+        if (active?.id) {
+          localStorage.setItem('mm_est_ids', JSON.stringify(list.length ? list.map((e) => e.id) : [active.id]));
+          localStorage.setItem(`mm_est_ids:${currentUser.id}`, JSON.stringify(list.length ? list.map((e) => e.id) : [active.id]));
           saveActiveEstForUser(currentUser.id, active);
-        } else {
-          // Nouveau compte sans établissement : NE PAS conserver un cache d'un autre user
+        } else if (!currentMember?.establishment_id) {
+          // Uniquement si vraiment aucun établissement serveur
           clearEstablishmentCache();
           setActiveEstablishment(null);
         }
       } catch { /* */ }
     } catch (e) {
       console.error('loadMyEstablishments', e);
-      // En erreur réseau : seulement restaurer cache SI lié à ce user et à son member
+      // Erreur réseau mobile : conserver établissement du membre
       try {
-        const uid = currentUser.id;
-        const raw = localStorage.getItem(`mm_active_est:${uid}`) || null;
-        if (raw && currentMember?.establishment_id) {
-          const cached = JSON.parse(raw);
-          if (cached?.id && cached.id === currentMember.establishment_id) {
-            setActiveEstablishment((prev) => prev || ({ ...cached, member_role: currentMember?.role } as MyEstablishment));
+        if (currentMember?.establishment_id) {
+          const uid = currentUser.id;
+          let payload: MyEstablishment = {
+            id: currentMember.establishment_id,
+            name: 'Mon établissement',
+            type: 'maquis',
+            member_role: currentMember.role,
+          } as MyEstablishment;
+          const raw = localStorage.getItem(`mm_active_est:${uid}`);
+          if (raw) {
+            const c = JSON.parse(raw);
+            if (c?.id === currentMember.establishment_id) {
+              payload = { ...payload, name: c.name || payload.name, type: c.type || payload.type };
+            }
           }
+          setActiveEstablishment((prev) => prev || payload);
+          setMyEstablishments((prev) => (prev.length ? prev : [payload]));
         }
       } catch { /* */ }
     }
@@ -309,10 +340,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isOnline()) {
           const cached = await getCachedAuthProfile(currentUser.id);
           if (cached?.member) {
-            setMember(cached.member as Member);
+            const cm = cached.member as Member;
+            setMember(cm);
             setAccessRequest(null);
             setNeedsAccess(false);
-            return cached.member as Member;
+            if (cm.establishment_id) {
+              try { await loadMyEstablishments(currentUser, cm); } catch { /* */ }
+            }
+            return cm;
           }
         }
       } catch {
@@ -601,10 +636,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signIn(login: string, password: string) {
-    // Ne pas réutiliser l'établissement d'un compte précédent sur cet appareil
-    clearEstablishmentCache();
-    setActiveEstablishment(null);
-    setMyEstablishments([]);
+    // Ne pas vider l'état avant loadMemberData (sinon TypePicker flash mobile)
+    // On nettoie seulement les caches d'AUTRES users après identification
+    try {
+      // garde mm_active_est:current — nettoyage ciblé plus bas
+    } catch { /* */ }
 
     try {
       const lockLeft = getLoginLockRemaining();
@@ -633,10 +669,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Identifiant ou mot de passe incorrect' };
       }
       setUser(signedUser);
+      // Purger caches d'autres comptes (garde la clé de cet user)
+      try {
+        const keep = `mm_active_est:${signedUser.id}`;
+        const keepIds = `mm_est_ids:${signedUser.id}`;
+        const toRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (k === 'mm_active_est' || k === 'mm_est_ids') toRemove.push(k);
+          if (k.startsWith('mm_active_est:') && k !== keep) toRemove.push(k);
+          if (k.startsWith('mm_est_ids:') && k !== keepIds) toRemove.push(k);
+        }
+        toRemove.forEach((k) => localStorage.removeItem(k));
+      } catch { /* */ }
       try {
         await loadMemberData(signedUser);
       } catch {
-        setMember(buildFallbackMember(signedUser));
+        // Dernier recours : profil cache user
+        try {
+          const { getCachedAuthProfile } = await import('./offline');
+          const cached = await getCachedAuthProfile(signedUser.id);
+          if (cached?.member && (cached.member as Member).establishment_id) {
+            setMember(cached.member as Member);
+            await loadMyEstablishments(signedUser, cached.member as Member);
+          } else {
+            setMember(buildFallbackMember(signedUser));
+          }
+        } catch {
+          setMember(buildFallbackMember(signedUser));
+        }
         setNeedsAccess(false);
       }
       setLoading(false);

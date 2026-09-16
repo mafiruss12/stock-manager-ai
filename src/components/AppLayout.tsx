@@ -127,7 +127,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const planAccess = usePlanAccess();
   const allow = planAccess.allow.bind(planAccess);
   const planLimits = planAccess.plan;
-  const { member, user, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
+  const { member, user, loading, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
   // Déconnexion auto après 15 min sans activité
   useIdleTimeout(() => {
@@ -363,16 +363,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const isInvitedStaffRole = ['manager', 'cashier', 'employee'].includes(member?.role || '');
 
-  // TypePicker = nouveau propriétaire sans aucun établissement serveur
+  // TypePicker UNIQUEMENT après fin de chargement + vraiment aucun établissement serveur
+  // (évite le flash mobile "créer activité" alors que le compte a déjà un site)
   const showTypePicker =
+    !loading &&
     Boolean(member) &&
     !isPrivileged &&
     !isInvitedStaffRole &&
     !member?.establishment_id &&
     !(myEstablishments && myEstablishments.length > 0) &&
-    !hasEstablishment;
+    !hasEstablishment &&
+    !activeEstablishment?.id;
 
-  if (isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
+  if (!loading && isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
     return (
       <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center p-6">
       {!isOnline && (
@@ -391,6 +394,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             Réessayer
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // Pendant le bootstrap mobile : écran neutre (pas TypePicker)
+  if (loading && Boolean(member) && !hasEstablishment && !member?.establishment_id) {
+    return (
+      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center">
+        <p className="text-sm text-stone-400">Chargement de votre établissement…</p>
       </div>
     );
   }
