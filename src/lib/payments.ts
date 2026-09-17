@@ -1,17 +1,16 @@
 /**
- * Paiements abonnement — CinetPay (Mobile Money CI) + WhatsApp secours
+ * Paiements abonnement — Mobile Money manuel + WhatsApp (V1)
  */
 import { PLAN, priceForMonths, paymentWhatsAppLink, SUB_PERIODS } from '@/lib/subscription';
 
 export type PaymentProvider = 'whatsapp' | 'cinetpay';
 
 export const PAYMENT_METHODS = [
-  { id: 'cinetpay' as const, label: 'Mobile Money (CinetPay)', icon: '💳' },
-  { id: 'wave' as const, label: 'Wave via CinetPay', icon: '🌊' },
-  { id: 'orange_money' as const, label: 'Orange Money via CinetPay', icon: '🟠' },
-  { id: 'mtn_money' as const, label: 'MTN Money via CinetPay', icon: '🟡' },
-  { id: 'moov_money' as const, label: 'Moov Money via CinetPay', icon: '🔵' },
   { id: 'whatsapp' as const, label: 'WhatsApp (validation manuelle)', icon: '💬' },
+  { id: 'wave' as const, label: 'Wave', icon: '🌊' },
+  { id: 'orange_money' as const, label: 'Orange Money', icon: '🟠' },
+  { id: 'mtn_money' as const, label: 'MTN Money', icon: '🟡' },
+  { id: 'moov_money' as const, label: 'Moov Money', icon: '🔵' },
 ];
 
 export function isCinetPayConfigured(): boolean {

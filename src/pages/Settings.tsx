@@ -435,21 +435,87 @@ async function saveProfile() {
       </section>
 )}
 
-    {openPanel === 'sub' && activeEstablishment && (
-      <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-stone-200">
-        <p className="font-semibold text-amber-200 mb-1">Abonnement</p>
-        <p className="text-sm text-amber-100/90 mb-1">Plan : <strong>{getEffectivePlan(activeEstablishment as any).label}</strong></p>
-        <p>{getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}</p>
-        <p className="text-xs text-stone-400 mt-2 whitespace-pre-wrap">{paymentInstructions()}</p>
-        <a
-          href={paymentWhatsAppLink(`Bonjour, paiement abonnement Stock Manager — ${activeEstablishment?.name || ''}`)}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex mt-3 px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm font-medium"
-        >
-          Contacter pour payer (WhatsApp)
-        </a>
-      </div>
+    {openPanel === 'sub' && (
+      <section className="card p-4 space-y-4 mb-4 border border-amber-500/30 bg-amber-500/10">
+        <h2 className="font-semibold text-stone-900 dark:text-amber-200 text-base">Mon abonnement</h2>
+        {!activeEstablishment ? (
+          <p className="text-sm text-stone-700 dark:text-stone-300">
+            Aucun établissement actif. Sélectionnez ou créez un établissement pour voir votre forfait.
+          </p>
+        ) : (
+          <>
+            <div className="rounded-xl bg-white/90 dark:bg-stone-900/60 border border-emerald-600/40 p-3 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Forfait actuel</p>
+              <p className="text-lg font-bold text-stone-900 dark:text-stone-100">
+                {getEffectivePlan(activeEstablishment as any).label}
+              </p>
+              <p className="text-sm text-stone-700 dark:text-stone-300">
+                {activeEstablishment.name || 'Établissement'}
+              </p>
+              <p className="text-sm text-stone-600 dark:text-stone-400">
+                {getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}
+              </p>
+              <p className="text-xs text-stone-500 dark:text-stone-500">
+                {getPlanLimits(activeEstablishment as any).maxEstablishments} site(s) ·{' '}
+                {getPlanLimits(activeEstablishment as any).maxEmployees} employés ·{' '}
+                {getPlanLimits(activeEstablishment as any).maxProducts} produits max
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-600 dark:text-stone-400">
+                Autres forfaits disponibles
+              </p>
+              {(['starter', 'pro', 'business'] as const).map((id) => {
+                const p = PLANS[id];
+                const current = getEffectivePlan(activeEstablishment as any).id === id;
+                return (
+                  <div
+                    key={id}
+                    className={`rounded-xl border p-3 text-sm ${
+                      current
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 text-stone-900 dark:text-stone-100'
+                        : 'border-stone-200 dark:border-stone-700 bg-white/80 dark:bg-stone-900/40 text-stone-800 dark:text-stone-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="font-semibold">{p.label}</span>
+                      {current ? (
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Votre forfait</span>
+                      ) : (
+                        <span className="text-xs text-stone-500">{p.monthlyFcfa.toLocaleString('fr-FR')} F/mois</span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-1 text-stone-600 dark:text-stone-400">
+                      {p.maxEstablishments} site(s) · {p.maxEmployees} employés · {p.maxProducts} produits
+                      {p.qrOrdering ? ' · QR' : ''}
+                      {p.multiSite ? ' · multi-sites' : ''}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        <p className="text-xs text-stone-600 dark:text-stone-400 whitespace-pre-wrap">{paymentInstructions()}</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <a
+            href={paymentWhatsAppLink(
+              `Bonjour, je suis sur le forfait ${activeEstablishment ? getEffectivePlan(activeEstablishment as any).label : '—'} — ${activeEstablishment?.name || 'mon établissement'}. Je souhaite payer / changer d'abonnement Stock Manager.`
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex justify-center px-3 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium min-h-[44px] items-center"
+          >
+            Payer ou changer via WhatsApp
+          </a>
+          <a
+            href="/subscription"
+            className="inline-flex justify-center px-3 py-2.5 rounded-xl border border-amber-600 text-amber-900 dark:text-amber-200 text-sm font-medium min-h-[44px] items-center bg-white/80 dark:bg-transparent"
+          >
+            Voir tous les détails
+          </a>
+        </div>
+      </section>
     )}
 
     <div>
@@ -472,7 +538,7 @@ async function saveProfile() {
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Gestion du compte</p>
           <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
             <SettingsRow icon={<User size={20} />} title="Mon profil" subtitle="Nom, photo, rôle" onClick={() => setOpenPanel('profile')} />
-            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle="Forfait et paiement" onClick={() => setOpenPanel('sub')} />
+            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle={activeEstablishment ? `Forfait ${getEffectivePlan(activeEstablishment as any).label}` : 'Forfait et paiement'} onClick={() => setOpenPanel('sub')} />
           </div>
         </div>
         <div>

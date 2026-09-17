@@ -1,163 +1,191 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, MessageCircle, Smartphone, Wallet, CheckCircle2, Loader2,
+  ArrowLeft, MessageCircle, Wallet, CheckCircle2, Loader2, Crown,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { PLAN, getSubscriptionState, priceForMonths } from '@/lib/subscription';
+import {
+  PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits, priceForMonths, type PlanTier,
+} from '@/lib/subscription';
 import {
   PAYMENT_METHODS,
   openSubscriptionWhatsApp,
-  initCinetPayCheckout,
   listPeriods,
 } from '@/lib/payments';
-import { sendSms } from '@/lib/sms';
-import { sendWhatsAppCloud } from '@/lib/whatsappCloud';
-import { isTiunConfigured, checkoutTiunPlan, type TiunPlan } from '@/lib/tiun';
-import { PLANS } from '@/lib/subscription';
 
 export default function SubscriptionPage() {
   const { member, activeEstablishment } = useAuth();
   const [months, setMonths] = useState(1);
-  const [method, setMethod] = useState('cinetpay');
+  const [method, setMethod] = useState('whatsapp');
+  const [selectedTier, setSelectedTier] = useState<PlanTier | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const amount = priceForMonths(months);
-  const state = getSubscriptionState(activeEstablishment as any);
-  const periods = useMemo(() => listPeriods(), []);
+
   const estName = activeEstablishment?.name || 'Mon établissement';
-  const estId = activeEstablishment?.id || '';
-  const userId = member?.user_id || '';
+  const current = activeEstablishment ? getEffectivePlan(activeEstablishment as any) : null;
+  const limits = activeEstablishment ? getPlanLimits(activeEstablishment as any) : null;
+  const state = activeEstablishment
+    ? getSubscriptionState(activeEstablishment)
+    : { label: '—', message: 'Sélectionnez un établissement pour voir votre abonnement.', status: 'trial' as const };
 
-  async function payCinetPay() {
-    setBusy(true);
-    setStatus(null);
-    const metadata = `${estId}|${months}|${userId}`;
-    const r = await initCinetPayCheckout({
-      amount,
-      description: `Abonnement Stock Manager ${months} mois — ${estName}`,
-      customerName: member?.full_name || estName,
-      customerEmail: member?.email || undefined,
-      customerPhone: (member as { phone?: string } | null)?.phone || undefined,
-      metadata,
-    });
-    setBusy(false);
-    if (r.paymentUrl) {
-      setStatus('Redirection vers CinetPay…');
-      window.location.href = r.paymentUrl;
-      return;
-    }
-    setStatus(r.error || 'CinetPay indisponible — utilisez WhatsApp');
-  }
+  const targetTier = selectedTier || (current?.id as PlanTier) || 'starter';
+  const targetPlan = PLANS[targetTier];
+  const amount = useMemo(() => {
+    const monthly = targetPlan.monthlyFcfa;
+    return monthly * Math.max(1, months);
+  }, [targetPlan, months]);
 
-  function payTiun(plan: TiunPlan = 'pro') {
-    setBusy(true);
-    setStatus(null);
-    const r = checkoutTiunPlan(plan);
-    setBusy(false);
-    if (r.ok) {
-      setStatus('Ouverture du paiement Tiun…');
-    } else {
-      setStatus(r.error || 'Tiun indisponible — utilisez CinetPay ou WhatsApp');
-    }
-  }
+  const periods = listPeriods?.() ?? [
+    { months: 1, label: '1 mois' },
+    { months: 3, label: '3 mois' },
+    { months: 6, label: '6 mois' },
+    { months: 12, label: '1 an' },
+  ];
 
   function payWhatsApp() {
+    setBusy(true);
     openSubscriptionWhatsApp({
       establishmentName: estName,
       months,
-      method: PAYMENT_METHODS.find((m) => m.id === method)?.label || method,
+      method: `${targetPlan.label} — ${PAYMENT_METHODS.find((m) => m.id === method)?.label || method}`,
     });
-  }
-
-  async function testSms() {
-    const phone = (member as { phone?: string } | null)?.phone;
-    if (!phone) {
-      setStatus('Ajoutez un numéro dans votre profil pour tester le SMS');
-      return;
-    }
-    setBusy(true);
-    const r = await sendSms({
-      to: phone,
-      message: `Stock Manager AI: test SMS OK. Abonnement ${months} mois = ${amount} F.`,
-    });
+    setStatus('WhatsApp ouvert. Indiquez le forfait et la durée ; activation après confirmation du paiement.');
     setBusy(false);
-    setStatus(r.ok ? 'SMS envoyé via Africa’s Talking' : `SMS: ${r.detail}`);
-  }
-
-  async function testWhatsAppCloud() {
-    const phone = (member as { phone?: string } | null)?.phone;
-    if (!phone) {
-      setStatus('Ajoutez un numéro dans votre profil pour tester WhatsApp Cloud');
-      return;
-    }
-    setBusy(true);
-    const r = await sendWhatsAppCloud({
-      to: phone,
-      message: `Stock Manager AI — test WhatsApp Cloud OK.\nAbonnement ${months} mois: ${amount} F CFA.`,
-    });
-    setBusy(false);
-    setStatus(r.ok ? 'WhatsApp Cloud envoyé' : `WhatsApp Cloud: ${r.detail}`);
   }
 
   return (
     <div className="max-w-lg mx-auto space-y-5 pb-16">
-      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200">
+      <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200">
         <ArrowLeft size={16} /> Accueil
       </Link>
 
       <div>
-        <h1 className="text-2xl font-bold text-stone-100 flex items-center gap-2">
-          <Wallet className="text-amber-400" size={26} /> Abonnement
+        <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+          <Wallet className="text-amber-500" size={26} /> Abonnement
         </h1>
-        <p className="text-sm text-stone-400 mt-1">
-          {isTiunConfigured() ? 'Tiun · ' : ''}CinetPay · WhatsApp · {PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois
+        <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
+          Votre forfait actuel et les offres disponibles · {PLAN.currencyLabel}
         </p>
       </div>
 
-      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-50">
-        <p className="font-semibold">{state.label}</p>
-        <p className="text-amber-100/90 mt-1">{state.message}</p>
+      {/* Forfait actuel — toujours clair */}
+      <div className="rounded-2xl border-2 border-emerald-600/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+          <Crown size={14} /> Votre forfait actuel
+        </p>
+        {activeEstablishment && current ? (
+          <>
+            <p className="text-2xl font-bold text-stone-900 dark:text-stone-50">{current.label}</p>
+            <p className="text-sm text-stone-700 dark:text-stone-300">{estName}</p>
+            <p className="text-sm text-stone-600 dark:text-stone-400">{state.label} — {state.message}</p>
+            {limits && (
+              <p className="text-xs text-stone-500 dark:text-stone-500">
+                {limits.maxEstablishments} site(s) · {limits.maxEmployees} employés · {limits.maxProducts} produits
+                {limits.qrOrdering ? ' · Commande QR' : ''}
+                {limits.multiSite ? ' · Multi-sites' : ''}
+                {limits.ocrAi ? ' · IA OCR' : ''}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-stone-700 dark:text-stone-300">{state.message}</p>
+        )}
       </div>
 
-      <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
-        <p className="text-sm font-medium text-stone-200">Durée</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {periods.map((p) => (
+      {/* Autres / tous les forfaits */}
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold text-stone-800 dark:text-stone-200">Tous les forfaits</h2>
+        <p className="text-xs text-stone-500 dark:text-stone-500">
+          Choisissez une offre pour payer ou upgrader. Votre forfait actuel est indiqué.
+        </p>
+        {(['starter', 'pro', 'business'] as PlanTier[]).map((id) => {
+          const p = PLANS[id];
+          const isCurrent = current?.id === id;
+          const isSelected = targetTier === id;
+          return (
             <button
-              key={p.months}
+              key={id}
               type="button"
-              onClick={() => setMonths(p.months)}
-              className={`rounded-xl border px-3 py-2.5 text-left text-sm transition ${
-                months === p.months
-                  ? 'border-amber-500 bg-amber-500/15 text-amber-100'
-                  : 'border-stone-700 bg-stone-950/40 text-stone-300 hover:border-stone-600'
+              onClick={() => setSelectedTier(id)}
+              className={`w-full text-left rounded-2xl border p-4 transition ${
+                isCurrent
+                  ? 'border-emerald-600 bg-emerald-50/80 dark:bg-emerald-900/20'
+                  : isSelected
+                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/20'
+                    : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/50'
               }`}
             >
-              <span className="font-semibold block">{p.label}</span>
-              <span className="text-xs opacity-80">{p.amount.toLocaleString('fr-FR')} F</span>
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <p className="font-bold text-stone-900 dark:text-stone-100">{p.label}</p>
+                  <p className="text-xs text-stone-600 dark:text-stone-400 mt-1">
+                    {p.maxEstablishments} site(s) · {p.maxEmployees} employés · {p.maxProducts} produits
+                  </p>
+                  <p className="text-xs text-stone-500 mt-1">
+                    {[
+                      p.qrOrdering && 'QR',
+                      p.kitchen && 'Cuisine',
+                      p.multiSite && 'Multi-sites',
+                      p.ocrAi && 'IA',
+                      p.advancedReports && 'Rapports+',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Essentiel stock & caisse'}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  {isCurrent && (
+                    <span className="block text-[10px] font-semibold uppercase text-emerald-700 dark:text-emerald-400 mb-1">
+                      Actuel
+                    </span>
+                  )}
+                  <p className="font-semibold text-stone-900 dark:text-stone-100">
+                    {p.monthlyFcfa.toLocaleString('fr-FR')} F
+                  </p>
+                  <p className="text-[10px] text-stone-500">/ mois</p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Durée + moyen + payer */}
+      <div className="rounded-2xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900/40 p-4 space-y-3">
+        <p className="text-sm font-semibold text-stone-800 dark:text-stone-200">
+          Payer : <span className="text-amber-700 dark:text-amber-300">{targetPlan.label}</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {periods.map((per: { months: number; label: string }) => (
+            <button
+              key={per.months}
+              type="button"
+              onClick={() => setMonths(per.months)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border ${
+                months === per.months
+                  ? 'border-amber-500 bg-amber-500/15 text-amber-800 dark:text-amber-200'
+                  : 'border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-300'
+              }`}
+            >
+              {per.label}
             </button>
           ))}
         </div>
-        <p className="text-lg font-bold text-amber-300">
-          Total : {amount.toLocaleString('fr-FR')} {PLAN.currencyLabel}
+        <p className="text-lg font-bold text-stone-900 dark:text-stone-100">
+          {amount.toLocaleString('fr-FR')} {PLAN.currencyLabel}
+          <span className="text-sm font-normal text-stone-500"> · {months} mois</span>
         </p>
-      </div>
 
-      <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
-        <p className="text-sm font-medium text-stone-200 flex items-center gap-2">
-          <Smartphone size={16} className="text-amber-400" /> Moyen de paiement
-        </p>
         <div className="flex flex-wrap gap-2">
           {PAYMENT_METHODS.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={() => setMethod(m.id)}
-              className={`rounded-lg border px-2.5 py-1.5 text-xs ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs border ${
                 method === m.id
-                  ? 'border-amber-500 bg-amber-500/15 text-amber-100'
-                  : 'border-stone-700 text-stone-400'
+                  ? 'border-amber-500 bg-amber-500/15 text-amber-900 dark:text-amber-100'
+                  : 'border-stone-300 dark:border-stone-600 text-stone-600 dark:text-stone-400'
               }`}
             >
               {m.icon} {m.label}
@@ -165,74 +193,38 @@ export default function SubscriptionPage() {
           ))}
         </div>
 
-        {isTiunConfigured() && (
-          <div className="space-y-2">
-            <p className="text-xs text-emerald-300/90">Paiement international sécurisé (Tiun)</p>
-            <button
-              type="button"
-              disabled={busy}
-              className="btn-primary w-full flex items-center justify-center gap-2"
-              onClick={() => payTiun('pro')}
-            >
-              {busy ? <Loader2 className="animate-spin" size={18} /> : <Wallet size={18} />}
-              Payer avec Tiun (recommandé)
-            </button>
-            <div className="grid grid-cols-3 gap-2">
-              <button type="button" disabled={busy} onClick={() => payTiun('starter')} className="rounded-lg border border-stone-700 px-2 py-1.5 text-xs text-stone-300 hover:border-amber-500/40">
-                Essentiel
-              </button>
-              <button type="button" disabled={busy} onClick={() => payTiun('pro')} className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-100">
-                Pro
-              </button>
-              <button type="button" disabled={busy} onClick={() => payTiun('business')} className="rounded-lg border border-stone-700 px-2 py-1.5 text-xs text-stone-300 hover:border-amber-500/40">
-                Business
-              </button>
-            </div>
-          </div>
-        )}
-
         <button
           type="button"
-          disabled={busy}
-          className={`${isTiunConfigured() ? 'btn-secondary' : 'btn-primary'} w-full flex items-center justify-center gap-2`}
-          onClick={() => void payCinetPay()}
-        >
-          {busy ? <Loader2 className="animate-spin" size={18} /> : <Wallet size={18} />}
-          {isTiunConfigured() ? 'Ou CinetPay (Wave / OM / MTN)' : 'Payer avec CinetPay (Wave / OM / MTN / Moov)'}
-        </button>
-
-        <button
-          type="button"
-          className="btn-secondary w-full flex items-center justify-center gap-2"
+          disabled={busy || !activeEstablishment}
+          className="btn-primary w-full flex items-center justify-center gap-2 min-h-[48px]"
           onClick={payWhatsApp}
         >
-          <MessageCircle size={18} /> Ou payer via WhatsApp (manuel)
+          {busy ? <Loader2 className="animate-spin" size={18} /> : <MessageCircle size={18} />}
+          Payer via WhatsApp (validation manuelle)
         </button>
-
+        {!activeEstablishment && (
+          <p className="text-xs text-amber-700 dark:text-amber-300">Choisissez un établissement pour finaliser le paiement.</p>
+        )}
         {status && (
-          <p className="text-xs text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+          <p className="text-xs text-stone-700 dark:text-amber-100 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
             {status}
           </p>
         )}
       </div>
 
-      <div className="rounded-2xl border border-stone-800 bg-stone-900/40 p-4 text-xs text-stone-400 space-y-2">
-        <p className="font-medium text-stone-300 flex items-center gap-2">
-          <CheckCircle2 size={14} className="text-amber-400" /> Canaux configurables
+      <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/40 p-4 text-xs text-stone-600 dark:text-stone-400 space-y-2">
+        <p className="font-medium text-stone-800 dark:text-stone-300 flex items-center gap-2">
+          <CheckCircle2 size={14} className="text-amber-500" /> Comment ça marche
         </p>
         <ul className="space-y-1 list-disc list-inside">
-          <li>Tiun — checkout overlay (si configuré)</li>
-          <li>CinetPay — Wave / Orange Money / MTN / Moov</li>
-          <li>WhatsApp gratuit wa.me — toujours disponible</li>
+          <li>Votre forfait actuel est toujours affiché en vert ci-dessus.</li>
+          <li>Sélectionnez un autre forfait pour upgrader ou renouveler.</li>
+          <li>Paiement Mobile Money / Wave via WhatsApp — activation après confirmation.</li>
+          <li>Pas de CinetPay / Tiun : inscription et accès simplifiés.</li>
         </ul>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <button type="button" disabled={busy} onClick={() => void testSms()} className="px-2 py-1 rounded-lg border border-stone-700 text-stone-300 hover:border-amber-500/40">
-            Tester SMS
-          </button>
-          <button type="button" disabled={busy} onClick={() => void testWhatsAppCloud()} className="px-2 py-1 rounded-lg border border-stone-700 text-stone-300 hover:border-amber-500/40">
-            Tester WhatsApp Cloud
-          </button>
-        </div>
+        {member?.role && (
+          <p className="pt-1 text-stone-500">Connecté en tant que : {member.role}</p>
+        )}
       </div>
     </div>
   );
