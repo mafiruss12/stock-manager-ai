@@ -33,8 +33,8 @@ export default function SubscriptionGate() {
         <div
           className={`mx-3 mt-2 sm:mx-4 rounded-xl px-3 py-2 text-xs sm:text-sm border flex flex-wrap items-center gap-2 ${
             state.status === 'past_due'
-              ? 'border-amber-500/40 bg-amber-500/10 text-amber-100'
-              : 'border-stone-700 bg-stone-900/80 text-stone-300'
+              ? 'border-amber-500/40 bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-100'
+              : 'border-stone-200 bg-white text-stone-800 dark:border-stone-700 dark:bg-stone-900/80 dark:text-stone-300'
           }`}
         >
           <span className="flex-1">

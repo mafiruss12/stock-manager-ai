@@ -5,7 +5,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
-  PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits, priceForMonths, type PlanTier,
+  PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits,
+  getPlanDisplayTitle, getActivePlanLimits, formatPlanLimitsLine, isOnTrial,
+  priceForMonths, type PlanTier,
 } from '@/lib/subscription';
 import {
   PAYMENT_METHODS,
@@ -22,8 +24,10 @@ export default function SubscriptionPage() {
   const [status, setStatus] = useState<string | null>(null);
 
   const estName = activeEstablishment?.name || 'Mon établissement';
-  const current = activeEstablishment ? getEffectivePlan(activeEstablishment as any) : null;
-  const limits = activeEstablishment ? getPlanLimits(activeEstablishment as any) : null;
+  const current = activeEstablishment ? getActivePlanLimits(activeEstablishment as any) : null;
+  const limits = current;
+  const displayTitle = activeEstablishment ? getPlanDisplayTitle(activeEstablishment as any) : '—';
+  const onTrial = activeEstablishment ? isOnTrial(activeEstablishment as any) : false;
   const state = activeEstablishment
     ? getSubscriptionState(activeEstablishment)
     : { label: '—', message: 'Sélectionnez un établissement pour voir votre abonnement.', status: 'trial' as const };
@@ -75,15 +79,21 @@ export default function SubscriptionPage() {
         </p>
         {activeEstablishment && current ? (
           <>
-            <p className="text-2xl font-bold text-stone-900 dark:text-stone-50">{current.label}</p>
-            <p className="text-sm text-stone-700 dark:text-stone-300">{estName}</p>
-            <p className="text-sm text-stone-600 dark:text-stone-400">{state.label} — {state.message}</p>
+            <p className="text-2xl font-bold text-stone-900 dark:text-stone-50">{displayTitle}</p>
+            <p className="text-sm font-medium text-stone-800 dark:text-stone-200">{estName}</p>
+            <p className="text-sm text-stone-700 dark:text-stone-300">{state.message || state.label}</p>
             {limits && (
-              <p className="text-xs text-stone-500 dark:text-stone-500">
-                {limits.maxEstablishments} site(s) · {limits.maxEmployees} employés · {limits.maxProducts} produits
-                {limits.qrOrdering ? ' · Commande QR' : ''}
+              <p className="text-xs text-stone-600 dark:text-stone-400">
+                Limites actives : {formatPlanLimitsLine(limits)}
+                {onTrial ? ' (Pro pendant l’essai)' : ''}
+                {limits.qrOrdering ? ' · QR' : ''}
                 {limits.multiSite ? ' · Multi-sites' : ''}
-                {limits.ocrAi ? ' · IA OCR' : ''}
+                {limits.ocrAi ? ' · IA' : ''}
+              </p>
+            )}
+            {onTrial && (
+              <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+                Après l’essai : Essentiel à {PLANS.starter.monthlyFcfa.toLocaleString('fr-FR')} F/mois, ou restez en Pro à {PLANS.pro.monthlyFcfa.toLocaleString('fr-FR')} F/mois.
               </p>
             )}
           </>

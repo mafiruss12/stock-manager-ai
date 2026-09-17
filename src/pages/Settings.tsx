@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import { useAuth } from '@/lib/auth';
-import { PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
+import { PLAN, PLANS, getSubscriptionState, getEffectivePlan, getPlanLimits, getPlanDisplayTitle, getActivePlanLimits, formatPlanLimitsLine, isOnTrial, paymentInstructions, paymentWhatsAppLink } from '@/lib/subscription';
 import { APP_VERSION, fetchLatestRelease, fetchRemoteWebVersion, forceAppUpdate, isNewerVersion, WEB_APP_URL } from '@/lib/appVersion';
 import type { Establishment } from '@/lib/types';
 import { ROLE_LABELS } from '@/lib/types';
@@ -447,18 +447,17 @@ async function saveProfile() {
             <div className="rounded-xl bg-white/90 dark:bg-stone-900/60 border border-emerald-600/40 p-3 space-y-1">
               <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Forfait actuel</p>
               <p className="text-lg font-bold text-stone-900 dark:text-stone-100">
-                {getEffectivePlan(activeEstablishment as any).label}
+                {getPlanDisplayTitle(activeEstablishment as any)}
               </p>
-              <p className="text-sm text-stone-700 dark:text-stone-300">
+              <p className="text-sm font-medium text-stone-800 dark:text-stone-200">
                 {activeEstablishment.name || 'Établissement'}
               </p>
-              <p className="text-sm text-stone-600 dark:text-stone-400">
+              <p className="text-sm text-stone-700 dark:text-stone-300">
                 {getSubscriptionState(activeEstablishment).message || getSubscriptionState(activeEstablishment).label}
               </p>
-              <p className="text-xs text-stone-500 dark:text-stone-500">
-                {getPlanLimits(activeEstablishment as any).maxEstablishments} site(s) ·{' '}
-                {getPlanLimits(activeEstablishment as any).maxEmployees} employés ·{' '}
-                {getPlanLimits(activeEstablishment as any).maxProducts} produits max
+              <p className="text-xs text-stone-600 dark:text-stone-400">
+                Limites actives : {formatPlanLimitsLine(getActivePlanLimits(activeEstablishment as any))}
+                {isOnTrial(activeEstablishment as any) ? ' (accès Pro pendant l’essai)' : ''}
               </p>
             </div>
             <div className="space-y-2">
@@ -467,7 +466,8 @@ async function saveProfile() {
               </p>
               {(['starter', 'pro', 'business'] as const).map((id) => {
                 const p = PLANS[id];
-                const current = getEffectivePlan(activeEstablishment as any).id === id;
+                const effectiveId = getActivePlanLimits(activeEstablishment as any).id;
+                const current = effectiveId === id;
                 return (
                   <div
                     key={id}
@@ -538,7 +538,7 @@ async function saveProfile() {
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500 px-1 mb-2">Gestion du compte</p>
           <div className="rounded-2xl border border-stone-800 bg-stone-900/80 overflow-hidden">
             <SettingsRow icon={<User size={20} />} title="Mon profil" subtitle="Nom, photo, rôle" onClick={() => setOpenPanel('profile')} />
-            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle={activeEstablishment ? `Forfait ${getEffectivePlan(activeEstablishment as any).label}` : 'Forfait et paiement'} onClick={() => setOpenPanel('sub')} />
+            <SettingsRow icon={<CreditCard size={20} />} title="Abonnement" subtitle={activeEstablishment ? getPlanDisplayTitle(activeEstablishment as any) : 'Forfait et paiement'} onClick={() => setOpenPanel('sub')} />
           </div>
         </div>
         <div>

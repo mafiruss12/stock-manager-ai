@@ -121,7 +121,7 @@ export function canUseFeature(
 }
 
 export function upgradeMessage(featureLabel: string): string {
-  return `${featureLabel} est réservé au plan Pro. Passez en Pro (12 000 F/mois) via WhatsApp pour débloquer.`;
+  return `${featureLabel} est réservé au plan Pro. Passez en Pro (${PLANS.pro.monthlyFcfa.toLocaleString('fr-FR')} F/mois) via WhatsApp pour débloquer.`;
 }
 
 /** Durées d’abonnement proposées (mois) */
@@ -276,12 +276,13 @@ export function getSubscriptionState(est: EstSubscription | null | undefined): {
       };
     }
     const daysLeft = trialEnd ? Math.max(0, Math.ceil((trialEnd - now) / 86400000)) : PLAN.trialDays;
+    const afterTrial = PLANS.starter;
     return {
       status: 'trial',
       blocked: false,
-      label: 'Essai gratuit · accès Pro',
+      label: 'Essai Pro',
       daysLeft,
-      message: `Essai gratuit — ${daysLeft} j restant(s). Puis ${PLAN.monthlyFcfa.toLocaleString('fr-FR')} F/mois.`,
+      message: `Essai Pro — ${daysLeft} j restant${daysLeft === 1 ? '' : 's'}. Ensuite forfait Essentiel à ${afterTrial.monthlyFcfa.toLocaleString('fr-FR')} F/mois (ou Pro à ${PLANS.pro.monthlyFcfa.toLocaleString('fr-FR')} F/mois).`,
     };
   }
 
@@ -298,15 +299,53 @@ export function getSubscriptionState(est: EstSubscription | null | undefined): {
   return { status: 'trial', blocked: false, label: 'Essai', daysLeft: null, message: '' };
 }
 
+
+/** Pluriel FR simple pour compteurs */
+export function formatUnit(n: number, singular: string, plural?: string): string {
+  const p = plural || singular + 's';
+  return `${n} ${n <= 1 ? singular : p}`;
+}
+
+export function isOnTrial(
+  est: { subscription_status?: string | null } | null | undefined,
+): boolean {
+  const s = String(est?.subscription_status || 'trial');
+  return s === 'trial' || !est?.subscription_status;
+}
+
+/** Titre affiché cohérent (essai vs forfait payant) */
+export function getPlanDisplayTitle(
+  est: { plan_tier?: string | null; subscription_status?: string | null } | null | undefined,
+): string {
+  if (!est) return '—';
+  if (isOnTrial(est)) return 'Essai Pro';
+  return getEffectivePlan(est).label;
+}
+
+/** Limites réellement actives (Pro pendant essai) */
+export function getActivePlanLimits(
+  est: { plan_tier?: string | null; subscription_status?: string | null } | null | undefined,
+): PlanLimits {
+  return getEffectivePlan(est);
+}
+
+export function formatPlanLimitsLine(limits: PlanLimits): string {
+  return [
+    formatUnit(limits.maxEstablishments, 'site'),
+    formatUnit(limits.maxEmployees, 'employé'),
+    formatUnit(limits.maxProducts, 'produit') + ' max',
+  ].join(' · ');
+}
+
 export function paymentInstructions(): string {
   return (
     `Offre Stock Manager\n` +
     `• Mise en place stock : ${PLAN.setupStockFcfa.toLocaleString('fr-FR')} F\n` +
-    `• Formation / installation : ${PLAN.setupTrainingFcfa.toLocaleString('fr-FR')} F\n` +
-    `• Total installation : ${PLAN.setupTotalFcfa.toLocaleString('fr-FR')} F\n` +
-    `• 1 mois d'essai gratuit\n` +
-    `• Puis ${PLAN.monthlyFcfa.toLocaleString('fr-FR')} F CFA / mois\n` +
-    `• Possible : 3 mois, 6 mois, 1 an, 2 ans, 5 ans\n` +
-    `Paiement : contact WhatsApp (Wave / Orange Money / MTN)`
+    `• 1 mois d'essai Pro gratuit\n` +
+    `• Après essai : Essentiel ${PLANS.starter.monthlyFcfa.toLocaleString('fr-FR')} F/mois` +
+    ` · Pro ${PLANS.pro.monthlyFcfa.toLocaleString('fr-FR')} F/mois` +
+    ` · Business ${PLANS.business.monthlyFcfa.toLocaleString('fr-FR')} F/mois\n` +
+    `• Durées : 1, 3, 6 mois, 1 an, 2 ans, 5 ans\n` +
+    `Paiement : WhatsApp (Wave / Orange Money / MTN)`
   );
 }
