@@ -7,6 +7,7 @@ import { Package, Plus, Pencil, Trash2, Search, AlertTriangle, Sparkles, Downloa
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { usePlanAccess } from '@/lib/usePlanAccess';
+import { serverAssertCanAddProduct } from '@/lib/paymentRequests';
 import type { Product } from '@/lib/types';
 import { Modal, EmptyState, Badge } from '@/components/ui';
 import ProductThumb from '@/components/ProductThumb';
@@ -341,6 +342,13 @@ export default function Inventaire() {
         });
       } else {
         if (!assertProductLimit(products.length)) return;
+        if (activeEstablishment?.id) {
+          const srv = await serverAssertCanAddProduct(activeEstablishment.id);
+          if (!srv.ok) {
+            alert(srv.error || 'Limite de produits atteinte');
+            return;
+          }
+        }
         const { data: ins, error: insErr } = await supabase.from('products').insert(payload).select('id').maybeSingle();
         if (insErr) {
           alert('Création impossible : ' + insErr.message);

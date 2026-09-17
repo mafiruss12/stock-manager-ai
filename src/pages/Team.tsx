@@ -3,6 +3,7 @@ import {
   Users, Plus, Loader2, KeyRound, RefreshCw, Copy, Check, CheckCircle2, Ban, Trash2,
 } from 'lucide-react';
 import { supabase, SUPABASE_URL, SUPABASE_ANON } from '@/lib/supabase';
+import { serverAssertCanAddMember } from '@/lib/paymentRequests';
 import { createClient } from '@supabase/supabase-js';
 import { useAuth } from '@/lib/auth'
 import { usePlanAccess } from '@/lib/usePlanAccess';
@@ -271,6 +272,14 @@ function TeamAccessForm({
         );
         setLoading(false);
         return;
+      }
+      if (member?.establishment_id) {
+        const srv = await serverAssertCanAddMember(member.establishment_id);
+        if (!srv.ok) {
+          setError(srv.error || 'Limite employés atteinte');
+          setLoading(false);
+          return;
+        }
       }
     } catch {
       /* continue si table absente */

@@ -13,6 +13,12 @@ import {
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
 import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
+import {
+  listAllPendingRequests,
+  approvePaymentRequest,
+  rejectPaymentRequest,
+  type PaymentRequest,
+} from '@/lib/paymentRequests';
 
 type Tab = 'overview' | 'requests' | 'members' | 'establishments' | 'map' | 'subscriptions' | 'activity' | 'pubs';
 
@@ -31,6 +37,8 @@ export default function SuperAdmin() {
   const [pubForm, setPubForm] = useState({ title: '', body: '', link_url: '', image_url: '', active: true, sort_order: 0 });
   const [pubEditing, setPubEditing] = useState<string | null>(null);
   const [pubSaving, setPubSaving] = useState(false);
+  const [payReqs, setPayReqs] = useState<PaymentRequest[]>([]);
+  const [payBusy, setPayBusy] = useState<string | null>(null);
 
   const [approveModal, setApproveModal] = useState<AccessRequest | null>(null);
   const [estModal, setEstModal] = useState(false);
@@ -531,12 +539,39 @@ export default function SuperAdmin() {
     }
   }
 
+
+  useEffect(() => {
+    if (tab !== 'subscriptions') return;
+    void listAllPendingRequests().then(setPayReqs);
+  }, [tab, success]);
+
+  async function handleApprovePay(id: string) {
+    setPayBusy(id);
+    const r = await approvePaymentRequest(id);
+    setPayBusy(null);
+    if (!r.ok) { setError(r.error || 'Erreur approve'); return; }
+    setSuccess('Paiement approuvé — abonnement activé');
+    setPayReqs((prev) => prev.filter((x) => x.id !== id));
+    const { data } = await supabase.from('establishments').select('*').order('created_at', { ascending: false });
+    if (data) setEstablishments(data as Establishment[]);
+  }
+
+  async function handleRejectPay(id: string) {
+    setPayBusy(id);
+    const r = await rejectPaymentRequest(id);
+    setPayBusy(null);
+    if (!r.ok) { setError(r.error || 'Erreur reject'); return; }
+    setSuccess('Demande rejetée');
+    setPayReqs((prev) => prev.filter((x) => x.id !== id));
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center py-20 text-stone-400">Chargement...</div>;
   }
 
   const pendingCount = requests.length;
   const estMembers = editEst ? members.filter((m) => m.establishment_id === editEst.id) : [];
+
 
   return (
     <div>
@@ -1194,6 +1229,54 @@ export default function SuperAdmin() {
             <a className="text-sm text-emerald-400" href={paymentWhatsAppLink('Test Stock Manager')} target="_blank" rel="noreferrer">
               Tester le lien WhatsApp
             </a>
+          </div>
+
+
+          <div className="card space-y-3 border border-emerald-500/30">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-stone-100">Demandes de paiement (manuel)</h2>
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => void listAllPendingRequests().then(setPayReqs)}
+              >
+                Rafraîchir
+              </button>
+            </div>
+            <p className="text-xs text-stone-500">
+              Clients ayant demandé une activation via WhatsApp / Mobile Money. Approuver après réception du paiement.
+            </p>
+            {payReqs.length === 0 ? (
+              <p className="text-sm text-stone-500">Aucune demande en attente (ou table non migrée).</p>
+            ) : (
+              <ul className="space-y-2">
+                {payReqs.map((pr) => (
+                  <li key={pr.id} className="rounded-xl border border-stone-700 p-3 text-sm text-stone-200 space-y-1">
+                    <p className="font-mono text-amber-300">{pr.reference_code}</p>
+                    <p>{pr.plan_tier} · {pr.months} mois · {pr.amount_fcfa.toLocaleString('fr-FR')} F · {pr.payment_method}</p>
+                    <p className="text-xs text-stone-500">Est: {pr.establishment_id.slice(0, 8)}… · {new Date(pr.created_at).toLocaleString('fr-FR')}</p>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={payBusy === pr.id}
+                        className="btn-primary text-xs"
+                        onClick={() => void handleApprovePay(pr.id)}
+                      >
+                        Approuver
+                      </button>
+                      <button
+                        type="button"
+                        disabled={payBusy === pr.id}
+                        className="btn-secondary text-xs"
+                        onClick={() => void handleRejectPay(pr.id)}
+                      >
+                        Rejeter
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="card space-y-3">

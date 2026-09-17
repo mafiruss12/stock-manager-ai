@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft, MessageCircle, Wallet, CheckCircle2, Loader2, Crown,
@@ -11,9 +11,9 @@ import {
 } from '@/lib/subscription';
 import {
   PAYMENT_METHODS,
-  openSubscriptionWhatsApp,
   listPeriods,
 } from '@/lib/payments';
+import { createPaymentRequest, listMyPendingRequests } from '@/lib/paymentRequests';
 
 export default function SubscriptionPage() {
   const { member, activeEstablishment } = useAuth();
@@ -22,6 +22,7 @@ export default function SubscriptionPage() {
   const [selectedTier, setSelectedTier] = useState<PlanTier | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [pendingCode, setPendingCode] = useState<string | null>(null);
 
   const estName = activeEstablishment?.name || 'Mon établissement';
   const current = activeEstablishment ? getActivePlanLimits(activeEstablishment as any) : null;
@@ -39,6 +40,14 @@ export default function SubscriptionPage() {
     return monthly * Math.max(1, months);
   }, [targetPlan, months]);
 
+
+  useEffect(() => {
+    if (!activeEstablishment?.id) return;
+    void listMyPendingRequests(activeEstablishment.id).then((rows) => {
+      if (rows[0]?.reference_code) setPendingCode(rows[0].reference_code);
+    });
+  }, [activeEstablishment?.id]);
+
   const periods = listPeriods?.() ?? [
     { months: 1, label: '1 mois' },
     { months: 3, label: '3 mois' },
@@ -46,15 +55,29 @@ export default function SubscriptionPage() {
     { months: 12, label: '1 an' },
   ];
 
-  function payWhatsApp() {
+  async function payWhatsApp() {
+    if (!activeEstablishment?.id || !member?.user_id) {
+      setStatus('Choisissez un établissement et reconnectez-vous si besoin.');
+      return;
+    }
     setBusy(true);
-    openSubscriptionWhatsApp({
-      establishmentName: estName,
+    setStatus(null);
+    const r = await createPaymentRequest({
+      establishmentId: activeEstablishment.id,
+      userId: member.user_id,
+      planTier: targetTier,
       months,
-      method: `${targetPlan.label} — ${PAYMENT_METHODS.find((m) => m.id === method)?.label || method}`,
+      paymentMethod: PAYMENT_METHODS.find((m) => m.id === method)?.label || method,
+      establishmentName: estName,
     });
-    setStatus('WhatsApp ouvert. Indiquez le forfait et la durée ; activation après confirmation du paiement.');
     setBusy(false);
+    if (r.request?.reference_code) setPendingCode(r.request.reference_code);
+    setStatus(
+      r.request
+        ? `Demande ${r.request.reference_code} — ${targetPlan.label} · ${months} mois · ${r.request.amount_fcfa.toLocaleString('fr-FR')} F. WhatsApp ouvert ; activation après validation.`
+        : 'WhatsApp ouvert. Activation après confirmation du paiement.'
+    );
+    window.open(r.waUrl, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -71,6 +94,12 @@ export default function SubscriptionPage() {
           Votre forfait actuel et les offres disponibles · {PLAN.currencyLabel}
         </p>
       </div>
+
+      {pendingCode && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+          Demande en attente · code <strong>{pendingCode}</strong> — validation admin après paiement.
+        </div>
+      )}
 
       {/* Forfait actuel — toujours clair */}
       <div className="rounded-2xl border-2 border-emerald-600/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 space-y-2">
@@ -207,7 +236,7 @@ export default function SubscriptionPage() {
           type="button"
           disabled={busy || !activeEstablishment}
           className="btn-primary w-full flex items-center justify-center gap-2 min-h-[48px]"
-          onClick={payWhatsApp}
+          onClick={() => void payWhatsApp()}
         >
           {busy ? <Loader2 className="animate-spin" size={18} /> : <MessageCircle size={18} />}
           Payer via WhatsApp (validation manuelle)
