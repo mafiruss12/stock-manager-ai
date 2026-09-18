@@ -204,7 +204,7 @@ export default function MenuQR() {
         </p>
         <h1 className="text-2xl font-bold text-stone-100 mt-0.5 flex items-center gap-2">
           <QrCode size={22} style={{ color: theme.primary }} />
-          QR Code & Menu public
+          QR Code & commande à table
         </h1>
         <p className="text-sm text-stone-400 mt-1">
           Les clients scannent le QR pour voir vos boissons et prix sans installer d’app.
@@ -233,7 +233,7 @@ export default function MenuQR() {
           )}
           <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 mb-5 flex items-center justify-between gap-3">
             <div>
-              <p className="font-medium text-stone-100">Menu public</p>
+              <p className="font-medium text-stone-100">Commande via QR tables</p>
               <p className="text-xs text-stone-500">
                 {enabled ? 'Visible par les clients (lien + QR)' : 'Désactivé — activez pour partager'}
               </p>
@@ -483,7 +483,7 @@ export default function MenuQR() {
               {qrSrc && (
                 <div className="text-center">
                   <img src={qrSrc} alt="QR menu" className="w-32 h-32 rounded-xl bg-white p-1 mx-auto" />
-                  <p className="text-[10px] text-stone-500 mt-1">Menu public</p>
+                  <p className="text-[10px] text-stone-500 mt-1">Lien commande table</p>
                 </div>
               )}
               {sampleTableQr && (
@@ -535,7 +535,7 @@ export default function MenuQR() {
             </Link>
           </div>
 
-            Afficher les quantités disponibles sur le menu public
+            Afficher les quantités disponibles sur la page commande
               </label>
               <div className="space-y-2 pt-2 border-t border-stone-800">
                 <p className="text-sm font-medium text-stone-200">Horaires (vitrine)</p>

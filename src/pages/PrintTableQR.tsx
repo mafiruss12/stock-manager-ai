@@ -73,7 +73,7 @@ export default function PrintTableQR() {
   const [estName, setEstName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState<QrConfig>({});
-  const [template, setTemplate] = useState<TemplateId>('maquis');
+  const [template, setTemplate] = useState<TemplateId>('affiche');
   const [selected, setSelected] = useState<string | 'all'>('all');
   const [phrase, setPhrase] = useState('Scannez pour voir le menu et commander');
   const [busy, setBusy] = useState(false);

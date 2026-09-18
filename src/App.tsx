@@ -214,28 +214,27 @@ function ProtectedRoutes() {
 }
 
 function PublicOrApp() {
-  // Les routes publiques (login, etc.) s'affichent immédiatement.
-  // Seules les routes protégées attendent la session.
+  // Login + commande table (QR) uniquement — menu public / annuaire désactivés.
   if (!isSupabaseConfigured) return <ConfigError />;
 
   return (
     <Routes>
       <Route path="/" element={<AuthPage />} />
       <Route path="/login" element={<AuthPage />} />
-      <Route path="/accueil" element={<PublicHome />} />
-      <Route path="/discover" element={<PublicDiscover />} />
-      <Route path="/establishments" element={<PublicEstablishments />} />
-      <Route path="/restaurants" element={<PublicCategory />} />
-      <Route path="/maquis" element={<PublicCategory />} />
-      <Route path="/bars" element={<PublicCategory />} />
-            <Route path="/events" element={<PublicEvents />} />
-      <Route path="/services" element={<PublicServices />} />
-      <Route path="/favorites" element={<PublicFavorites />} />
-      <Route path="/m/:estId" element={<PublicMenu />} />
       <Route path="/commander/:estId" element={<PublicTableOrder />} />
       <Route path="/order/:estId" element={<PublicTableOrder />} />
-      <Route path="/e/:slugOrId" element={<PublicEstablishmentProfile />} />
-      <Route path="/establishment/:slugOrId" element={<PublicEstablishmentProfile />} />
+      <Route path="/accueil" element={<Navigate to="/login" replace />} />
+      <Route path="/discover" element={<Navigate to="/login" replace />} />
+      <Route path="/establishments" element={<Navigate to="/login" replace />} />
+      <Route path="/restaurants" element={<Navigate to="/login" replace />} />
+      <Route path="/maquis" element={<Navigate to="/login" replace />} />
+      <Route path="/bars" element={<Navigate to="/login" replace />} />
+      <Route path="/events" element={<Navigate to="/login" replace />} />
+      <Route path="/services" element={<Navigate to="/login" replace />} />
+      <Route path="/favorites" element={<Navigate to="/login" replace />} />
+      <Route path="/m/:estId" element={<Navigate to="/login" replace />} />
+      <Route path="/e/:slugOrId" element={<Navigate to="/login" replace />} />
+      <Route path="/establishment/:slugOrId" element={<Navigate to="/login" replace />} />
       <Route path="/*" element={<ProtectedRoutes />} />
     </Routes>
   );
