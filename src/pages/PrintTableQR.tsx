@@ -75,7 +75,7 @@ export default function PrintTableQR() {
   const [qrCfg, setQrCfg] = useState<QrConfig>({});
   const [template, setTemplate] = useState<TemplateId>('maquis');
   const [selected, setSelected] = useState<string | 'all'>('all');
-  const [phrase, setPhrase] = useState('Scannez pour commander');
+  const [phrase, setPhrase] = useState('Scannez pour voir le menu et commander');
   const [busy, setBusy] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -326,55 +326,102 @@ export default function PrintTableQR() {
             return (
               <article
                 key={t.id}
-                className={`qr-print-card relative overflow-hidden rounded-2xl border border-stone-700 shadow-lg print:break-inside-avoid print:shadow-none`}
+                className={`qr-print-card relative overflow-hidden rounded-2xl border shadow-lg print:break-inside-avoid print:shadow-none ${
+                  template === 'affiche' ? 'border-emerald-800/40' : 'border-stone-700'
+                }`}
                 style={{ background: tpl.bg, color: tpl.text }}
               >
-                {/* bandeau animé (écran seulement) */}
                 <div
-                  className={`h-3 bg-gradient-to-r ${tpl.frame} print:h-2 qr-shimmer`}
+                  className={`h-3 bg-gradient-to-r ${tpl.frame} print:h-2 ${template === 'affiche' ? '' : 'qr-shimmer'}`}
                 />
-                <div className="p-5 flex flex-col items-center text-center gap-2">
-                  {logoUrl && (
-                    <img
-                      src={logoUrl}
-                      alt=""
-                      className="w-14 h-14 rounded-xl object-cover border border-black/10 qr-float"
-                    />
-                  )}
-                  <p className="text-sm font-semibold opacity-80 truncate max-w-full">
-                    {estName || 'Établissement'}
-                  </p>
-                  <p
-                    className="text-4xl font-black tracking-tight qr-pulse-text"
-                    style={{ color: tpl.accent }}
-                  >
-                    Table {t.number}
-                  </p>
-                  <p className="text-xs opacity-70">{phrase}</p>
-
-                  <div className="relative mt-1 p-3 bg-white rounded-2xl shadow-inner qr-pulse-ring">
-                    <img
-                      src={qr}
-                      alt={`QR table ${t.number}`}
-                      className="w-48 h-48 print:w-44 print:h-44"
-                      width={240}
-                      height={240}
-                    />
+                {template === 'affiche' ? (
+                  <div className="p-4 sm:p-5 flex flex-col items-center text-center gap-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800/80">
+                      Commande à table
+                    </p>
+                    <p className="text-sm font-bold text-emerald-950 leading-tight">
+                      {estName || 'Stock Manager'}
+                    </p>
+                    {logoUrl && (
+                      <img
+                        src={logoUrl}
+                        alt=""
+                        className="w-12 h-12 rounded-full object-cover border-2 border-emerald-700/30 shadow"
+                      />
+                    )}
+                    <p className="text-3xl font-black text-emerald-900 tracking-tight">
+                      Table {t.number}
+                    </p>
+                    <p className="text-xs font-medium text-emerald-800/90 max-w-[240px]">
+                      {phrase || 'Scannez pour commander'}
+                    </p>
+                    <div className="relative my-1 rounded-2xl p-3 bg-white border-2 border-emerald-700/20 shadow-md">
+                      <img
+                        src={qr}
+                        alt={`QR table ${t.number}`}
+                        className="w-48 h-48 print:w-44 print:h-44"
+                        width={240}
+                        height={240}
+                      />
+                    </div>
+                    <div className="w-full rounded-xl bg-emerald-800 text-white text-xs font-bold py-2.5 px-3 flex items-center justify-center gap-2">
+                      <QrCode size={14} />
+                      SCANNEZ CE QR CODE
+                    </div>
+                    <p className="text-[10px] text-emerald-900/70">
+                      pour passer commande · sans télécharger d&apos;application
+                    </p>
+                    <div className="grid grid-cols-3 gap-1 w-full mt-1 text-[9px] text-emerald-900/80">
+                      <div className="rounded-lg bg-white/70 border border-emerald-700/15 py-1.5 px-1">Menu</div>
+                      <div className="rounded-lg bg-white/70 border border-emerald-700/15 py-1.5 px-1">Commande</div>
+                      <div className="rounded-lg bg-white/70 border border-emerald-700/15 py-1.5 px-1">Service</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="print:hidden text-xs mt-1 underline text-emerald-800/70"
+                      onClick={() => void downloadPng(t.number)}
+                    >
+                      Télécharger PNG
+                    </button>
                   </div>
-
-                  <div className="flex items-center gap-2 text-[10px] opacity-50 mt-1">
-                    <QrCode size={12} />
-                    <span>Commande sans app · scannez</span>
+                ) : (
+                  <div className="p-5 flex flex-col items-center text-center gap-2">
+                    {logoUrl && (
+                      <img
+                        src={logoUrl}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover border-2 border-white/30 shadow"
+                      />
+                    )}
+                    <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+                      {estName || 'Établissement'}
+                    </p>
+                    <p className="text-3xl font-black qr-pulse-text" style={{ color: tpl.accent }}>
+                      Table {t.number}
+                    </p>
+                    <p className="text-sm font-medium opacity-80 max-w-[220px] qr-float">{phrase}</p>
+                    <div className="relative my-2 qr-pulse-ring rounded-2xl p-2 bg-white">
+                      <img
+                        src={qr}
+                        alt={`QR table ${t.number}`}
+                        className="w-48 h-48 print:w-44 print:h-44"
+                        width={240}
+                        height={240}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] opacity-50 mt-1">
+                      <QrCode size={12} />
+                      <span>Commande sans app · scannez</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="print:hidden text-xs mt-2 underline opacity-70"
+                      onClick={() => void downloadPng(t.number)}
+                    >
+                      Télécharger PNG
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    className="print:hidden text-xs mt-2 underline opacity-70"
-                    onClick={() => void downloadPng(t.number)}
-                  >
-                    Télécharger PNG
-                  </button>
-                </div>
+                )}
               </article>
             );
           })}
