@@ -31,7 +31,7 @@ interface OrderWithItems extends Order {
 }
 
 const ORDER_COLS =
-  'id, establishment_id, table_id, table_number, status, order_type, total, notes, created_at, source, payment_method, stock_deducted, server_id, server_name';
+  'id, establishment_id, table_id, table_number, status, order_type, total, notes, created_at, source, payment_method, stock_deducted, server_id, server_name, customer_name';
 const ITEM_COLS = 'id, order_id, product_id, product_name, qty, unit_price, status';
 
 export default function Kitchen() {

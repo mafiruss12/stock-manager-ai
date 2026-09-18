@@ -39,6 +39,7 @@ export default function PublicTableOrder() {
   const [tableId, setTableId] = useState<string | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
+  const [customerName, setCustomerName] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,9 +206,21 @@ export default function PublicTableOrder() {
 
   async function submit() {
     if (!estId || lines.length === 0) return;
+    const name = customerName.trim();
+    if (name.length < 2) {
+      setError('Indiquez votre prénom ou nom (min. 2 caractères) pour que le serveur vous identifie.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const noteParts = [
+        tableNum ? `Table ${tableNum}` : null,
+        `Client: ${name}`,
+        note.trim() || null,
+      ].filter(Boolean);
+      const notesCombined = noteParts.join(' · ') || 'Commande QR';
+
       const { data: order, error: oErr } = await supabase
         .from('orders')
         .insert({
@@ -217,8 +230,9 @@ export default function PublicTableOrder() {
           status: 'pending',
           order_type: 'dine_in',
           total,
-          notes: note || (tableNum ? `Table ${tableNum} (QR client)` : 'Commande QR'),
+          notes: notesCombined,
           source: 'qr_table',
+          customer_name: name,
         })
         .select('id')
         .maybeSingle();
@@ -234,7 +248,7 @@ export default function PublicTableOrder() {
             status: 'pending',
             order_type: 'dine_in',
             total,
-            notes: note || `Table ${tableNum || '?'} QR`,
+            notes: notesCombined,
           })
           .select('id')
           .maybeSingle();
@@ -287,6 +301,7 @@ export default function PublicTableOrder() {
       setDone(true);
       setCart({});
       setNote('');
+      setCustomerName('');
     } catch (e: any) {
       setError(e?.message || 'Envoi impossible');
     }
@@ -390,6 +405,17 @@ export default function PublicTableOrder() {
             </div>
           </div>
 
+          {(customerName.trim() || trackServer) && (
+            <p className="text-center text-sm text-stone-300">
+              {customerName.trim() ? (
+                <>Client : <strong className="text-amber-300">{customerName.trim()}</strong></>
+              ) : null}
+              {customerName.trim() && trackServer ? ' · ' : null}
+              {trackServer ? (
+                <>Serveur : <strong className="text-emerald-300">{trackServer}</strong></>
+              ) : null}
+            </p>
+          )}
           <p className="text-center text-xs text-stone-500">
             Le statut se met à jour automatiquement. Paiement au serveur.
           </p>
@@ -534,7 +560,18 @@ export default function PublicTableOrder() {
         </div>
 
         <label className="block text-xs text-stone-400">
-
+          Votre nom <span className="text-amber-400">*</span>
+          <input
+            className="mt-1 w-full rounded-xl border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-stone-100"
+            placeholder="Ex. Koffi, Aya…"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            maxLength={60}
+            autoComplete="name"
+            required
+          />
+        </label>
+        <label className="block text-xs text-stone-400">
           Note (optionnel)
           <input
             className="mt-1 w-full rounded-xl border border-stone-700 bg-stone-900 px-3 py-2 text-sm text-stone-100"
@@ -554,13 +591,18 @@ export default function PublicTableOrder() {
             </div>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || customerName.trim().length < 2}
               onClick={() => void submit()}
               className="w-full min-h-[48px] rounded-xl bg-amber-500 text-stone-950 font-bold flex items-center justify-center gap-2 disabled:opacity-60"
             >
               {busy ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
               Envoyer la commande
             </button>
+            {customerName.trim().length < 2 && (
+              <p className="text-[10px] text-center text-amber-400/90">
+                Saisissez votre nom ci-dessus pour envoyer
+              </p>
+            )}
             <p className="text-[10px] text-center text-stone-500">
               Touchez les images · paiement au serveur
             </p>
