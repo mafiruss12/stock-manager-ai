@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/ui';
 
 type TableRow = { id: string; number: string; seats?: number; location?: string };
 
-type TemplateId = 'maquis' | 'elegant' | 'minimal' | 'festif';
+type TemplateId = 'affiche' | 'maquis' | 'elegant' | 'minimal' | 'festif';
 
 const TEMPLATES: {
   id: TemplateId;
@@ -26,6 +26,15 @@ const TEMPLATES: {
   bg: string;
   text: string;
 }[] = [
+  {
+    id: 'affiche',
+    label: 'Affiche pro',
+    desc: 'Orange Stock Manager · style vitrine',
+    frame: 'from-orange-600 via-amber-500 to-orange-700',
+    accent: '#FF7900',
+    bg: '#fff7ed',
+    text: '#7c2d12',
+  },
   {
     id: 'maquis',
     label: 'Maquis ambre',
@@ -75,7 +84,7 @@ export default function PrintTableQR() {
   const [qrCfg, setQrCfg] = useState<QrConfig>({});
   const [template, setTemplate] = useState<TemplateId>('affiche');
   const [selected, setSelected] = useState<string | 'all'>('all');
-  const [phrase, setPhrase] = useState('Scannez pour voir le menu et commander');
+  const [phrase, setPhrase] = useState('Scannez pour commander votre boisson');
   const [busy, setBusy] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -331,7 +340,7 @@ export default function PrintTableQR() {
               <article
                 key={t.id}
                 className={`qr-print-card relative overflow-hidden rounded-2xl border shadow-lg print:break-inside-avoid print:shadow-none ${
-                  template === 'affiche' ? 'border-emerald-800/40' : 'border-stone-700'
+                  template === 'affiche' ? 'border-orange-500/50' : 'border-stone-700'
                 }`}
                 style={{ background: tpl.bg, color: tpl.text }}
               >
@@ -341,14 +350,14 @@ export default function PrintTableQR() {
                 {template === 'affiche' ? (
                   <div className="affiche-poster flex flex-col min-h-[420px] print:min-h-[260mm]">
                     {/* Bandeau haut type affiche pro */}
-                    <div className="bg-gradient-to-b from-emerald-900 to-emerald-800 text-white px-4 pt-4 pb-5 text-center relative">
-                      <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-emerald-200/90">
+                    <div className="bg-gradient-to-b from-orange-600 to-[#FF7900] text-white px-4 pt-4 pb-5 text-center relative">
+                      <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-orange-100/90">
                         Commande à table
                       </p>
                       <p className="mt-1 text-base sm:text-lg font-black leading-tight">
                         {estName || 'Stock Manager'}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-emerald-100/80 italic">
+                      <p className="mt-0.5 text-[10px] text-orange-50/90 italic">
                         Scannez · choisissez · on vous sert
                       </p>
                       {logoUrl && (
@@ -361,7 +370,7 @@ export default function PrintTableQR() {
                     </div>
 
                     {/* Corps : icônes + carte QR */}
-                    <div className="flex-1 bg-[#f0fdf4] px-3 py-4 flex gap-2 items-stretch">
+                    <div className="flex-1 bg-[#fff7ed] px-3 py-4 flex gap-2 items-stretch">
                       <div className="hidden sm:flex print:flex flex-col justify-around py-2 w-14 shrink-0 text-center">
                         {[
                           { label: 'Menu' },
@@ -369,8 +378,8 @@ export default function PrintTableQR() {
                           { label: 'Service' },
                           { label: 'Suivi' },
                         ].map((x) => (
-                          <div key={x.label} className="text-[9px] font-semibold text-emerald-900/80">
-                            <div className="mx-auto w-8 h-8 rounded-full border-2 border-emerald-700/30 bg-white flex items-center justify-center mb-0.5 text-emerald-800 text-[10px] font-black">
+                          <div key={x.label} className="text-[9px] font-semibold text-orange-900/80">
+                            <div className="mx-auto w-8 h-8 rounded-full border-2 border-orange-400/40 bg-white flex items-center justify-center mb-0.5 text-orange-700 text-[10px] font-black">
                               {x.label[0]}
                             </div>
                             {x.label}
@@ -379,15 +388,15 @@ export default function PrintTableQR() {
                       </div>
 
                       <div className="flex-1 flex flex-col items-center text-center">
-                        <p className="text-3xl sm:text-4xl font-black text-emerald-950 tracking-tight">
+                        <p className="text-3xl sm:text-4xl font-black text-orange-950 tracking-tight">
                           Table {t.number}
                         </p>
-                        <p className="text-xs text-emerald-800/90 mt-1 max-w-[220px] font-medium">
-                          {phrase || 'Scannez pour voir le menu et commander'}
+                        <p className="text-base sm:text-lg text-orange-950 mt-2 max-w-[260px] font-bold leading-snug">
+                          {phrase || 'Scannez pour commander votre boisson'}
                         </p>
 
-                        <div className="mt-3 w-full max-w-[280px] rounded-2xl bg-white border border-emerald-800/15 shadow-xl p-3 sm:p-4">
-                          <p className="text-[10px] font-bold text-emerald-900 uppercase tracking-wide mb-2">
+                        <div className="mt-3 w-full max-w-[280px] rounded-2xl bg-white border border-orange-500/20 shadow-xl p-3 sm:p-4">
+                          <p className="text-[10px] font-bold text-orange-900 uppercase tracking-wide mb-2">
                             {estName || 'Stock Manager'}
                           </p>
                           <div className="mx-auto w-fit rounded-xl bg-white p-2 border border-stone-100">
@@ -399,23 +408,23 @@ export default function PrintTableQR() {
                               height={320}
                             />
                           </div>
-                          <div className="mt-3 rounded-xl bg-emerald-800 text-white text-[11px] sm:text-xs font-bold py-2.5 px-2 flex items-center justify-center gap-1.5">
+                          <div className="mt-3 rounded-xl bg-[#FF7900] text-white text-[11px] sm:text-xs font-bold py-2.5 px-2 flex items-center justify-center gap-1.5">
                             <QrCode size={14} className="shrink-0" />
                             SCANNEZ CE QR CODE
                           </div>
-                          <p className="mt-1.5 text-[9px] text-emerald-900/70 leading-snug">
+                          <p className="mt-1.5 text-[9px] text-orange-900/70 leading-snug">
                             pour passer commande · sans télécharger d&apos;application
                           </p>
                         </div>
 
-                        <p className="mt-3 text-[10px] text-emerald-900/60 font-medium print:hidden sm:block">
+                        <p className="mt-3 text-[10px] text-orange-900/60 font-medium print:hidden sm:block">
                           Une table libre ? Scannez et commandez !
                         </p>
                       </div>
                     </div>
 
                     {/* Pied de page valeurs */}
-                    <div className="bg-white border-t border-emerald-800/10 px-2 py-2.5 grid grid-cols-4 gap-1 text-center">
+                    <div className="bg-white border-t border-orange-500/15 px-2 py-2.5 grid grid-cols-4 gap-1 text-center">
                       {[
                         'Rapide',
                         'Sans app',
@@ -423,17 +432,17 @@ export default function PrintTableQR() {
                         'Service',
                       ].map((lab) => (
                         <div key={lab}>
-                          <p className="text-[9px] font-bold text-emerald-900 uppercase tracking-wide">{lab}</p>
+                          <p className="text-[9px] font-bold text-orange-900 uppercase tracking-wide">{lab}</p>
                         </div>
                       ))}
                     </div>
-                    <div className="bg-emerald-900 text-emerald-50 text-[10px] text-center py-2 font-semibold">
-                      Bon appétit chez {estName || 'nous'} !
+                    <div className="bg-orange-700 text-orange-50 text-[10px] text-center py-2 font-semibold">
+                      On est ensemble chez {estName || 'nous'} !
                     </div>
 
                     <button
                       type="button"
-                      className="print:hidden text-xs py-2 underline text-emerald-800/70"
+                      className="print:hidden text-xs py-2 underline text-orange-800/70"
                       onClick={() => void downloadPng(t.number)}
                     >
                       Télécharger PNG
