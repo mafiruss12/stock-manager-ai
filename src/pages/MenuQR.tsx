@@ -11,63 +11,43 @@ import {
   BUSINESS_THEMES,
 } from '@/lib/businessTypes';
 import { EmptyState } from '@/components/ui';
-import { DAY_LABELS, type OpeningHours } from '@/lib/publicEstablishment';
-import { uploadVitrineImage } from '@/lib/publicMedia';
 import {
   parseQrConfig,
   qrImageUrl,
   orderUrl,
-  menuPublicUrl,
   type QrConfig,
 } from '@/lib/qrBranding';
 
+/**
+ * Page QR Code — commande à table uniquement.
+ * Vitrine publique / événements retirés.
+ */
 export default function MenuQR() {
   const { member, activeEstablishment, effectiveRole } = useAuth();
+  const { allow, plan } = usePlanAccess();
   const estId = activeEstablishment?.id || member?.establishment_id || null;
   const bizType = normalizeBusinessType(activeEstablishment?.type);
   const theme = BUSINESS_THEMES[bizType];
   const canEdit = ['super_admin', 'admin', 'owner', 'manager'].includes(
-    String(effectiveRole || member?.role || '')
+    String(effectiveRole || member?.role || ''),
   );
 
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
-  const [showStock, setShowStock] = useState(true);
-  const [profileUrl, setProfileUrl] = useState('');
-  const [evTitle, setEvTitle] = useState('');
-  const [evWhen, setEvWhen] = useState('');
-  const [evVenue, setEvVenue] = useState('');
-  const [evDesc, setEvDesc] = useState('');
-  const [evSaving, setEvSaving] = useState(false);
   const [okMsg, setOkMsg] = useState<string | null>(null);
-  const [stats, setStats] = useState<{ profile_views: number; menu_views: number; whatsapp_clicks: number; phone_clicks: number } | null>(null);
-  const [uploading, setUploading] = useState<'cover' | 'logo' | 'gallery' | null>(null);
-  const [gallery, setGallery] = useState<string[]>([]);
-  const [sponsored, setSponsored] = useState(false);
   const [qrColor, setQrColor] = useState('1c1917');
   const [qrBg, setQrBg] = useState('ffffff');
   const [qrTitle, setQrTitle] = useState('');
   const [qrWelcome, setQrWelcome] = useState('Bienvenue — passez votre commande');
   const [qrKiosk, setQrKiosk] = useState(true);
   const [slug, setSlug] = useState('');
-  const [hours, setHours] = useState<OpeningHours>({
-    mon: { open: '09:00', close: '23:00' },
-    tue: { open: '09:00', close: '23:00' },
-    wed: { open: '09:00', close: '23:00' },
-    thu: { open: '09:00', close: '23:00' },
-    fri: { open: '09:00', close: '02:00' },
-    sat: { open: '10:00', close: '02:00' },
-    sun: { open: '10:00', close: '22:00' },
-  });
+  const [showStock, setShowStock] = useState(true);
 
   const estKey = slug || estId || '';
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const menuUrl = estKey ? menuPublicUrl(origin || '', estKey) : '';
   const qrCfgLive: QrConfig = {
     color: qrColor,
     bg: qrBg,
@@ -75,12 +55,13 @@ export default function MenuQR() {
     welcome: qrWelcome,
     kiosk_default: qrKiosk,
   };
-  const qrSrc = menuUrl ? qrImageUrl(menuUrl, qrCfgLive, 280) : '';
   const sampleTableUrl =
     estKey && origin
       ? orderUrl({ origin, estKey, table: 1, kiosk: qrKiosk })
       : '';
-  const sampleTableQr = sampleTableUrl ? qrImageUrl(sampleTableUrl, qrCfgLive, 200) : '';
+  const sampleTableQr = sampleTableUrl ? qrImageUrl(sampleTableUrl, qrCfgLive, 240) : '';
+  const baseOrderUrl =
+    estKey && origin ? orderUrl({ origin, estKey, kiosk: qrKiosk }) : '';
 
   const load = useCallback(async () => {
     if (!estId) {
@@ -88,43 +69,30 @@ export default function MenuQR() {
       return;
     }
     setLoading(true);
+    setError(null);
     const { data, error: err } = await supabase
       .from('establishments')
-      .select('public_menu, description, cover_url, public_show_stock, name, slug, opening_hours, gallery_urls, is_sponsored, qr_config, logo_url')
+      .select('name, slug, qr_config, public_show_stock, public_menu')
       .eq('id', estId)
       .maybeSingle();
-    if (err) setError(err.message);
-    const row = data as any;
-    setEnabled(Boolean(row?.public_menu));
-    setDescription(row?.description || '');
-    setCoverUrl(row?.cover_url || '');
-    setShowStock(row?.public_show_stock !== false);
-    if (row?.opening_hours && typeof row.opening_hours === 'object') {
-      setHours((prev) => ({ ...prev, ...(row.opening_hours as OpeningHours) }));
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
     }
-    const g = row?.gallery_urls;
-    if (Array.isArray(g)) setGallery(g.filter((x: any) => typeof x === 'string'));
-    setSponsored(Boolean(row?.is_sponsored));
-    const cfg = parseQrConfig(row?.qr_config);
-    setQrColor(cfg.color);
-    setQrBg(cfg.bg);
-    setQrTitle(cfg.title);
-    setQrWelcome(cfg.welcome);
-    setQrKiosk(cfg.kiosk_default);
-    if (row?.slug) setSlug(String(row.slug));
-    if (typeof window !== 'undefined' && row) {
-      const { slugify } = await import('@/lib/publicEstablishment');
-      const slug = row.slug || slugify(String(row.name || 'etablissement'), estId);
-      setProfileUrl(`${window.location.origin}/e/${slug}`);
+    const row = data as Record<string, unknown> | null;
+    if (row) {
+      setSlug(String(row.slug || ''));
+      setShowStock(row.public_show_stock !== false);
+      // Commande QR active par défaut si colonne absente
+      setEnabled(row.public_menu !== false);
+      const cfg = parseQrConfig(row.qr_config);
+      setQrColor(cfg.color);
+      setQrBg(cfg.bg);
+      setQrTitle(cfg.title);
+      setQrWelcome(cfg.welcome);
+      setQrKiosk(cfg.kiosk_default);
     }
-    try {
-      const { data: st } = await supabase
-        .from('public_profile_stats')
-        .select('profile_views, menu_views, whatsapp_clicks, phone_clicks')
-        .eq('establishment_id', estId)
-        .maybeSingle();
-      if (st) setStats(st as any);
-    } catch { /* */ }
     setLoading(false);
   }, [estId]);
 
@@ -132,35 +100,75 @@ export default function MenuQR() {
     void load();
   }, [load]);
 
-  async function toggle() {
-    if (!estId || !canEdit || saving) return;
+  async function toggleEnabled() {
+    if (!estId || !canEdit) return;
+    const next = !enabled;
     setSaving(true);
     setError(null);
-    const next = !enabled;
     const { error: err } = await supabase
       .from('establishments')
       .update({ public_menu: next })
       .eq('id', estId);
+    setSaving(false);
     if (err) {
       setError(
         err.message.includes('public_menu')
-          ? 'Colonne public_menu absente — appliquez la migration Phase 2.'
-          : err.message
+          ? 'Impossible de mettre à jour — vérifiez la base.'
+          : err.message,
       );
-    } else {
-      setEnabled(next);
+      return;
     }
-    setSaving(false);
+    setEnabled(next);
+    setOkMsg(next ? 'Commande QR activée' : 'Commande QR désactivée');
+    setTimeout(() => setOkMsg(null), 2500);
   }
 
-  async function copyLink() {
-    if (!menuUrl) return;
+  async function saveQrConfig() {
+    if (!estId || !canEdit) return;
+    setSaving(true);
+    setError(null);
     try {
-      await navigator.clipboard.writeText(menuUrl);
+      const { slugify } = await import('@/lib/publicEstablishment');
+      const finalSlug =
+        (slug || '').trim() ||
+        slugify(String(activeEstablishment?.name || 'etablissement'), estId);
+      const payload = {
+        slug: finalSlug,
+        public_show_stock: showStock,
+        qr_config: {
+          color: qrColor,
+          bg: qrBg,
+          title: qrTitle,
+          welcome: qrWelcome,
+          kiosk_default: qrKiosk,
+          show_name: true,
+        },
+      };
+      const { error: err } = await supabase
+        .from('establishments')
+        .update(payload)
+        .eq('id', estId);
+      setSaving(false);
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      setSlug(finalSlug);
+      setOkMsg('QR Code enregistré');
+      setTimeout(() => setOkMsg(null), 2500);
+    } catch (e: unknown) {
+      setSaving(false);
+      setError(e instanceof Error ? e.message : 'Erreur enregistrement');
+    }
+  }
+
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError('Impossible de copier le lien');
+      setError('Copie impossible');
     }
   }
 
@@ -169,22 +177,25 @@ export default function MenuQR() {
       <EmptyState
         icon={<QrCode size={48} />}
         title="Aucun établissement"
-        message="Sélectionnez un établissement."
+        message="Sélectionnez un établissement pour configurer les QR tables."
       />
     );
   }
 
-  const { allow, plan } = usePlanAccess();
   if (!allow('qrOrdering')) {
     return (
-      <div className="card p-6 space-y-3 max-w-lg">
-        <h1 className="text-lg font-semibold text-stone-100">Commande QR tables</h1>
+      <div className="card p-6 space-y-3 max-w-lg mx-auto">
+        <h1 className="text-lg font-semibold text-stone-100">QR Code</h1>
         <p className="text-sm text-stone-400">
-          Réservé au plan <strong className="text-amber-300">Pro</strong> (votre plan effectif : {plan.label}).
+          Réservé au plan <strong className="text-amber-300">Pro</strong> (plan
+          effectif : {plan.label}).
         </p>
         <p className="text-xs text-stone-500">
-          Passez en Pro pour générer les QR de tables, recevoir les commandes et assigner les serveurs.
+          Passez en Pro pour générer les QR de tables et recevoir les commandes.
         </p>
+        <Link to="/subscription" className="btn-primary inline-flex justify-center">
+          Voir les forfaits
+        </Link>
       </div>
     );
   }
@@ -193,27 +204,36 @@ export default function MenuQR() {
     <div className="max-w-md mx-auto pb-16">
       <Link
         to="/dashboard"
-        className="inline-flex items-center gap-1 text-sm text-stone-400 hover:text-stone-200 mb-4"
+        className="inline-flex items-center gap-1 text-sm text-stone-500 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 mb-4"
       >
         <ArrowLeft size={16} /> Accueil
       </Link>
 
       <div className="mb-5">
-        <p className="text-xs font-medium uppercase tracking-wide" style={{ color: theme.primary }}>
-          Menu en ligne
+        <p
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: theme.primary }}
+        >
+          Tables & commandes
         </p>
-        <h1 className="text-2xl font-bold text-stone-100 mt-0.5 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-stone-900 dark:text-stone-100 mt-0.5 flex items-center gap-2">
           <QrCode size={22} style={{ color: theme.primary }} />
-          QR Code & commande à table
+          QR Code
         </h1>
-        <p className="text-sm text-stone-400 mt-1">
-          Les clients scannent le QR pour voir vos boissons et prix sans installer d’app.
+        <p className="text-sm text-stone-600 dark:text-stone-400 mt-1">
+          Les clients scannent le QR sur la table pour commander — sans
+          installer d&apos;application.
         </p>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mb-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
           {error}
+        </div>
+      )}
+      {okMsg && (
+        <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+          {okMsg}
         </div>
       )}
 
@@ -222,458 +242,179 @@ export default function MenuQR() {
           <Loader2 className="animate-spin" size={20} />
         </div>
       ) : (
-        <>
-          {stats && (
-            <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 mb-5 grid grid-cols-2 gap-3 text-center">
-              <div><p className="text-lg font-bold text-amber-300">{stats.profile_views}</p><p className="text-[10px] text-stone-500">Vues fiche</p></div>
-              <div><p className="text-lg font-bold text-amber-300">{stats.menu_views}</p><p className="text-[10px] text-stone-500">Vues menu</p></div>
-              <div><p className="text-lg font-bold text-emerald-300">{stats.whatsapp_clicks}</p><p className="text-[10px] text-stone-500">Clics WhatsApp</p></div>
-              <div><p className="text-lg font-bold text-sky-300">{stats.phone_clicks}</p><p className="text-[10px] text-stone-500">Clics téléphone</p></div>
-            </div>
-          )}
-          <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 mb-5 flex items-center justify-between gap-3">
+        <div className="space-y-4">
+          {/* Activation */}
+          <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900/60 p-4 flex items-center justify-between gap-3">
             <div>
-              <p className="font-medium text-stone-100">Commande via QR tables</p>
-              <p className="text-xs text-stone-500">
-                {enabled ? 'Visible par les clients (lien + QR)' : 'Désactivé — activez pour partager'}
+              <p className="font-medium text-stone-900 dark:text-stone-100">
+                Commande via QR tables
+              </p>
+              <p className="text-xs text-stone-500 mt-0.5">
+                {enabled
+                  ? 'Les scans ouvrent la page commande'
+                  : 'Commande QR désactivée pour cet établissement'}
               </p>
             </div>
             {canEdit && (
               <button
                 type="button"
-                onClick={() => void toggle()}
                 disabled={saving}
-                className="p-1"
-                title={enabled ? 'Désactiver' : 'Activer'}
+                onClick={() => void toggleEnabled()}
+                className="shrink-0 text-amber-600 dark:text-amber-400"
+                aria-label={enabled ? 'Désactiver' : 'Activer'}
               >
-                {saving ? (
-                  <Loader2 className="animate-spin text-stone-400" size={28} />
-                ) : enabled ? (
-                  <ToggleRight size={32} className="text-emerald-400" />
-                ) : (
-                  <ToggleLeft size={32} className="text-stone-500" />
-                )}
+                {enabled ? <ToggleRight size={36} /> : <ToggleLeft size={36} />}
               </button>
             )}
           </div>
 
-          {enabled && (
-            <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-5 text-center space-y-4">
-              {qrSrc && (
-                <img
-                  src={qrSrc}
-                  alt="QR code menu"
-                  className="mx-auto w-[220px] h-[220px] rounded-xl bg-white p-2"
-                />
-              )}
-              <p className="text-xs text-stone-500 break-all px-2">{menuUrl}</p>
-              {profileUrl && (
-                <p className="text-xs text-emerald-400/90 break-all px-2">Fiche publique : {profileUrl}</p>
-              )}
-              <div className="flex flex-wrap justify-center gap-2">
+          {/* Aperçu QR table */}
+          <div className="rounded-2xl border border-emerald-700/30 bg-emerald-50/80 dark:bg-emerald-950/20 p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-400">
+              Aperçu — Table 1
+            </p>
+            <p className="text-sm font-bold text-stone-900 dark:text-stone-100">
+              {activeEstablishment?.name || 'Établissement'}
+            </p>
+            {sampleTableQr && (
+              <div className="flex justify-center">
+                <div className="rounded-2xl bg-white p-3 border border-emerald-700/20 shadow-sm">
+                  <img
+                    src={sampleTableQr}
+                    alt="QR table exemple"
+                    className="w-48 h-48"
+                    width={240}
+                    height={240}
+                  />
+                </div>
+              </div>
+            )}
+            <div className="rounded-xl bg-emerald-800 text-white text-xs font-bold py-2.5 text-center">
+              SCANNEZ CE QR CODE
+            </div>
+            <p className="text-[11px] text-center text-stone-600 dark:text-stone-400">
+              pour passer commande · sans télécharger d&apos;application
+            </p>
+          </div>
+
+          {/* Liens */}
+          {baseOrderUrl && (
+            <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900/60 p-4 space-y-2">
+              <p className="text-xs font-semibold text-stone-500 uppercase">
+                Lien commande
+              </p>
+              <p className="text-xs break-all font-mono text-stone-700 dark:text-stone-300">
+                {sampleTableUrl || baseOrderUrl}
+              </p>
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => void copyLink()}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-stone-600 bg-stone-800 px-3 py-2 text-sm text-stone-200 hover:bg-stone-700"
+                  className="btn-secondary text-xs flex items-center gap-1"
+                  onClick={() => void copyLink(sampleTableUrl || baseOrderUrl)}
                 >
-                  {copied ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
-                  {copied ? 'Copié' : 'Copier le lien'}
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
+                  {copied ? 'Copié' : 'Copier'}
                 </button>
                 <a
-                  href={menuUrl}
+                  href={sampleTableUrl || baseOrderUrl}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-stone-950"
-                  style={{ background: theme.primary }}
+                  rel="noreferrer"
+                  className="btn-secondary text-xs flex items-center gap-1"
                 >
-                  <ExternalLink size={16} /> Ouvrir le menu
+                  <ExternalLink size={14} /> Tester
                 </a>
-                {profileUrl && (
-                  <a
-                    href={profileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-stone-600 px-3 py-2 text-sm text-stone-200"
-                  >
-                    Voir la fiche
-                  </a>
-                )}
               </div>
-              <p className="text-[11px] text-stone-500">
-                Imprimez le QR et placez-le sur les tables ou à l’entrée.
-              </p>
             </div>
           )}
 
+          {/* Config */}
           {canEdit && (
-            <div className="mt-5 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
-              <p className="font-medium text-stone-100">Vitrine publique</p>
-              <textarea
-                className="input-field min-h-[80px] text-sm"
-                placeholder="Description visible par les visiteurs"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <input
-                className="input-field text-sm"
-                placeholder="URL photo de couverture (optionnel)"
-                value={coverUrl}
-                onChange={(e) => setCoverUrl(e.target.value)}
-              />
-              <div className="flex flex-wrap gap-2">
-                <label className="flex-1 text-center text-xs font-semibold rounded-xl border border-stone-600 bg-stone-800 px-3 py-2.5 text-stone-200 cursor-pointer">
-                  {uploading === 'cover' ? 'Envoi…' : '📷 Upload couverture'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={!!uploading}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = '';
-                      if (!f || !estId) return;
-                      setUploading('cover');
-                      setError(null);
-                      try {
-                        const { url } = await uploadVitrineImage(estId, f, 'cover');
-                        setCoverUrl(url);
-                        setOkMsg('Couverture prête — enregistrez la vitrine');
-                      } catch (ex: any) {
-                        setError(ex?.message || 'Upload impossible');
-                      }
-                      setUploading(null);
-                    }}
-                  />
-                </label>
-                <label className="flex-1 text-center text-xs font-semibold rounded-xl border border-stone-600 bg-stone-800 px-3 py-2.5 text-stone-200 cursor-pointer">
-                  {uploading === 'logo' ? 'Envoi…' : '🖼️ Upload logo'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={!!uploading}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      e.target.value = '';
-                      if (!f || !estId) return;
-                      setUploading('logo');
-                      setError(null);
-                      try {
-                        const { url } = await uploadVitrineImage(estId, f, 'logo');
-                        const { error: err } = await supabase
-                          .from('establishments')
-                          .update({ logo_url: url })
-                          .eq('id', estId);
-                        if (err) setError(err.message);
-                        else setOkMsg('Logo mis à jour');
-                      } catch (ex: any) {
-                        setError(ex?.message || 'Upload logo impossible');
-                      }
-                      setUploading(null);
-                    }}
-                  />
-                </label>
-              </div>
-              {coverUrl && (
-                <img src={coverUrl} alt="" className="w-full h-28 object-cover rounded-xl border border-stone-700" />
-              )}
-              <div className="space-y-2">
-                <p className="text-xs text-stone-400">Galerie (max 6 photos)</p>
-                <div className="flex flex-wrap gap-2">
-                  {gallery.map((url, i) => (
-                    <div key={url + i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-stone-600">
-                      <img src={url} alt="" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        className="absolute top-0 right-0 bg-black/70 text-white text-[10px] px-1"
-                        onClick={() => setGallery((g) => g.filter((_, j) => j !== i))}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {gallery.length < 6 && (
-                    <label className="w-16 h-16 rounded-lg border border-dashed border-stone-500 flex items-center justify-center text-stone-400 text-xs cursor-pointer">
-                      {uploading === 'gallery' ? '…' : '+'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={!!uploading}
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0];
-                          e.target.value = '';
-                          if (!f || !estId) return;
-                          setUploading('gallery');
-                          try {
-                            const { url } = await uploadVitrineImage(estId, f, 'gallery');
-                            setGallery((g) => [...g, url].slice(0, 6));
-                            setOkMsg('Photo ajoutée — enregistrez la vitrine');
-                          } catch (ex: any) {
-                            setError(ex?.message || 'Upload galerie impossible');
-                          }
-                          setUploading(null);
-                        }}
-                      />
-                    </label>
-                  )}
-                </div>
-              </div>
-              <label className="flex items-center gap-2 text-sm text-stone-300">
-                <input type="checkbox" checked={sponsored} onChange={(e) => setSponsored(e.target.checked)} />
-                Mettre en avant (Sponsorisé)
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+              <h3 className="font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-2">
+                <QrCode size={18} className="text-amber-500" />
+                Personnaliser le QR
+              </h3>
+              <label className="block text-xs text-stone-500">
+                Identifiant (slug) — dans l&apos;URL de commande
+                <input
+                  className="input-field mt-1"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="ex. gbaissai-chez-rco"
+                />
               </label>
-              <label className="flex items-center gap-2 text-sm text-stone-300">
+              <label className="block text-xs text-stone-500">
+                Titre (optionnel)
+                <input
+                  className="input-field mt-1"
+                  value={qrTitle}
+                  onChange={(e) => setQrTitle(e.target.value)}
+                  maxLength={40}
+                />
+              </label>
+              <label className="block text-xs text-stone-500">
+                Message d&apos;accueil client
+                <input
+                  className="input-field mt-1"
+                  value={qrWelcome}
+                  onChange={(e) => setQrWelcome(e.target.value)}
+                  maxLength={80}
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block text-xs text-stone-500">
+                  Couleur QR
+                  <input
+                    type="color"
+                    className="mt-1 h-10 w-full rounded-lg border border-stone-300 cursor-pointer"
+                    value={`#${qrColor}`}
+                    onChange={(e) => setQrColor(e.target.value.replace('#', ''))}
+                  />
+                </label>
+                <label className="block text-xs text-stone-500">
+                  Fond QR
+                  <input
+                    type="color"
+                    className="mt-1 h-10 w-full rounded-lg border border-stone-300 cursor-pointer"
+                    value={`#${qrBg}`}
+                    onChange={(e) => setQrBg(e.target.value.replace('#', ''))}
+                  />
+                </label>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-stone-300">
+                <input
+                  type="checkbox"
+                  checked={qrKiosk}
+                  onChange={(e) => setQrKiosk(e.target.checked)}
+                />
+                Mode kiosque (idéal tablette table)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700 dark:text-stone-300">
                 <input
                   type="checkbox"
                   checked={showStock}
                   onChange={(e) => setShowStock(e.target.checked)}
                 />
-                
-          {/* QR personnalisé par établissement */}
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-            <h3 className="font-semibold text-stone-100 flex items-center gap-2">
-              <QrCode size={18} className="text-amber-400" />
-              QR propre à cet établissement
-            </h3>
-            <p className="text-xs text-stone-400">
-              Chaque établissement a son lien (slug) et ses couleurs. Les tables utilisent le même branding.
-            </p>
-            <label className="block text-xs text-stone-400">
-              Identifiant public (slug)
-              <input
-                className="input-field mt-1"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                placeholder="ex: maquis-kofi-cocody"
-              />
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label className="text-xs text-stone-400">
-                Couleur QR
-                <input type="color" className="mt-1 w-full h-10 rounded cursor-pointer"
-                  value={`#${qrColor}`}
-                  onChange={(e) => setQrColor(e.target.value.replace('#', ''))}
-                />
+                Afficher les quantités sur la page commande
               </label>
-              <label className="text-xs text-stone-400">
-                Fond QR
-                <input type="color" className="mt-1 w-full h-10 rounded cursor-pointer"
-                  value={`#${qrBg}`}
-                  onChange={(e) => setQrBg(e.target.value.replace('#', ''))}
-                />
-              </label>
-            </div>
-            <label className="block text-xs text-stone-400">
-              Titre (étiquette)
-              <input className="input-field mt-1" value={qrTitle}
-                onChange={(e) => setQrTitle(e.target.value)}
-                placeholder="Ex: Commande table — Maquis Kofi" />
-            </label>
-            <label className="block text-xs text-stone-400">
-              Message d&apos;accueil client
-              <input className="input-field mt-1" value={qrWelcome}
-                onChange={(e) => setQrWelcome(e.target.value)} />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-stone-300">
-              <input type="checkbox" checked={qrKiosk} onChange={(e) => setQrKiosk(e.target.checked)} />
-              Mode tablette (kiosk) par défaut sur QR tables
-            </label>
-            <div className="flex flex-wrap gap-4 items-start">
-              {qrSrc && (
-                <div className="text-center">
-                  <img src={qrSrc} alt="QR menu" className="w-32 h-32 rounded-xl bg-white p-1 mx-auto" />
-                  <p className="text-[10px] text-stone-500 mt-1">Lien commande table</p>
-                </div>
-              )}
-              {sampleTableQr && (
-                <div className="text-center">
-                  <img src={sampleTableQr} alt="QR table" className="w-32 h-32 rounded-xl bg-white p-1 mx-auto" />
-                  <p className="text-[10px] text-stone-500 mt-1">Exemple table 1</p>
-                </div>
-              )}
-            </div>
-            <p className="text-[11px] text-stone-500 break-all">Lien commande : {sampleTableUrl || '—'}</p>
-            <button
-              type="button"
-              disabled={!canEdit || saving}
-              className="btn-primary"
-              onClick={async () => {
-                if (!estId) return;
-                setSaving(true);
-                setError(null);
-                const { slugify } = await import('@/lib/publicEstablishment');
-                const finalSlug = (slug || '').trim() || slugify(String(activeEstablishment?.name || 'etablissement'), estId);
-                const payload = {
-                  slug: finalSlug,
-                  qr_config: {
-                    color: qrColor,
-                    bg: qrBg,
-                    title: qrTitle,
-                    welcome: qrWelcome,
-                    kiosk_default: qrKiosk,
-                    show_name: true,
-                  },
-                };
-                const { error: err } = await supabase.from('establishments').update(payload).eq('id', estId);
-                setSaving(false);
-                if (err) setError(err.message);
-                else {
-                  setSlug(finalSlug);
-                  setOkMsg('QR personnalisé enregistré pour cet établissement');
-                  setTimeout(() => setOkMsg(null), 2500);
-                }
-              }}
-            >
-              {saving ? '…' : 'Enregistrer le QR personnalisé'}
-            </button>
-            <Link
-              to="/print-qr"
-              className="btn-secondary w-full min-h-[44px] flex items-center justify-center gap-2"
-            >
-              <Printer size={16} /> Imprimer QR tables (design)
-            </Link>
-          </div>
-
-            Afficher les quantités disponibles sur la page commande
-              </label>
-              <div className="space-y-2 pt-2 border-t border-stone-800">
-                <p className="text-sm font-medium text-stone-200">Horaires (vitrine)</p>
-                {DAY_LABELS.map(({ key, label }) => {
-                  const slot = hours[key] || { open: '09:00', close: '23:00', closed: false };
-                  return (
-                    <div key={key} className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="w-16 text-stone-400">{label}</span>
-                      <label className="flex items-center gap-1 text-stone-400">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(slot.closed)}
-                          onChange={(e) =>
-                            setHours((h) => ({
-                              ...h,
-                              [key]: { ...slot, closed: e.target.checked },
-                            }))
-                          }
-                        />
-                        Fermé
-                      </label>
-                      {!slot.closed && (
-                        <>
-                          <input
-                            type="time"
-                            className="input-field py-1 px-2 w-auto text-xs"
-                            value={slot.open || '09:00'}
-                            onChange={(e) =>
-                              setHours((h) => ({
-                                ...h,
-                                [key]: { ...slot, open: e.target.value, closed: false },
-                              }))
-                            }
-                          />
-                          <span className="text-stone-600">→</span>
-                          <input
-                            type="time"
-                            className="input-field py-1 px-2 w-auto text-xs"
-                            value={slot.close || '23:00'}
-                            onChange={(e) =>
-                              setHours((h) => ({
-                                ...h,
-                                [key]: { ...slot, close: e.target.value, closed: false },
-                              }))
-                            }
-                          />
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
               <button
                 type="button"
-                className="btn-primary w-full text-sm"
+                className="btn-primary w-full min-h-[44px]"
                 disabled={saving}
-                onClick={async () => {
-                  if (!estId) return;
-                  setSaving(true);
-                  setError(null);
-                  setOkMsg(null);
-                  const { slugify } = await import('@/lib/publicEstablishment');
-                  const name = activeEstablishment?.name || 'etablissement';
-                  const slug = slugify(name, estId);
-                  const { error: err } = await supabase
-                    .from('establishments')
-                    .update({
-                      description: description.trim() || null,
-                      cover_url: coverUrl.trim() || null,
-                      public_show_stock: showStock,
-                      slug,
-                    })
-                    .eq('id', estId);
-                  if (err) {
-                    setError(
-                      err.message.includes('description') || err.message.includes('slug')
-                        ? 'Colonnes vitrine absentes — appliquez la migration public_platform sur Supabase.'
-                        : err.message
-                    );
-                  } else {
-                    setOkMsg('Vitrine enregistrée');
-                    setProfileUrl(`${window.location.origin}/e/${slug}`);
-                  }
-                  setSaving(false);
-                }}
+                onClick={() => void saveQrConfig()}
               >
-                Enregistrer la vitrine
+                {saving ? '…' : 'Enregistrer le QR Code'}
               </button>
-              {okMsg && <p className="text-xs text-emerald-400">{okMsg}</p>}
             </div>
           )}
 
-          {canEdit && (
-            <div className="mt-5 rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3">
-              <p className="font-medium text-stone-100">Publier un événement</p>
-              <input className="input-field text-sm" placeholder="Titre (ex. Afrobeat Night)" value={evTitle} onChange={(e) => setEvTitle(e.target.value)} />
-              <input className="input-field text-sm" type="datetime-local" value={evWhen} onChange={(e) => setEvWhen(e.target.value)} />
-              <input className="input-field text-sm" placeholder="Lieu" value={evVenue} onChange={(e) => setEvVenue(e.target.value)} />
-              <textarea className="input-field text-sm min-h-[60px]" placeholder="Description" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} />
-              <button
-                type="button"
-                className="btn-secondary w-full text-sm"
-                disabled={evSaving || !evTitle.trim() || !evWhen}
-                onClick={async () => {
-                  if (!estId) return;
-                  setEvSaving(true);
-                  setError(null);
-                  const { error: err } = await supabase.from('public_events').insert({
-                    establishment_id: estId,
-                    title: evTitle.trim(),
-                    description: evDesc.trim() || null,
-                    venue: evVenue.trim() || null,
-                    starts_at: new Date(evWhen).toISOString(),
-                    is_published: true,
-                    created_by: member?.user_id || null,
-                  });
-                  if (err) {
-                    setError(
-                      err.message.includes('public_events')
-                        ? 'Table public_events absente — appliquez la migration sur Supabase.'
-                        : err.message
-                    );
-                  } else {
-                    setOkMsg('Événement publié');
-                    setEvTitle('');
-                    setEvWhen('');
-                    setEvVenue('');
-                    setEvDesc('');
-                  }
-                  setEvSaving(false);
-                }}
-              >
-                {evSaving ? 'Publication…' : 'Publier l’événement'}
-              </button>
-            </div>
-          )}
-        </>
+          <Link
+            to="/print-qr"
+            className="btn-secondary w-full min-h-[48px] flex items-center justify-center gap-2"
+          >
+            <Printer size={16} /> Imprimer les QR tables (affiche pro)
+          </Link>
+        </div>
       )}
     </div>
   );

@@ -177,7 +177,7 @@ function ProtectedRoutes() {
         <Route path="/guide" element={<GuidePage />} />
         <Route path="/subscription" element={<SubscriptionPage />} />
         <Route path="/kits" element={<KitsPromos />} />
-        <Route path="/menu-qr" element={<PlanGate feature="qrOrdering" label="QR / Menu en ligne"><MenuQR /></PlanGate>} />
+        <Route path="/menu-qr" element={<PlanGate feature="qrOrdering" label="QR Code"><MenuQR /></PlanGate>} />
         <Route path="/stock-transfer" element={<StockTransfer />} />
         <Route path="/tables" element={<Tables />} />
         <Route path="/mes-employes" element={<MesEmployes />} />

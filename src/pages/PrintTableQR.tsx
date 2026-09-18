@@ -300,7 +300,7 @@ export default function PrintTableQR() {
             PNG haute résolution
           </button>
           <Link to="/menu-qr" className="btn-secondary text-sm flex items-center gap-1">
-            <Sparkles size={14} /> Couleurs QR (Menu)
+            <Sparkles size={14} /> Réglages QR Code
           </Link>
         </div>
         <p className="text-[11px] text-stone-500">
