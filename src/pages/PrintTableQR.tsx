@@ -16,6 +16,7 @@ import { EmptyState } from '@/components/ui';
 type TableRow = { id: string; number: string; seats?: number; location?: string };
 
 type TemplateId = 'affiche' | 'maquis' | 'elegant' | 'minimal' | 'festif';
+type Density = '1' | '4';
 
 const TEMPLATES: {
   id: TemplateId;
@@ -29,7 +30,7 @@ const TEMPLATES: {
   {
     id: 'affiche',
     label: 'Affiche pro',
-    desc: 'Orange Stock Manager · style vitrine',
+    desc: 'Orange Stock Manager · A4',
     frame: 'from-orange-600 via-amber-500 to-orange-700',
     accent: '#FF7900',
     bg: '#fff7ed',
@@ -38,7 +39,7 @@ const TEMPLATES: {
   {
     id: 'maquis',
     label: 'Maquis ambre',
-    desc: 'Orange / crème, ambiance bière',
+    desc: 'Orange / crème',
     frame: 'from-amber-600 via-orange-500 to-amber-700',
     accent: '#f59e0b',
     bg: '#fffbeb',
@@ -56,7 +57,7 @@ const TEMPLATES: {
   {
     id: 'minimal',
     label: 'Minimal',
-    desc: 'Blanc, logo centré',
+    desc: 'Blanc, simple',
     frame: 'from-stone-200 via-white to-stone-100',
     accent: '#292524',
     bg: '#ffffff',
@@ -73,6 +74,9 @@ const TEMPLATES: {
   },
 ];
 
+const SM_ORANGE = '#FF7900';
+const SM_ORANGE_DARK = '#c2410c';
+
 export default function PrintTableQR() {
   const { member, activeEstablishment } = useAuth();
   const estId = activeEstablishment?.id || member?.establishment_id || null;
@@ -83,6 +87,7 @@ export default function PrintTableQR() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [qrCfg, setQrCfg] = useState<QrConfig>({});
   const [template, setTemplate] = useState<TemplateId>('affiche');
+  const [density, setDensity] = useState<Density>('4');
   const [selected, setSelected] = useState<string | 'all'>('all');
   const [phrase, setPhrase] = useState('Scannez pour commander votre boisson');
   const [busy, setBusy] = useState(false);
@@ -90,7 +95,7 @@ export default function PrintTableQR() {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const estKey = slug || estId || '';
-  const tpl = TEMPLATES.find((t) => t.id === template) || TEMPLATES[0];
+  const tpl = TEMPLATES.find((x) => x.id === template) || TEMPLATES[0];
   const cfg = useMemo(() => parseQrConfig(qrCfg), [qrCfg]);
 
   const load = useCallback(async () => {
@@ -112,14 +117,17 @@ export default function PrintTableQR() {
         .maybeSingle(),
     ]);
     setTables((tRes.data as TableRow[]) || []);
-    const e = eRes.data as any;
+    const e = eRes.data as Record<string, unknown> | null;
     if (e) {
       setEstName(String(e.name || ''));
       setSlug(String(e.slug || ''));
-      setLogoUrl(e.logo_url || e.cover_url || null);
+      setLogoUrl((e.logo_url as string) || (e.cover_url as string) || null);
       setQrCfg(parseQrConfig(e.qr_config));
-      if (e.qr_config?.title) setPhrase(String(e.qr_config.title));
-      else if (e.qr_config?.welcome) setPhrase(String(e.qr_config.welcome).slice(0, 40));
+      // Ne pas écraser avec un titre technique type "A1"
+      const title = String((e.qr_config as { title?: string })?.title || '').trim();
+      if (title && title.length > 2 && !/^[A-Z]?\d+$/i.test(title)) {
+        setPhrase(title);
+      }
     }
     setLoading(false);
   }, [estId]);
@@ -130,7 +138,7 @@ export default function PrintTableQR() {
 
   const visibleTables = useMemo(() => {
     if (selected === 'all') return tables;
-    return tables.filter((t) => t.id === selected);
+    return tables.filter((x) => x.id === selected);
   }, [tables, selected]);
 
   function cardUrl(tableNumber: string) {
@@ -156,60 +164,50 @@ export default function PrintTableQR() {
       canvas.height = 800;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-
-      // fond
-      ctx.fillStyle = tpl.bg;
+      ctx.fillStyle = '#fff7ed';
       ctx.fillRect(0, 0, 600, 800);
-      // bandeau
-      const grad = ctx.createLinearGradient(0, 0, 600, 80);
-      grad.addColorStop(0, tpl.accent);
-      grad.addColorStop(1, '#78716c');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 600, 100);
-
-      ctx.fillStyle = tpl.id === 'elegant' ? '#fafaf9' : '#1c1917';
-      ctx.font = 'bold 28px sans-serif';
+      ctx.fillStyle = SM_ORANGE;
+      ctx.fillRect(0, 0, 600, 120);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 26px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(estName.slice(0, 28) || 'Stock Manager', 300, 55);
-
-      ctx.fillStyle = tpl.text;
-      ctx.font = 'bold 72px sans-serif';
+      ctx.fillText((estName || 'Stock Manager').slice(0, 28), 300, 50);
+      ctx.font = '14px sans-serif';
+      ctx.fillText('COMMANDE À TABLE', 300, 85);
+      ctx.fillStyle = '#7c2d12';
+      ctx.font = 'bold 56px sans-serif';
       ctx.fillText(`Table ${tableNumber}`, 300, 200);
-
-      ctx.font = '22px sans-serif';
-      ctx.fillStyle = tpl.accent;
-      ctx.fillText(phrase.slice(0, 36), 300, 250);
-
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = SM_ORANGE_DARK;
+      ctx.fillText(phrase.slice(0, 40), 300, 250);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = () => reject(new Error('QR load'));
+        img.onerror = () => reject(new Error('QR'));
         img.src = qr;
       });
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(100, 280, 400, 400);
       ctx.drawImage(img, 120, 300, 360, 360);
-
-      ctx.fillStyle = tpl.text;
-      ctx.font = '16px sans-serif';
-      ctx.fillText('Stock Manager · commande QR', 300, 760);
-
+      ctx.fillStyle = SM_ORANGE;
+      ctx.fillRect(100, 700, 400, 48);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillText('SCANNEZ CE QR CODE', 300, 730);
       const a = document.createElement('a');
+      a.download = `qr-table-${tableNumber}.png`;
       a.href = canvas.toDataURL('image/png');
-      a.download = `qr-table-${tableNumber}-${(estName || 'etab').replace(/\s+/g, '-')}.png`;
       a.click();
-    } catch (e) {
-      console.warn(e);
-      alert('Téléchargement PNG impossible — utilisez Imprimer / PDF du navigateur.');
+    } catch {
+      /* ignore */
     }
     setBusy(false);
   }
 
   async function downloadAllPng() {
-    for (const t of visibleTables) {
-      await downloadPng(t.number);
-      await new Promise((r) => setTimeout(r, 400));
+    for (const tb of visibleTables) {
+      await downloadPng(tb.number);
     }
   }
 
@@ -231,6 +229,9 @@ export default function PrintTableQR() {
     );
   }
 
+  const isAffiche = template === 'affiche';
+  const qrSize = density === '4' ? 180 : 280;
+
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-16">
       <div className="flex items-start justify-between gap-3 print:hidden">
@@ -242,40 +243,68 @@ export default function PrintTableQR() {
             <Printer className="text-amber-400" /> Imprimer QR tables
           </h1>
           <p className="text-sm text-stone-400 mt-1">
-            Design personnalisé · aperçu animé · PNG ou impression PDF
+            Affiche pro orange · 1 ou 4 QR par page A4
           </p>
         </div>
       </div>
 
-      {/* Contrôles */}
       <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-4 space-y-3 print:hidden">
         <p className="text-xs font-semibold text-stone-400 uppercase">Modèle</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {TEMPLATES.map((t) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {TEMPLATES.map((x) => (
             <button
-              key={t.id}
+              key={x.id}
               type="button"
-              onClick={() => setTemplate(t.id)}
+              onClick={() => setTemplate(x.id)}
               className={`rounded-xl border p-3 text-left ${
-                template === t.id
+                template === x.id
                   ? 'border-amber-500 bg-amber-500/15'
                   : 'border-stone-800 bg-stone-950'
               }`}
             >
-              <div className={`h-2 rounded-full bg-gradient-to-r ${t.frame} mb-2`} />
-              <p className="text-sm font-semibold text-stone-100">{t.label}</p>
-              <p className="text-[10px] text-stone-500">{t.desc}</p>
+              <div className={`h-2 rounded-full bg-gradient-to-r ${x.frame} mb-2`} />
+              <p className="text-sm font-semibold text-stone-100">{x.label}</p>
+              <p className="text-[10px] text-stone-500">{x.desc}</p>
             </button>
           ))}
         </div>
 
+        <div>
+          <p className="text-xs font-semibold text-stone-400 uppercase mb-2">Par page A4</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDensity('1')}
+              className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                density === '1'
+                  ? 'border-amber-500 bg-amber-500/15 text-amber-200'
+                  : 'border-stone-700 text-stone-400'
+              }`}
+            >
+              1 QR (grande affiche)
+            </button>
+            <button
+              type="button"
+              onClick={() => setDensity('4')}
+              className={`flex-1 rounded-xl border px-3 py-2 text-sm font-semibold ${
+                density === '4'
+                  ? 'border-amber-500 bg-amber-500/15 text-amber-200'
+                  : 'border-stone-700 text-stone-400'
+              }`}
+            >
+              4 QR (grille A4)
+            </button>
+          </div>
+        </div>
+
         <label className="block text-xs text-stone-400">
-          Phrase sous le QR
+          Phrase sous le QR (grand texte)
           <input
             className="input-field mt-1"
             value={phrase}
             onChange={(e) => setPhrase(e.target.value)}
-            maxLength={48}
+            maxLength={60}
+            placeholder="Scannez pour commander votre boisson"
           />
         </label>
 
@@ -287,9 +316,9 @@ export default function PrintTableQR() {
             onChange={(e) => setSelected(e.target.value === 'all' ? 'all' : e.target.value)}
           >
             <option value="all">Toutes les tables ({tables.length})</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>
-                Table {t.number}
+            {tables.map((tb) => (
+              <option key={tb.id} value={tb.id}>
+                Table {tb.number}
               </option>
             ))}
           </select>
@@ -306,14 +335,14 @@ export default function PrintTableQR() {
             onClick={() => void downloadAllPng()}
           >
             {busy ? <Loader2 className="animate-spin" size={16} /> : <Download size={16} />}
-            PNG haute résolution
+            PNG
           </button>
           <Link to="/menu-qr" className="btn-secondary text-sm flex items-center gap-1">
             <Sparkles size={14} /> Réglages QR Code
           </Link>
         </div>
         <p className="text-[11px] text-stone-500">
-          Astuce : dans la boîte d’impression, choisissez « Enregistrer au format PDF ». Zone QR gardée lisible pour un bon scan.
+          Conseil : mode <strong>4 QR</strong> pour découper 4 tables sur une feuille A4.
         </p>
       </div>
 
@@ -326,166 +355,153 @@ export default function PrintTableQR() {
       ) : (
         <div
           ref={printRef}
-          className={`grid gap-4 ${
-            template === 'affiche'
-              ? 'grid-cols-1 max-w-md mx-auto affiche-mode'
-              : 'grid-cols-1 sm:grid-cols-2 print:grid-cols-2 print:gap-6'
-          }`}
           id="qr-print-area"
+          data-density={density}
+          data-template={template}
+          className={
+            density === '4'
+              ? 'grid grid-cols-2 gap-3 print:gap-0'
+              : 'grid grid-cols-1 max-w-lg mx-auto gap-4'
+          }
         >
-          {visibleTables.map((t) => {
-            const url = cardUrl(t.number);
-            const qr = qrImageUrl(url, cfg, template === 'affiche' ? 320 : 240);
-            return (
-              <article
-                key={t.id}
-                className={`qr-print-card relative overflow-hidden rounded-2xl border shadow-lg print:break-inside-avoid print:shadow-none ${
-                  template === 'affiche' ? 'border-orange-500/50' : 'border-stone-700'
-                }`}
-                style={{ background: tpl.bg, color: tpl.text }}
-              >
-                {template !== 'affiche' && (
-                  <div className={`h-3 bg-gradient-to-r ${tpl.frame} print:h-2 qr-shimmer`} />
-                )}
-                {template === 'affiche' ? (
-                  <div className="affiche-poster flex flex-col min-h-[420px] print:min-h-[260mm]">
-                    {/* Bandeau haut type affiche pro */}
-                    <div className="bg-gradient-to-b from-orange-600 to-[#FF7900] text-white px-4 pt-4 pb-5 text-center relative">
-                      <p className="text-[10px] font-semibold tracking-[0.25em] uppercase text-orange-100/90">
-                        Commande à table
-                      </p>
-                      <p className="mt-1 text-base sm:text-lg font-black leading-tight">
-                        {estName || 'Stock Manager'}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-orange-50/90 italic">
-                        Scannez · choisissez · on vous sert
-                      </p>
-                      {logoUrl && (
-                        <img
-                          src={logoUrl}
-                          alt=""
-                          className="mx-auto mt-2 w-14 h-14 rounded-full object-cover border-2 border-white/40 shadow-lg bg-white"
-                        />
-                      )}
-                    </div>
+          {visibleTables.map((tb) => {
+            const url = cardUrl(tb.number);
+            const qr = qrImageUrl(url, cfg, qrSize);
+            const compact = density === '4';
 
-                    {/* Corps : icônes + carte QR */}
-                    <div className="flex-1 bg-[#fff7ed] px-3 py-4 flex gap-2 items-stretch">
-                      <div className="hidden sm:flex print:flex flex-col justify-around py-2 w-14 shrink-0 text-center">
-                        {[
-                          { label: 'Menu' },
-                          { label: 'Commande' },
-                          { label: 'Service' },
-                          { label: 'Suivi' },
-                        ].map((x) => (
-                          <div key={x.label} className="text-[9px] font-semibold text-orange-900/80">
-                            <div className="mx-auto w-8 h-8 rounded-full border-2 border-orange-400/40 bg-white flex items-center justify-center mb-0.5 text-orange-700 text-[10px] font-black">
-                              {x.label[0]}
-                            </div>
-                            {x.label}
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex-1 flex flex-col items-center text-center">
-                        <p className="text-3xl sm:text-4xl font-black text-orange-950 tracking-tight">
-                          Table {t.number}
-                        </p>
-                        <p className="text-base sm:text-lg text-orange-950 mt-2 max-w-[260px] font-bold leading-snug">
-                          {phrase || 'Scannez pour commander votre boisson'}
-                        </p>
-
-                        <div className="mt-3 w-full max-w-[280px] rounded-2xl bg-white border border-orange-500/20 shadow-xl p-3 sm:p-4">
-                          <p className="text-[10px] font-bold text-orange-900 uppercase tracking-wide mb-2">
-                            {estName || 'Stock Manager'}
-                          </p>
-                          <div className="mx-auto w-fit rounded-xl bg-white p-2 border border-stone-100">
-                            <img
-                              src={qr}
-                              alt={`QR table ${t.number}`}
-                              className="w-52 h-52 sm:w-56 sm:h-56 print:w-[55mm] print:h-[55mm]"
-                              width={320}
-                              height={320}
-                            />
-                          </div>
-                          <div className="mt-3 rounded-xl bg-[#FF7900] text-white text-[11px] sm:text-xs font-bold py-2.5 px-2 flex items-center justify-center gap-1.5">
-                            <QrCode size={14} className="shrink-0" />
-                            SCANNEZ CE QR CODE
-                          </div>
-                          <p className="mt-1.5 text-[9px] text-orange-900/70 leading-snug">
-                            pour passer commande · sans télécharger d&apos;application
-                          </p>
-                        </div>
-
-                        <p className="mt-3 text-[10px] text-orange-900/60 font-medium print:hidden sm:block">
-                          Une table libre ? Scannez et commandez !
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Pied de page valeurs */}
-                    <div className="bg-white border-t border-orange-500/15 px-2 py-2.5 grid grid-cols-4 gap-1 text-center">
-                      {[
-                        'Rapide',
-                        'Sans app',
-                        'Menu live',
-                        'Service',
-                      ].map((lab) => (
-                        <div key={lab}>
-                          <p className="text-[9px] font-bold text-orange-900 uppercase tracking-wide">{lab}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="bg-orange-700 text-orange-50 text-[10px] text-center py-2 font-semibold">
-                      On est ensemble chez {estName || 'nous'} !
-                    </div>
-
-                    <button
-                      type="button"
-                      className="print:hidden text-xs py-2 underline text-orange-800/70"
-                      onClick={() => void downloadPng(t.number)}
+            if (isAffiche) {
+              return (
+                <article
+                  key={tb.id}
+                  className="qr-print-card overflow-hidden border border-orange-300 print:border-orange-400 print:break-inside-avoid"
+                  style={{
+                    background: '#fff7ed',
+                    color: '#7c2d12',
+                  }}
+                >
+                  {/* Bandeau — couleurs en style inline pour l’impression */}
+                  <div
+                    style={{ background: SM_ORANGE, color: '#fff' }}
+                    className={`text-center ${compact ? 'px-2 py-2' : 'px-4 py-3'}`}
+                  >
+                    <p
+                      className={`font-bold uppercase tracking-widest opacity-90 ${
+                        compact ? 'text-[8px]' : 'text-[10px]'
+                      }`}
                     >
-                      Télécharger PNG
-                    </button>
+                      Commande à table
+                    </p>
+                    <p className={`font-black leading-tight ${compact ? 'text-sm' : 'text-lg'}`}>
+                      {(estName || 'Stock Manager').slice(0, compact ? 22 : 32)}
+                    </p>
                   </div>
-                ) : (
-                  <div className="p-5 flex flex-col items-center text-center gap-2">
-                    {logoUrl && (
+
+                  <div className={`flex flex-col items-center text-center ${compact ? 'p-2' : 'p-4'}`}>
+                    {logoUrl && !compact && (
                       <img
                         src={logoUrl}
                         alt=""
-                        className="w-14 h-14 rounded-full object-cover border-2 border-white/30 shadow"
+                        className="w-12 h-12 rounded-full object-cover border-2 border-orange-300 mb-1"
                       />
                     )}
-                    <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-                      {estName || 'Établissement'}
+                    <p
+                      className={`font-black tracking-tight ${
+                        compact ? 'text-xl' : 'text-3xl'
+                      }`}
+                      style={{ color: SM_ORANGE_DARK }}
+                    >
+                      Table {tb.number}
                     </p>
-                    <p className="text-3xl font-black qr-pulse-text" style={{ color: tpl.accent }}>
-                      Table {t.number}
+                    <p
+                      className={`font-bold leading-snug mt-1 ${
+                        compact ? 'text-[11px] px-1' : 'text-base sm:text-lg max-w-[280px]'
+                      }`}
+                      style={{ color: '#9a3412' }}
+                    >
+                      {phrase || 'Scannez pour commander votre boisson'}
                     </p>
-                    <p className="text-sm font-medium opacity-80 max-w-[220px] qr-float">{phrase}</p>
-                    <div className="relative my-2 qr-pulse-ring rounded-2xl p-2 bg-white">
+
+                    <div
+                      className={`mt-2 rounded-xl bg-white border border-orange-200 shadow-sm ${
+                        compact ? 'p-1.5' : 'p-3'
+                      }`}
+                    >
                       <img
                         src={qr}
-                        alt={`QR table ${t.number}`}
-                        className="w-48 h-48 print:w-44 print:h-44"
-                        width={240}
-                        height={240}
+                        alt={`QR table ${tb.number}`}
+                        width={qrSize}
+                        height={qrSize}
+                        className={compact ? 'w-[38mm] h-[38mm] max-w-full' : 'w-56 h-56 print:w-[70mm] print:h-[70mm]'}
+                        style={{ imageRendering: 'pixelated' }}
                       />
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] opacity-50 mt-1">
-                      <QrCode size={12} />
-                      <span>Commande sans app · scannez</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="print:hidden text-xs mt-2 underline opacity-70"
-                      onClick={() => void downloadPng(t.number)}
+
+                    <div
+                      className={`mt-2 w-full font-bold text-white flex items-center justify-center gap-1 ${
+                        compact ? 'text-[9px] py-1.5 rounded-lg' : 'text-xs py-2.5 rounded-xl'
+                      }`}
+                      style={{ background: SM_ORANGE }}
                     >
-                      Télécharger PNG
-                    </button>
+                      <QrCode size={compact ? 10 : 14} />
+                      SCANNEZ CE QR CODE
+                    </div>
+                    <p className={`mt-1 opacity-70 ${compact ? 'text-[8px]' : 'text-[10px]'}`}>
+                      sans télécharger d&apos;application
+                    </p>
+
+                    <div
+                      className={`w-full grid grid-cols-3 gap-1 mt-2 ${compact ? 'text-[7px]' : 'text-[9px]'}`}
+                    >
+                      {['Menu', 'Commande', 'Service'].map((lab) => (
+                        <span
+                          key={lab}
+                          className="rounded-md border border-orange-200 bg-white py-0.5 font-semibold"
+                        >
+                          {lab}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p
+                      className={`mt-2 font-semibold ${compact ? 'text-[8px]' : 'text-[11px]'}`}
+                      style={{ color: SM_ORANGE_DARK }}
+                    >
+                      On est ensemble chez {(estName || 'nous').slice(0, compact ? 18 : 28)} !
+                    </p>
                   </div>
-                )}
+
+                  <button
+                    type="button"
+                    className="print:hidden text-xs py-1.5 w-full underline opacity-60"
+                    onClick={() => void downloadPng(tb.number)}
+                  >
+                    PNG
+                  </button>
+                </article>
+              );
+            }
+
+            /* Autres modèles — carte simple */
+            return (
+              <article
+                key={tb.id}
+                className="qr-print-card rounded-2xl border border-stone-700 overflow-hidden print:break-inside-avoid"
+                style={{ background: tpl.bg, color: tpl.text }}
+              >
+                <div className={`h-2 bg-gradient-to-r ${tpl.frame}`} />
+                <div className={`flex flex-col items-center text-center ${compact ? 'p-3' : 'p-5'} gap-1`}>
+                  <p className="text-xs font-semibold opacity-70">{estName}</p>
+                  <p className="text-2xl font-black" style={{ color: tpl.accent }}>
+                    Table {tb.number}
+                  </p>
+                  <p className="text-sm font-bold max-w-[220px]">{phrase}</p>
+                  <div className="bg-white p-2 rounded-xl my-1">
+                    <img src={qr} alt="" className={compact ? 'w-32 h-32' : 'w-48 h-48'} />
+                  </div>
+                  <p className="text-[10px] opacity-50 flex items-center gap-1">
+                    <QrCode size={12} /> Scannez pour commander
+                  </p>
+                </div>
               </article>
             );
           })}
@@ -493,62 +509,43 @@ export default function PrintTableQR() {
       )}
 
       <style>{`
-        @keyframes qr-shimmer {
-          0% { filter: brightness(1); }
-          50% { filter: brightness(1.25); }
-          100% { filter: brightness(1); }
-        }
-        @keyframes qr-float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-        @keyframes qr-pulse-ring {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.35); }
-          50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
-        }
-        @keyframes qr-pulse-text {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.85; }
-        }
-        .qr-shimmer { animation: qr-shimmer 2.5s ease-in-out infinite; }
-        .qr-float { animation: qr-float 3s ease-in-out infinite; }
-        .qr-pulse-ring { animation: qr-pulse-ring 2s ease-out infinite; }
-        .qr-pulse-text { animation: qr-pulse-text 2.2s ease-in-out infinite; }
         @media print {
+          @page { size: A4; margin: 8mm; }
           body * { visibility: hidden !important; }
           #qr-print-area, #qr-print-area * { visibility: visible !important; }
           #qr-print-area {
             position: absolute;
             left: 0; top: 0;
             width: 100%;
-            display: grid !important;
-            grid-template-columns: 1fr 1fr;
-            gap: 10mm;
-            padding: 8mm;
-          }
-          #qr-print-area.affiche-mode {
-            grid-template-columns: 1fr !important;
-            gap: 0 !important;
             padding: 0 !important;
           }
-          #qr-print-area.affiche-mode .qr-print-card {
+          #qr-print-area[data-density="4"] {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            grid-auto-rows: auto;
+            gap: 4mm !important;
+          }
+          #qr-print-area[data-density="4"] .qr-print-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            height: 128mm;
+            max-height: 128mm;
+            overflow: hidden;
+          }
+          #qr-print-area[data-density="1"] {
+            display: grid !important;
+            grid-template-columns: 1fr !important;
+          }
+          #qr-print-area[data-density="1"] .qr-print-card {
             break-after: page;
             page-break-after: always;
-            border-radius: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
             min-height: 270mm;
           }
-          #qr-print-area.affiche-mode .qr-print-card:last-child {
+          #qr-print-area[data-density="1"] .qr-print-card:last-child {
             break-after: auto;
             page-break-after: auto;
           }
-          .qr-shimmer, .qr-float, .qr-pulse-ring, .qr-pulse-text {
-            animation: none !important;
-            filter: none !important;
-            box-shadow: none !important;
-          }
-          .print\:hidden { display: none !important; }
+          .print\\:hidden { display: none !important; }
         }
       `}</style>
     </div>
