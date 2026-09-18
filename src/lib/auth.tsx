@@ -392,16 +392,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       let existingMember: Member | null = null;
-      try {
-        const { data, error } = await supabase
-          .from('members')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .maybeSingle();
-        if (error) console.error('members select error', error);
-        existingMember = (data as Member) || null;
-      } catch (e) {
-        console.error('members select throw', e);
+      for (let i = 0; i < 3 && !existingMember; i++) {
+        try {
+          if (i > 0) await new Promise((r) => setTimeout(r, 350 * i));
+          const { data, error } = await supabase
+            .from('members')
+            .select('*')
+            .eq('user_id', currentUser.id)
+            .maybeSingle();
+          if (error) console.error('members select error', error);
+          existingMember = (data as Member) || null;
+        } catch (e) {
+          console.error('members select throw', e);
+        }
+      }
+      // Mobile offline / RLS : profil cache IndexedDB
+      if (!existingMember) {
+        try {
+          const { getCachedAuthProfile } = await import('./offline');
+          const cached = await getCachedAuthProfile(currentUser.id);
+          if (cached?.member) {
+            existingMember = cached.member as Member;
+          }
+        } catch { /* */ }
       }
 
       // Toujours rattacher staff → établissement + propriétaire
@@ -731,9 +744,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         toRemove.forEach((k) => localStorage.removeItem(k));
       } catch { /* */ }
-      try {
-        await loadMemberData(signedUser);
-      } catch {
+      // Mobile : jusqu'à 3 tentatives pour rattacher l'établissement (race RLS session)
+      let loaded: Member | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise((r) => setTimeout(r, 400 * attempt));
+            try {
+              if (data.session) {
+                await supabase.auth.setSession({
+                  access_token: data.session.access_token,
+                  refresh_token: data.session.refresh_token,
+                });
+              }
+            } catch { /* */ }
+          }
+          loaded = await loadMemberData(signedUser);
+          if (loaded?.establishment_id) break;
+        } catch (e) {
+          console.warn('loadMemberData attempt', attempt, e);
+        }
+      }
+      if (!loaded?.establishment_id) {
         // Dernier recours : profil cache user
         try {
           const { getCachedAuthProfile } = await import('./offline');
@@ -741,11 +773,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (cached?.member && (cached.member as Member).establishment_id) {
             setMember(cached.member as Member);
             await loadMyEstablishments(signedUser, cached.member as Member);
-          } else {
+          } else if (!loaded) {
             setMember(buildFallbackMember(signedUser));
           }
         } catch {
-          setMember(buildFallbackMember(signedUser));
+          if (!loaded) setMember(buildFallbackMember(signedUser));
         }
         setNeedsAccess(false);
       }

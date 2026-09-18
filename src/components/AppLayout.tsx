@@ -363,8 +363,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
   const isInvitedStaffRole = ['manager', 'cashier', 'employee'].includes(member?.role || '');
 
-  // TypePicker UNIQUEMENT après fin de chargement + vraiment aucun établissement serveur
-  // (évite le flash mobile "créer activité" alors que le compte a déjà un site)
+  // Cache local (mobile) : ne pas forcer TypePicker si on a déjà un site connu pour cet user
+  let cachedIdsForUser: string[] = [];
+  try {
+    const rawIds = localStorage.getItem(user?.id ? `mm_est_ids:${user.id}` : '') || localStorage.getItem('mm_est_ids');
+    if (rawIds) {
+      const parsed = JSON.parse(rawIds);
+      if (Array.isArray(parsed)) cachedIdsForUser = parsed.filter(Boolean);
+    }
+  } catch { /* */ }
+
+  // TypePicker UNIQUEMENT si vraiment nouveau compte (pas de member.est, liste vide, pas de cache, pas de ref session)
   const showTypePicker =
     !loading &&
     Boolean(member) &&
@@ -373,7 +382,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     !member?.establishment_id &&
     !(myEstablishments && myEstablishments.length > 0) &&
     !hasEstablishment &&
-    !activeEstablishment?.id;
+    !activeEstablishment?.id &&
+    !hadEstRef.current &&
+    cachedIdsForUser.length === 0;
 
   if (!loading && isInvitedStaffRole && !member?.establishment_id && !hasEstablishment) {
     return (
@@ -399,10 +410,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   // Pendant le bootstrap mobile : écran neutre (pas TypePicker)
-  if (loading && Boolean(member) && !hasEstablishment && !member?.establishment_id) {
+  // Aussi si cache local indique un établissement connu (race RLS mobile)
+  if (
+    (loading || (cachedIdsForUser.length > 0 && !hasEstablishment)) &&
+    Boolean(member) &&
+    !hasEstablishment &&
+    !member?.establishment_id
+  ) {
     return (
-      <div className="min-h-screen bg-stone-950 text-stone-100 flex items-center justify-center">
-        <p className="text-sm text-stone-400">Chargement de votre établissement…</p>
+      <div className="min-h-screen bg-[#F5F5F5] text-stone-700 flex flex-col items-center justify-center p-6 gap-3">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-stone-500 text-center">
+          Récupération de votre établissement en cours. Si cela dure, tirez pour actualiser.
+        </p>
+        <button type="button" className="btn-secondary text-sm" onClick={() => refresh()}>
+          Réessayer
+        </button>
       </div>
     );
   }
