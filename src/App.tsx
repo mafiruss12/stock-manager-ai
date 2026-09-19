@@ -119,13 +119,14 @@ function ProtectedRoutes() {
   const { user, member, loading, needsAccess } = useAuth();
   const [bootDone, setBootDone] = useState(!loading);
 
-  // Ne jamais bloquer plus de 2.5s — session lente ≠ écran blanc infini
+  // Attendre la fin réelle du bootstrap auth (pas de timeout qui ouvre TypePicker)
+  // Filet sécurité 12s uniquement pour éviter écran blanc infini réseau mort
   useEffect(() => {
     if (!loading) {
       setBootDone(true);
       return;
     }
-    const t = window.setTimeout(() => setBootDone(true), 2500);
+    const t = window.setTimeout(() => setBootDone(true), 12000);
     return () => window.clearTimeout(t);
   }, [loading]);
 

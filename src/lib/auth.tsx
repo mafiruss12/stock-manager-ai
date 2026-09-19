@@ -373,19 +373,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('bootstrap_my_session throw', e);
       }
 
+      // Cache local : prioritaire hors-ligne ; aussi en secours si réseau flaky
       try {
-        if (!isOnline()) {
-          const cached = await getCachedAuthProfile(currentUser.id);
-          if (cached?.member) {
+        const cached = await getCachedAuthProfile(currentUser.id);
+        if (cached?.member && (cached.member as Member).establishment_id) {
+          if (!isOnline()) {
             const cm = cached.member as Member;
             setMember(cm);
             setAccessRequest(null);
             setNeedsAccess(false);
-            if (cm.establishment_id) {
-              try { await loadMyEstablishments(currentUser, cm); } catch { /* */ }
-            }
+            try { await loadMyEstablishments(currentUser, cm); } catch { /* */ }
             return cm;
           }
+          // En ligne : garder comme filet si les SELECT suivants échouent
+          (loadMemberData as any)._cachedMember = cached.member;
         }
       } catch {
         /* ignore */
@@ -593,6 +594,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return fb;
     } catch (e) {
       console.error('loadMemberData', e);
+      try {
+        const cached = (loadMemberData as any)._cachedMember as Member | undefined;
+        if (cached?.establishment_id) {
+          setMember(cached);
+          setNeedsAccess(false);
+          try { await loadMyEstablishments(currentUser, cached); } catch { /* */ }
+          return cached;
+        }
+        const { getCachedAuthProfile } = await import('./offline');
+        const c2 = await getCachedAuthProfile(currentUser.id);
+        if (c2?.member && (c2.member as Member).establishment_id) {
+          const cm = c2.member as Member;
+          setMember(cm);
+          setNeedsAccess(false);
+          try { await loadMyEstablishments(currentUser, cm); } catch { /* */ }
+          return cm;
+        }
+      } catch { /* */ }
       setMember(fallback);
       setNeedsAccess(false);
       return fallback;
@@ -608,18 +627,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function ensureMember(u: User) {
       const seq = ++memberLoadSeq;
       try {
-        const result = await Promise.race([
-          loadMemberData(u).then((m) => m),
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
-        ]);
-        if (!mounted || seq !== memberLoadSeq) return;
-        if (result === null) {
-          setMember((prev) => prev ?? buildFallbackMember(u));
-          setNeedsAccess(false);
-        }
-      } catch {
+        // JAMAIS de Promise.race timeout : un réseau lent ≠ compte nouveau
+        await loadMemberData(u);
+      } catch (e) {
+        console.error('ensureMember', e);
         if (mounted && seq === memberLoadSeq) {
-          setMember((prev) => prev ?? buildFallbackMember(u));
+          // Préserver membre déjà connu ; sinon cache offline
+          try {
+            const { getCachedAuthProfile } = await import('./offline');
+            const cached = await getCachedAuthProfile(u.id);
+            if (cached?.member) {
+              setMember(cached.member as Member);
+              if ((cached.member as Member).establishment_id) {
+                try { await loadMyEstablishments(u, cached.member as Member); } catch { /* */ }
+              }
+            } else {
+              setMember((prev) => prev ?? buildFallbackMember(u));
+            }
+          } catch {
+            setMember((prev) => prev ?? buildFallbackMember(u));
+          }
           setNeedsAccess(false);
         }
       }
@@ -629,17 +656,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Restaure la session depuis localStorage (persistSession: true).
       // Ne JAMAIS forcer null par timeout — c'est ce qui déconnectait au refresh.
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) console.error('getSession', error);
+        let session = null as Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session'];
+        try {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) console.error('getSession', error);
+          session = data?.session ?? null;
+        } catch (e) {
+          console.error('getSession', e);
+        }
+        // Session absente mais tokens possibles → refresh unique (pas de timeout hard)
+        if (!session) {
+          try {
+            const { data: ref } = await supabase.auth.refreshSession();
+            session = ref?.session ?? null;
+          } catch { /* */ }
+        }
         if (!mounted) return;
-        const session = data?.session ?? null;
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          void ensureMember(session.user);
+          // Attendre la fin du bootstrap membre AVANT de lever loading
+          await ensureMember(session.user);
         }
       } catch (e) {
-        console.error('getSession', e);
+        console.error('boot', e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -668,13 +708,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      if (event === 'TOKEN_REFRESHED' && newSession?.user) {
+        setSession(newSession);
+        setUser(newSession.user);
+        // Ne pas recharger le membre ni lever TypePicker
+        return;
+      }
+
       if (newSession?.user) {
         setSession(newSession);
         setUser(newSession.user);
-        setLoading(false);
-        // INITIAL_SESSION / SIGNED_IN / USER_UPDATED → charger le profil
+        // INITIAL_SESSION / SIGNED_IN / USER_UPDATED → charger le profil (await via void, loading géré)
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'INITIAL_SESSION') {
-          void ensureMember(newSession.user);
+          // SIGNED_IN déjà traité par signIn() ; INITIAL_SESSION peut doubler boot — seq le gère
+          if (event === 'INITIAL_SESSION') {
+            // boot() charge déjà ; éviter double TypePicker
+            return;
+          }
+          void (async () => {
+            setLoading(true);
+            try {
+              await ensureMember(newSession.user);
+            } finally {
+              if (mounted) setLoading(false);
+            }
+          })();
+        } else {
+          setLoading(false);
         }
       }
     });

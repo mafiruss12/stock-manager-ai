@@ -9,7 +9,6 @@ import SubscriptionGate from '@/components/SubscriptionGate';
 import { useAuth } from '@/lib/auth';
 import { usePlanAccess } from '@/lib/usePlanAccess';
 import { getStoredTheme, applyTheme, type ThemeMode } from '@/lib/theme';
-import { useIdleTimeout } from '@/hooks/useIdleTimeout';
 import { startPrefetchInterval, flushQueue, queueCount } from '@/lib/offline';
 import { supabase } from '@/lib/supabase';
 import { ROLE_LABELS } from '@/lib/types';
@@ -129,12 +128,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const planLimits = planAccess.plan;
   const { member, user, loading, signOut, myEstablishments, activeEstablishment, switchEstablishment, refresh, effectiveRole, viewAsRole, setViewAsRole } = useAuth();
 
-  // Déconnexion auto après 15 min sans activité
-  useIdleTimeout(() => {
-    void (async () => {
-      try {
-        await signOut();
-
+  // Pas de déconnexion automatique par inactivité (règle métier)
   useEffect(() => {
     return startPrefetchInterval(
       () => activeEstablishment?.id || member?.establishment_id,
@@ -142,11 +136,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       3 * 60 * 1000
     );
   }, [activeEstablishment?.id, member?.establishment_id]);
-      } finally {
-        window.location.assign('/');
-      }
-    })();
-  }, Boolean(member));
 
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
