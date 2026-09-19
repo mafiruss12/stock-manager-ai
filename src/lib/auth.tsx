@@ -725,14 +725,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // boot() charge déjà ; éviter double TypePicker
             return;
           }
-          void (async () => {
-            setLoading(true);
-            try {
-              await ensureMember(newSession.user);
-            } finally {
-              if (mounted) setLoading(false);
-            }
-          })();
+          // Ne pas rebloquer loading : signIn() a déjà posé user/session.
+          // ensureMember en fond uniquement (évite spinner login infini).
+          void ensureMember(newSession.user).catch((e) =>
+            console.warn('SIGNED_IN ensureMember', e),
+          );
         } else {
           setLoading(false);
         }
@@ -746,12 +743,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signIn(login: string, password: string) {
-    // Ne pas vider l'état avant loadMemberData (sinon TypePicker flash mobile)
-    // On nettoie seulement les caches d'AUTRES users après identification
-    try {
-      // garde mm_active_est:current — nettoyage ciblé plus bas
-    } catch { /* */ }
-
     try {
       const lockLeft = getLoginLockRemaining();
       if (lockLeft > 0) {
@@ -765,17 +756,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const email = toAuthEmail(login);
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      // Timeout strict sur l'appel Auth (évite bouton bloqué indéfiniment)
+      type AuthRes = Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+      let data: AuthRes['data'] | null = null;
+      let error: AuthRes['error'] | null = null;
+      try {
+        const authPromise = supabase.auth.signInWithPassword({ email, password });
+        const raced = await Promise.race([
+          authPromise.then((r) => ({ kind: 'ok' as const, r })),
+          new Promise<{ kind: 'timeout' }>((resolve) =>
+            setTimeout(() => resolve({ kind: 'timeout' }), 15000),
+          ),
+        ]);
+        if (raced.kind === 'timeout') {
+          setLoading(false);
+          return {
+            error:
+              'Délai dépassé (réseau lent). Vérifiez Internet et réessayez.',
+          };
+        }
+        data = raced.r.data;
+        error = raced.r.error;
+      } catch (netErr: any) {
+        setLoading(false);
+        return {
+          error:
+            netErr?.message ||
+            'Impossible de contacter le serveur. Vérifiez Internet et réessayez.',
+        };
+      }
+
       if (error) {
         registerLoginFailure();
         setLoading(false);
         return { error: safeErrorMessage(error, 'Identifiant ou mot de passe incorrect') };
       }
       registerLoginSuccess();
-      const signedUser = data.user ?? data.session?.user ?? null;
-      if (data.session) {
+      const signedUser = data?.user ?? data?.session?.user ?? null;
+      if (data?.session) {
         setSession(data.session);
-        // Mobile : forcer la session sur le client Supabase avant tout SELECT RLS
         try {
           await supabase.auth.setSession({
             access_token: data.session.access_token,
@@ -790,7 +810,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: 'Identifiant ou mot de passe incorrect' };
       }
       setUser(signedUser);
-      // Purger caches d'autres comptes (garde la clé de cet user)
+
+      // Nettoyage cache autres comptes (non bloquant)
       try {
         const keep = `mm_active_est:${signedUser.id}`;
         const keepIds = `mm_est_ids:${signedUser.id}`;
@@ -804,82 +825,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         toRemove.forEach((k) => localStorage.removeItem(k));
       } catch { /* */ }
-      // Profil membre : max ~6s pour ne pas bloquer le bouton « Se connecter »
-      // (réseau lent / RPC) — le chargement continue en arrière-plan si besoin.
-      const loadWithSoftTimeout = async (): Promise<Member | null> => {
-        let loaded: Member | null = null;
-        const work = (async () => {
-          for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-              if (attempt > 0) {
-                await new Promise((r) => setTimeout(r, 300 * attempt));
-                try {
-                  if (data.session) {
-                    await supabase.auth.setSession({
-                      access_token: data.session.access_token,
-                      refresh_token: data.session.refresh_token,
-                    });
-                  }
-                } catch { /* */ }
-              }
-              loaded = await loadMemberData(signedUser);
-              if (loaded?.establishment_id) return loaded;
-            } catch (e) {
-              console.warn('loadMemberData attempt', attempt, e);
-            }
-          }
-          return loaded;
-        })();
-        const timed = await Promise.race([
-          work,
-          new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
-        ]);
-        if (timed) return timed;
-        // Timeout : poursuivre en arrière-plan, ne pas bloquer le login UI
-        void work.then(async (m) => {
-          if (m?.establishment_id) return;
+
+      // CRITIQUE : ne PAS bloquer le bouton sur loadMemberData.
+      // Session Auth déjà valide → l'UI peut naviguer ; le profil charge en fond.
+      setLoading(false);
+      void (async () => {
+        try {
+          await loadMemberData(signedUser);
+        } catch (e) {
+          console.warn('background loadMemberData', e);
           try {
             const { getCachedAuthProfile } = await import('./offline');
             const cached = await getCachedAuthProfile(signedUser.id);
             if (cached?.member) {
               setMember(cached.member as Member);
-              if ((cached.member as Member).establishment_id) {
-                try { await loadMyEstablishments(signedUser, cached.member as Member); } catch { /* */ }
-              }
+            } else {
+              setMember((prev) => prev ?? buildFallbackMember(signedUser));
             }
-          } catch { /* */ }
-        });
-        return null;
-      };
-
-      let loaded: Member | null = null;
-      try {
-        loaded = await loadWithSoftTimeout();
-      } catch (e) {
-        console.warn('loadWithSoftTimeout', e);
-      }
-      if (!loaded?.establishment_id) {
-        try {
-          const { getCachedAuthProfile } = await import('./offline');
-          const cached = await getCachedAuthProfile(signedUser.id);
-          if (cached?.member && (cached.member as Member).establishment_id) {
-            setMember(cached.member as Member);
-            try { await loadMyEstablishments(signedUser, cached.member as Member); } catch { /* */ }
-          } else if (!loaded) {
-            // Membre minimal : session Auth déjà valide → UI peut naviguer
+          } catch {
             setMember((prev) => prev ?? buildFallbackMember(signedUser));
           }
-        } catch {
-          setMember((prev) => prev ?? buildFallbackMember(signedUser));
         }
-        setNeedsAccess(false);
-      }
-      setLoading(false);
+      })();
       return { error: null };
     } catch (e: any) {
       registerLoginFailure();
       setLoading(false);
-      return { error: e?.message || 'Connexion impossible (réseau). Vérifiez Internet et réessayez.' };
+      return {
+        error:
+          e?.message ||
+          'Connexion impossible (réseau). Vérifiez Internet et réessayez.',
+      };
     }
   }
 
