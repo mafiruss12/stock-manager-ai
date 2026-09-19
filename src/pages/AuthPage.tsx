@@ -7,7 +7,14 @@ import { useAuth } from '@/lib/auth';
 import { toAuthEmail } from '@/lib/login';
 import { makeSignupCaptcha, checkSignupCaptcha, getLoginLockRemaining } from '@/lib/security';
 import { logSecurityEvent } from '@/lib/securityEvents';
-import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
+import {
+  enrollTotp,
+  getAssuranceLevel,
+  hasVerifiedTotpFactor,
+  needsMfaStepUp,
+  syncMemberMfaFlag,
+  verifyTotpCode,
+} from '@/lib/supabaseMfa';
 import { supabase } from '@/lib/supabase';
 
 const MARQUEE_MESSAGES = [
@@ -98,6 +105,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('signin');
   const [newPassword, setNewPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [captcha, setCaptcha] = useState(() => makeSignupCaptcha());
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -268,56 +276,51 @@ async function resendConfirmation() {
       }
 
       if (mode === 'mfa_setup') {
-        if (!pendingMfaUserId || !setupSecret) {
-          setError('Session 2FA invalide');
+        if (!mfaFactorId) {
+          setError('Session 2FA invalide — recommencez la configuration');
           setLoading(false);
           return;
         }
-        const ok = await verifyTotp(setupSecret, mfaCode);
-        if (!ok) {
-          setError('Code 2FA incorrect — réessayez');
+        const res = await verifyTotpCode(mfaFactorId, mfaCode);
+        if (!res.ok) {
+          setError(res.error || 'Code 2FA incorrect — réessayez');
           setLoading(false);
           return;
         }
-        const { error: upErr } = await supabase
-          .from('members')
-          .update({ mfa_enabled: true, mfa_secret: setupSecret })
-          .eq('user_id', pendingMfaUserId);
-        if (upErr) {
-          setError(upErr.message || 'Impossible d\'activer le 2FA (colonnes mfa_*)');
-          setLoading(false);
-          return;
-        }
-        void logSecurityEvent('mfa_success', { setup: true });
+        const uid = (await supabase.auth.getUser()).data.user?.id;
+        if (uid) await syncMemberMfaFlag(uid, true);
+        void logSecurityEvent('mfa_success', { setup: true, native: true });
         setSuccess('2FA activé — redirection…');
+        setMode('signin');
+        setMfaCode('');
+        setMfaFactorId(null);
+        setLoading(false);
         window.location.replace('/dashboard');
         return;
       }
 
       if (mode === 'mfa') {
-        if (!pendingMfaUserId) {
+        let factorId = mfaFactorId;
+        if (!factorId) {
+          const f = await hasVerifiedTotpFactor();
+          factorId = f.factorId;
+          if (factorId) setMfaFactorId(factorId);
+        }
+        if (!factorId) {
+          setError('Aucun facteur MFA trouvé — reconnectez-vous');
           setMode('signin');
           setLoading(false);
           return;
         }
-        const { data: mem } = await supabase
-          .from('members')
-          .select('mfa_secret, mfa_enabled')
-          .eq('user_id', pendingMfaUserId)
-          .maybeSingle();
-        if (!mem?.mfa_enabled || !mem?.mfa_secret) {
-          setError('2FA non configuré');
+        const res = await verifyTotpCode(factorId, mfaCode);
+        if (!res.ok) {
+          setError(res.error || 'Code 2FA incorrect');
           setLoading(false);
           return;
         }
-        const { verifyTotp } = await import('@/lib/totp');
-        const ok = await verifyTotp(String(mem.mfa_secret), mfaCode);
-        if (!ok) {
-          setError('Code 2FA incorrect');
-          setLoading(false);
-          return;
-        }
-        setSuccess('Vérification 2FA OK…');
+        void logSecurityEvent('mfa_success', { native: true });
+        setSuccess('Double authentification validée…');
+        setMfaCode('');
         setLoading(false);
         navigate('/dashboard', { replace: true });
         return;
@@ -345,24 +348,28 @@ async function resendConfirmation() {
           setLoading(false);
           return;
         }
-        // 2FA admin
+        // MFA native Supabase (AAL) — admin / super_admin uniquement
         const { data: sess } = await supabase.auth.getSession();
         const uid = sess.session?.user?.id;
         if (uid) {
           const { data: mem } = await supabase
             .from('members')
-            .select('role, mfa_enabled, mfa_secret')
+            .select('role')
             .eq('user_id', uid)
             .maybeSingle();
           const role = String(mem?.role || '');
-          // 2FA admin uniquement si déjà activé (ne bloque plus la connexion sans 2FA)
-          if (['super_admin', 'admin'].includes(role) && mem?.mfa_enabled && mem?.mfa_secret) {
-            setPendingMfaUserId(uid);
-            setMode('mfa');
-            setSuccess("Entrez le code 2FA de votre application d'authentification");
-            void logSecurityEvent('mfa_challenge', { role });
-            setLoading(false);
-            return;
+          if (['super_admin', 'admin'].includes(role)) {
+            const need = await needsMfaStepUp();
+            if (need) {
+              const f = await hasVerifiedTotpFactor();
+              setPendingMfaUserId(uid);
+              setMfaFactorId(f.factorId);
+              setMode('mfa');
+              setSuccess('Double authentification — code à 6 chiffres de votre application');
+              void logSecurityEvent('mfa_challenge', { role, native: true });
+              setLoading(false);
+              return;
+            }
           }
           void logSecurityEvent('login_success', { role: role || 'user' });
         }
@@ -667,7 +674,7 @@ async function resendConfirmation() {
 
             {(mode === 'mfa' || mode === 'mfa_setup') && (
               <div>
-                <label className="label">Code 2FA (6 chiffres)</label>
+                <label className="label">Code de double authentification (6 chiffres)</label>
                 <input
                   type="text"
                   inputMode="numeric"

@@ -10,7 +10,13 @@ import {
   PLAN, SUB_PERIODS, priceForMonths, addMonthsISO, getSubscriptionState,
   getPaymentWhatsApp, setPaymentWhatsApp, paymentWhatsAppLink,
 } from '@/lib/subscription';
-import { generateTotpSecret, otpauthUrl, verifyTotp } from '@/lib/totp';
+import {
+  enrollTotp,
+  hasVerifiedTotpFactor,
+  syncMemberMfaFlag,
+  unenrollAllTotp,
+  verifyEnrollment,
+} from '@/lib/supabaseMfa';
 import AdminEstablishmentsMap from '@/components/AdminEstablishmentsMap';
 import { seedDefaultStockForEstablishment } from '@/lib/seedDefaultStock';
 import {
@@ -50,7 +56,9 @@ export default function SuperAdmin() {
   const [subMonths, setSubMonths] = useState(1);
   const [mfaSecret, setMfaSecret] = useState<string | null>(null);
   const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaTestCode, setMfaTestCode] = useState('');
+  const [mfaActive, setMfaActive] = useState(false);
   const [waPhone, setWaPhone] = useState(() => {
     try { return getPaymentWhatsApp(); } catch { return '2250502012011'; }
   });
@@ -246,39 +254,52 @@ export default function SuperAdmin() {
 
   async function enableAdminMfa() {
     if (!member?.user_id) return;
-    const secret = generateTotpSecret();
-    setMfaSecret(secret);
-    setMfaQr(otpauthUrl(secret, member.email || member.user_id));
+    setError(null);
+    const res = await enrollTotp('Stock Manager Admin');
+    if (res.error || !res.factorId) {
+      setError(res.error || 'Impossible de démarrer la MFA Supabase');
+      return;
+    }
+    setMfaFactorId(res.factorId);
+    setMfaSecret(res.secret || null);
+    setMfaQr(res.qrCode || null);
   }
 
   async function confirmAdminMfa() {
-    if (!member?.user_id || !mfaSecret) return;
-    const ok = await verifyTotp(mfaSecret, mfaTestCode);
-    if (!ok) {
-      setError('Code 2FA incorrect — vérifiez Google Authenticator / Authy');
+    if (!member?.user_id || !mfaFactorId) return;
+    const res = await verifyEnrollment(mfaFactorId, mfaTestCode);
+    if (!res.ok) {
+      setError(res.error || 'Code 2FA incorrect — vérifiez Google Authenticator / Authy');
       return;
     }
-    const { error: err } = await supabase.from('members').update({
-      mfa_enabled: true,
-      mfa_secret: mfaSecret }).eq('user_id', member.user_id);
-    if (err) setError(err.message + ' (colonnes mfa_enabled / mfa_secret requises)');
-    else {
-      flash('2FA admin activée');
-      setMfaSecret(null);
-      setMfaQr(null);
-      setMfaTestCode('');
-    }
+    await syncMemberMfaFlag(member.user_id, true);
+    setMfaActive(true);
+    flash('Double authentification activée (Supabase MFA)');
+    setMfaSecret(null);
+    setMfaQr(null);
+    setMfaFactorId(null);
+    setMfaTestCode('');
   }
 
   async function disableAdminMfa() {
     if (!member?.user_id) return;
     if (!confirm('Désactiver la double authentification ?')) return;
-    const { error: err } = await supabase.from('members').update({
-      mfa_enabled: false,
-      mfa_secret: null }).eq('user_id', member.user_id);
-    if (err) setError(err.message);
-    else flash('2FA désactivée');
+    const res = await unenrollAllTotp();
+    if (!res.ok) {
+      setError(res.error || 'Impossible de désactiver la MFA');
+      return;
+    }
+    await syncMemberMfaFlag(member.user_id, false);
+    setMfaActive(false);
+    flash('2FA désactivée');
   }
+
+  useEffect(() => {
+    void (async () => {
+      const f = await hasVerifiedTotpFactor();
+      setMfaActive(f.has);
+    })();
+  }, [member?.user_id]);
 
   async function setPlanTier(estId: string, tier: string) {
     const { error: err } = await supabase.from('establishments').update({
@@ -1179,7 +1200,10 @@ export default function SuperAdmin() {
           <div className="card space-y-3 border border-amber-500/30">
             <h2 className="text-lg font-semibold text-stone-100">Sécurité admin — 2FA</h2>
             <p className="text-xs text-stone-500">
-              Double authentification pour votre compte admin (Google Authenticator, Authy…).
+              Double authentification native Supabase (Google Authenticator, Authy…).
+            </p>
+            <p className="text-sm font-medium text-stone-200">
+              État : {mfaActive ? '🟢 Activée' : '⚪ Désactivée'}
             </p>
             <div className="flex flex-wrap gap-2">
               <button type="button" className="btn-primary text-sm" onClick={enableAdminMfa}>

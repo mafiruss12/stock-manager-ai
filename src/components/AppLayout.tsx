@@ -19,6 +19,7 @@ import UpdateBanner from '@/components/UpdateBanner';
 import BiometricGate from '@/components/BiometricGate';
 import { displayLogin } from '@/lib/login';
 import TypePicker from '@/components/TypePicker';
+import MfaGate from '@/components/MfaGate';
 import {
   applyBusinessTheme,
   normalizeBusinessType,
@@ -648,7 +649,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <OwnerReportReminder />
           <ReportDelayNotifier />
           <PermissionsOnboarding />
-        {children}</main>
+        <MfaGate>{children}</MfaGate></main>
         <UpdateBanner />
       <BrandFooter />
       
