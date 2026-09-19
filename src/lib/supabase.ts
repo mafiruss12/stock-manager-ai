@@ -31,7 +31,7 @@ export const supabase: SupabaseClient = createClient(
       detectSessionInUrl: true,
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
       // implicit = plus fiable que PKCE sur mobile / redirections
-      flowType: 'implicit',
+      flowType: 'pkce',
     },
   }
 );

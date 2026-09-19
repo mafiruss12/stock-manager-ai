@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import AuthCallback from '@/pages/AuthCallback';
 import AuthPage from '@/pages/AuthPage';
 import PublicHome from '@/pages/PublicHome';
 import PublicEstablishments from '@/pages/public/PublicEstablishments';
@@ -222,6 +223,7 @@ function PublicOrApp() {
     <Routes>
       <Route path="/" element={<AuthPage />} />
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/commander/:estId" element={<PublicTableOrder />} />
       <Route path="/order/:estId" element={<PublicTableOrder />} />
       <Route path="/accueil" element={<Navigate to="/login" replace />} />

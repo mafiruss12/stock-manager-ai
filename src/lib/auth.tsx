@@ -976,13 +976,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithGoogle() {
-    const origin = window.location.origin;
-    const redirectTo = `${origin.replace(/\/$/, '')}/`;
+    const origin = window.location.origin.replace(/\/$/, '');
+    // Callback dédié PKCE (allow-list Supabase : …/auth/callback)
+    const redirectTo = `${origin}/auth/callback`;
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo,
-        skipBrowserRedirect: false,
+        // Une seule navigation : on contrôle l'URL retournée
+        skipBrowserRedirect: true,
         queryParams: {
           access_type: 'online',
           prompt: 'select_account',
@@ -993,20 +995,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const msg = error.message || '';
       if (/provider is not enabled/i.test(msg)) {
         throw new Error(
-          'Google n\'est pas activé sur Supabase. Activez Authentication → Providers → Google.'
+          "Google n'est pas activé sur Supabase. Activez Authentication → Providers → Google."
         );
       }
       if (/redirect/i.test(msg)) {
         throw new Error(
-          `URL de retour non autorisée (${origin}). Ajoutez-la dans Supabase → Authentication → URL Configuration.`
+          `URL de retour non autorisée (${redirectTo}). Ajoutez-la dans Supabase → Authentication → URL Configuration.`
         );
       }
       throw error;
     }
-    // Si pas de redirection auto (certains WebView), ouvrir l'URL
-    if (data?.url) {
-      window.location.assign(data.url);
+    if (!data?.url) {
+      throw new Error('Connexion Google impossible (URL OAuth manquante). Réessayez.');
     }
+    window.location.assign(data.url);
   }
 
   async function signOut() {
