@@ -804,40 +804,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         toRemove.forEach((k) => localStorage.removeItem(k));
       } catch { /* */ }
-      // Mobile : jusqu'à 3 tentatives pour rattacher l'établissement (race RLS session)
-      let loaded: Member | null = null;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          if (attempt > 0) {
-            await new Promise((r) => setTimeout(r, 400 * attempt));
+      // Profil membre : max ~6s pour ne pas bloquer le bouton « Se connecter »
+      // (réseau lent / RPC) — le chargement continue en arrière-plan si besoin.
+      const loadWithSoftTimeout = async (): Promise<Member | null> => {
+        let loaded: Member | null = null;
+        const work = (async () => {
+          for (let attempt = 0; attempt < 3; attempt++) {
             try {
-              if (data.session) {
-                await supabase.auth.setSession({
-                  access_token: data.session.access_token,
-                  refresh_token: data.session.refresh_token,
-                });
+              if (attempt > 0) {
+                await new Promise((r) => setTimeout(r, 300 * attempt));
+                try {
+                  if (data.session) {
+                    await supabase.auth.setSession({
+                      access_token: data.session.access_token,
+                      refresh_token: data.session.refresh_token,
+                    });
+                  }
+                } catch { /* */ }
               }
-            } catch { /* */ }
+              loaded = await loadMemberData(signedUser);
+              if (loaded?.establishment_id) return loaded;
+            } catch (e) {
+              console.warn('loadMemberData attempt', attempt, e);
+            }
           }
-          loaded = await loadMemberData(signedUser);
-          if (loaded?.establishment_id) break;
-        } catch (e) {
-          console.warn('loadMemberData attempt', attempt, e);
-        }
+          return loaded;
+        })();
+        const timed = await Promise.race([
+          work,
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+        ]);
+        if (timed) return timed;
+        // Timeout : poursuivre en arrière-plan, ne pas bloquer le login UI
+        void work.then(async (m) => {
+          if (m?.establishment_id) return;
+          try {
+            const { getCachedAuthProfile } = await import('./offline');
+            const cached = await getCachedAuthProfile(signedUser.id);
+            if (cached?.member) {
+              setMember(cached.member as Member);
+              if ((cached.member as Member).establishment_id) {
+                try { await loadMyEstablishments(signedUser, cached.member as Member); } catch { /* */ }
+              }
+            }
+          } catch { /* */ }
+        });
+        return null;
+      };
+
+      let loaded: Member | null = null;
+      try {
+        loaded = await loadWithSoftTimeout();
+      } catch (e) {
+        console.warn('loadWithSoftTimeout', e);
       }
       if (!loaded?.establishment_id) {
-        // Dernier recours : profil cache user
         try {
           const { getCachedAuthProfile } = await import('./offline');
           const cached = await getCachedAuthProfile(signedUser.id);
           if (cached?.member && (cached.member as Member).establishment_id) {
             setMember(cached.member as Member);
-            await loadMyEstablishments(signedUser, cached.member as Member);
+            try { await loadMyEstablishments(signedUser, cached.member as Member); } catch { /* */ }
           } else if (!loaded) {
-            setMember(buildFallbackMember(signedUser));
+            // Membre minimal : session Auth déjà valide → UI peut naviguer
+            setMember((prev) => prev ?? buildFallbackMember(signedUser));
           }
         } catch {
-          if (!loaded) setMember(buildFallbackMember(signedUser));
+          setMember((prev) => prev ?? buildFallbackMember(signedUser));
         }
         setNeedsAccess(false);
       }

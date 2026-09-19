@@ -348,34 +348,50 @@ async function resendConfirmation() {
           setLoading(false);
           return;
         }
-        // MFA native Supabase (AAL) — admin / super_admin uniquement
-        const { data: sess } = await supabase.auth.getSession();
-        const uid = sess.session?.user?.id;
-        if (uid) {
-          const { data: mem } = await supabase
-            .from('members')
-            .select('role')
-            .eq('user_id', uid)
-            .maybeSingle();
-          const role = String(mem?.role || '');
-          if (['super_admin', 'admin'].includes(role)) {
-            const need = await needsMfaStepUp();
-            if (need) {
-              const f = await hasVerifiedTotpFactor();
-              setPendingMfaUserId(uid);
-              setMfaFactorId(f.factorId);
-              setMode('mfa');
-              setSuccess('Double authentification — code à 6 chiffres de votre application');
-              void logSecurityEvent('mfa_challenge', { role, native: true });
-              setLoading(false);
-              return;
+        // MFA native — admin/super_admin seulement (jamais bloquer un compte ordinaire)
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const uid = sess.session?.user?.id;
+          if (uid) {
+            let role = '';
+            try {
+              const { data: mem } = await supabase
+                .from('members')
+                .select('role')
+                .eq('user_id', uid)
+                .maybeSingle();
+              role = String(mem?.role || '');
+            } catch { /* ignore */ }
+            if (['super_admin', 'admin'].includes(role)) {
+              try {
+                const need = await needsMfaStepUp();
+                if (need) {
+                  const f = await hasVerifiedTotpFactor();
+                  setPendingMfaUserId(uid);
+                  setMfaFactorId(f.factorId);
+                  setMode('mfa');
+                  setSuccess('Double authentification — code à 6 chiffres de votre application');
+                  void logSecurityEvent('mfa_challenge', { role, native: true });
+                  setLoading(false);
+                  return;
+                }
+              } catch (mfaErr) {
+                console.warn('MFA check skipped', mfaErr);
+              }
             }
+            void logSecurityEvent('login_success', { role: role || 'user' });
           }
-          void logSecurityEvent('login_success', { role: role || 'user' });
+        } catch (postErr) {
+          console.warn('post-login checks', postErr);
         }
         setSuccess('Connexion réussie…');
         setLoading(false);
-        navigate('/dashboard', { replace: true });
+        // Navigation fiable (mobile / PWA)
+        try {
+          navigate('/dashboard', { replace: true });
+        } catch {
+          window.location.assign('/dashboard');
+        }
         return;
       }
 

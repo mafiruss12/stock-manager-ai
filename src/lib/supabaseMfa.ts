@@ -4,6 +4,14 @@
  */
 import { supabase } from '@/lib/supabase';
 
+async function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
+
+
 export type AalLevel = 'aal1' | 'aal2';
 
 export async function getAssuranceLevel(): Promise<{
@@ -12,7 +20,12 @@ export async function getAssuranceLevel(): Promise<{
   error: string | null;
 }> {
   try {
-    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const result = await withTimeout(
+      supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+      4000,
+      { data: null, error: { message: 'AAL timeout' } } as any,
+    );
+    const { data, error } = result;
     if (error) return { currentLevel: null, nextLevel: null, error: error.message };
     return {
       currentLevel: (data?.currentLevel as AalLevel) || null,
@@ -35,7 +48,12 @@ export async function hasVerifiedTotpFactor(): Promise<{
   error: string | null;
 }> {
   try {
-    const { data, error } = await supabase.auth.mfa.listFactors();
+    const result = await withTimeout(
+      supabase.auth.mfa.listFactors(),
+      4000,
+      { data: null, error: { message: 'listFactors timeout' } } as any,
+    );
+    const { data, error } = result;
     if (error) return { has: false, factorId: null, error: error.message };
     const totp = data?.totp || [];
     const verified = totp.find((f) => f.status === 'verified');
